@@ -1,3 +1,5 @@
+import type { GameId, Move, MoveTelemetry, PlayerSide, SetupRecord } from '@arena/game-core';
+
 const BASE = import.meta.env.VITE_API_BASE ?? '';
 
 export class ApiError extends Error {
@@ -59,6 +61,30 @@ export interface HeadToHead {
   aWins: number;
   bWins: number;
   draws: number;
+}
+
+/** One move as stored in `matches.moves` (SPEC §11 replay reads this directly). */
+export interface ReplayMoveRecord {
+  player: PlayerSide;
+  move: Move;
+  telemetry: MoveTelemetry;
+}
+
+/** Full match row from GET /api/replay/:id (public, no JWT). */
+export interface ReplayMatch {
+  id: string;
+  mode: 'model_vs_model' | 'human_vs_model';
+  game: GameId;
+  variant: string;
+  p1Id: string;
+  p2Id: string;
+  winner: PlayerSide | 'draw' | null;
+  moves: ReplayMoveRecord[];
+  setup: SetupRecord | null;
+  commentary: unknown;
+  lab: boolean;
+  serverVerified: boolean;
+  createdAt: string;
 }
 
 export interface RatingChange {

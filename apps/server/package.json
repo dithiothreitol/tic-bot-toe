@@ -18,6 +18,7 @@
   "dependencies": {
     "@arena/game-core": "workspace:*",
     "@hono/node-server": "^2.0.8",
+    "@napi-rs/canvas": "^1.0.2",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.12.29",
     "jose": "^6.2.3",

@@ -166,6 +166,23 @@ export const pl = {
     compare: 'Porównaj',
   },
 
+  replay: {
+    kicker: 'Powtórka',
+    loading: 'Ładowanie powtórki…',
+    notFound: 'Nie znaleziono tej partii.',
+    loadError: 'Nie udało się pobrać powtórki.',
+    play: 'Odtwórz',
+    pause: 'Pauza',
+    copyLink: 'Skopiuj link',
+    copied: 'Skopiowano link do powtórki',
+    serverVerified: 'zweryfikowana serwerowo',
+    lab: 'laboratorium',
+    result: 'Wynik',
+    draw: 'remis',
+    wins: 'wygrywa',
+    openArena: 'Zagraj własną partię',
+  },
+
   charts: {
     exportPng: 'Eksportuj PNG',
     empty: 'Za mało danych — rozegraj partie.',

@@ -14,16 +14,23 @@
     "typecheck": "pnpm -r --if-present run typecheck",
     "build": "pnpm -r --if-present run build",
     "dev": "pnpm --filter @arena/web run dev",
-    "dev:server": "pnpm --filter @arena/server run dev"
+    "dev:server": "pnpm --filter @arena/server run dev",
+    "assets:prompts": "tsx scripts/gen/preview-prompts.ts",
+    "assets:typecheck": "tsc -p scripts/tsconfig.json"
   },
   "devDependencies": {
+    "@types/node": "^22.19.0",
+    "dotenv": "^17.4.2",
+    "sharp": "^0.34.5",
+    "tsx": "^4.22.3",
     "typescript": "^5.9.3"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
       "esbuild",
       "@napi-rs/canvas",
-      "@swc/core"
+      "@swc/core",
+      "sharp"
     ]
   }
 }

@@ -3,6 +3,19 @@
 Jednozdaniowe decyzje podejmowane tam, gdzie SPEC.md nie rozstrzyga (zgodnie z
 regułą 5 promptu startowego). Najnowsze na górze.
 
+## Moduł 11 — Powtórki + OG + SEO (SPEC §11; SEO na życzenie: kompletne, profesjonalne, agent-friendly)
+
+- **Powtórka `/replay/:id`** (publiczna, bez JWT/klucza — §20.7): `ReplayPage` czyta partię z istniejącego `GET /api/replay/:id` (zero dodatkowego stanu, §11). `ReplayPlayer`: odtwarzacz krok-po-kroku (⏮◀ Odtwórz ▶⏭, auto-play 900 ms), plansza (kółko: `Board3x3` z ringiem jakości; statki: widok boga dwóch flot), `TimelineChart`, Precyzja per gracz, kolorowana lista ruchów (blunder na czerwono). Wspólny `lib/match-states.ts` (rekonstrukcja stanów) używany też przez `AnalysisView`.
+- **`GET /api/og/:id` — PNG przez `@napi-rs/canvas`** (SPEC nazywa tę bibliotekę). 1200×630 w stylu HUD: tytuł „p1 vs p2" (kolory graczy, layout po zmierzonych szerokościach), podtytuł gra·wariant·wynik, **zrekonstruowana finalna plansza**, stopka. Best-effort: błąd rekonstrukcji → karta tytułowa, nigdy 500.
+- **Natywny dep — świadomy wyjątek od self-contained bundla (etap 8)**: `@napi-rs/canvas` ma binaria `.node`, nie da się go zbundlować. `noExternal:[/.*/]` wymusza wszystko do środka, więc **plugin esbuild `onResolve`** trzyma go (i `*.node`) jako external. Runtime: Dockerfile instaluje tę jedną paczkę (`npm i @napi-rs/canvas@<ver>` z prebuilt binarką musl) + `apk add font-dejavu` (alpine nie ma fontów; DejaVu pokrywa polskie znaki). Zweryfikowane end-to-end na alpine (OG 1200×630 z „Kółko i krzyżyk", plansza X X X / O O).
+- **„Skopiuj link"** po zapisie partii (permalink `${origin}/replay/${matchId}`) + link do powtórki na karcie wyniku.
+- **SEO kompletne i profesjonalne**:
+  - **Meta domyślne** w `index.html`: description, robots (`index,follow,max-image-preview:large`), theme-color, komplet Open Graph (site_name, locale pl_PL, image 1200×630), Twitter `summary_large_image`, **JSON-LD `WebApplication`**. URL-e przez `%VITE_SITE_URL%`.
+  - **Serwerowe podstawianie origin do powłoki SPA**: `renderShell(origin)` zamienia `%VITE_SITE_URL%` na absolutny origin żądania dla `/`, wszystkich tras SPA i powtórek → poprawne absolutne kanoniczne/OG bez znajomości domeny w buildzie (serveStatic nadal serwuje realne pliki verbatim; jawna trasa `/` bo directory-index serwuje surowo).
+  - **Per-powtórka**: `injectOgMeta` **usuwa domyślne** tagi (og/twitter/canonical/description/robots/title) i wstawia per-partię komplet + `<link rel=canonical>` + **JSON-LD `WebPage`/`Game`** (escJson chroni przed break-outem `</script>`). Zero duplikatów.
+  - **Agent-friendly**: dynamiczne `robots.txt` (jawnie dopuszcza GPTBot/ClaudeBot/PerplexityBot/… + Sitemap), `sitemap.xml` (trasy statyczne + do 1000 powtórek z lastmod), **`llms.txt`** (opis + endpointy danych dla agentów).
+- **Testy**: 6 SEO (`seo.test.ts`: origin/robots/sitemap/llms) + 4 meta (`meta.test.ts`: tagi/inject/dedup/escaping) + 2 render (`render.test.ts`: PNG magic, fallback bez wyjątku) + 1 integr. OG (PNG dla zapisanej partii) + integr. head-to-head/elo. **166 testów** (game-core 85, server 24 unit + 14 integr., web 43).
+
 ## Moduł 10 — Analiza + solvery (SPEC §12.2, §15.1)
 
 - **Solvery w `game-core/solvers/`** (SPEC narzuca lokalizację): `tictactoe.ts` (pełny negamax z memoizacją — przestrzeń < 6k plansz), `battleship.ts` (heurystyka percentylowa: mapa ciepła = liczba legalnych ułożeń pozostałych statków przez każdą komórkę + tryb „polowania" po świeżym trafieniu), `index.ts` (dyspozytor `analyzeMatch(game, variant, setup, moves)` odtwarza partię TYM SAMYM silnikiem co gra/replay i klasyfikuje każdy ruch). **Nigdy nie grają w rankingu — tylko analiza (§6, §12.2).**

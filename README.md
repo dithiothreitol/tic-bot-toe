@@ -116,4 +116,9 @@ w stylu HUD, z objaśnieniem i eksportem PNG pod każdym. **Moduł 10
 percentylowa statków (`game-core/solvers`), ekran „Analiza z trenerem"
 (krok-po-kroku, kolorowe znaczniki, Precyzja %, moment zwrotny), kolumna
 Precyzja w rankingu, **rewalidacja `eval` na serwerze** (odrzuca sfałszowany).
-Moduły 11–12 (powtórki+OG, edukacja/społeczność) dokładane dalej.
+**Moduł 11 (powtórki + OG + SEO) — ukończony**: publiczne powtórki
+`/replay/:id` (odtwarzacz krok-po-kroku + auto-play, oś czasu, analiza),
+podgląd `GET /api/og/:id` (PNG przez `@napi-rs/canvas`), „Skopiuj link", oraz
+**kompletne, agent-friendly SEO**: Open Graph + Twitter Cards + JSON-LD
+(`WebApplication`/`WebPage`/`Game`), kanoniczne URL-e, `robots.txt`,
+`sitemap.xml`, `llms.txt`. Moduł 12 (edukacja/społeczność) dokładany dalej.

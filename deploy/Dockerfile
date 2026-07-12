@@ -26,9 +26,19 @@ ENV NODE_ENV=production \
     PORT=8080 \
     STATIC_DIR=/app/web
 
+# Fonts for the OG canvas renderer (Alpine ships none — DejaVu covers Polish).
+RUN apk add --no-cache font-dejavu
+
 COPY --from=build /app/apps/server/dist/index.js ./index.js
 COPY --from=build /app/apps/server/drizzle ./drizzle
 COPY --from=build /app/apps/web/dist ./web
+
+# @napi-rs/canvas is native and can't be bundled — install just this one package
+# (pulls the matching prebuilt linux binary) so the OG endpoint (§11) works.
+COPY --from=build /app/apps/server/package.json ./server-package.json
+RUN CANVAS_VER=$(node -e "console.log(require('./server-package.json').dependencies['@napi-rs/canvas'])") \
+ && npm install --no-save --omit=dev @napi-rs/canvas@"$CANVAS_VER" \
+ && rm server-package.json
 
 EXPOSE 8080
 # Migrations run automatically on boot (see apps/server/src/index.ts).

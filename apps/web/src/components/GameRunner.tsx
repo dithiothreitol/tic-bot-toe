@@ -59,6 +59,16 @@ function fmtDelta(d: number): string {
   return r >= 0 ? `+${r}` : `${r}`;
 }
 
+async function copyReplayLink(matchId: string): Promise<void> {
+  const url = `${window.location.origin}/replay/${matchId}`;
+  try {
+    await navigator.clipboard.writeText(url);
+    toast.success(pl.replay.copied);
+  } catch {
+    /* clipboard unavailable — ignore */
+  }
+}
+
 const EMPTY_TTT: TicTacToeCell[] = Array<TicTacToeCell>(9).fill(null);
 
 export interface MatchConfig {
@@ -331,6 +341,21 @@ export function GameRunner({
                   </span>
                 );
               })}
+            </div>
+          )}
+          {saveResponse && (
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <Button variant="outline" size="sm" onClick={() => void copyReplayLink(saveResponse.matchId)}>
+                🔗 {pl.replay.copyLink}
+              </Button>
+              <a
+                href={`/replay/${saveResponse.matchId}`}
+                target="_blank"
+                rel="noreferrer"
+                className="font-mono text-xs text-p1 underline-offset-2 hover:underline"
+              >
+                /replay/{saveResponse.matchId.slice(0, 8)}…
+              </a>
             </div>
           )}
           <div className="flex flex-wrap justify-center gap-3">

@@ -242,6 +242,23 @@ describe('HTTP endpoints (real Postgres)', () => {
     expect(points[0].eloAfter).toBeGreaterThan(1000);
   });
 
+  it('GET /api/og/:id renders a PNG for a saved match (§11)', async () => {
+    const config = loadConfig({});
+    const app = buildApp({ config, db: handle.db });
+    const save = await submitResult(
+      handle.db,
+      newJti(),
+      playOut('tictactoe', 'standard', 0, 4000, 'openrouter:a', 'openrouter:b'),
+      null,
+    );
+    const id = save.ok ? save.matchId : '';
+    const res = await app.request(`/api/og/${id}`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toBe('image/png');
+    const buf = Buffer.from(await res.arrayBuffer());
+    expect(buf.subarray(0, 4)).toEqual(Buffer.from([0x89, 0x50, 0x4e, 0x47]));
+  });
+
   it('GET /api/head-to-head tallies wins from each perspective', async () => {
     const config = loadConfig({});
     const app = buildApp({ config, db: handle.db });

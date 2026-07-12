@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 import { ArenaPage } from '@/pages/ArenaPage';
 import { ComparePage } from '@/pages/ComparePage';
 import { LeaderboardPage } from '@/pages/LeaderboardPage';
+import { ReplayPage } from '@/pages/ReplayPage';
 import { useSettings } from '@/store/settings';
 
 const navClass = ({ isActive }: { isActive: boolean }) =>
@@ -108,6 +109,7 @@ export default function App() {
             <Route path="/" element={<ArenaPage onOpenSettings={openSettings} />} />
             <Route path="/rankingi" element={<LeaderboardPage />} />
             <Route path="/porownaj" element={<ComparePage />} />
+            <Route path="/replay/:id" element={<ReplayPage />} />
           </Routes>
         </main>
 

@@ -2,14 +2,11 @@ import { useMemo, useState } from 'react';
 
 import {
   type AnalyzedMove,
-  type GameDefinition,
-  type Move,
   type MoveQuality,
   type PlayerSide,
   type SetupRecord,
   type TicTacToeState,
   analyzeMatch,
-  getGame,
 } from '@arena/game-core';
 
 import { Board3x3 } from '@/components/Board3x3';
@@ -19,6 +16,7 @@ import type { MatchConfig } from '@/components/GameRunner';
 import type { MoveLogEntry } from '@/game/orchestrator';
 import { pl } from '@/i18n/pl';
 import { formatMove } from '@/lib/format';
+import { reconstructStates } from '@/lib/match-states';
 import { cn } from '@/lib/utils';
 
 /** SPEC §12.2 palette: optimal green, good cyan, weak yellow, blunder red. */
@@ -34,15 +32,6 @@ const QUALITY_RING: Record<MoveQuality, string> = {
   weak: 'ring-2 ring-warn',
   blunder: 'ring-2 ring-danger',
 };
-
-function configFromSetup(setup: SetupRecord | null) {
-  if (!setup) return {};
-  return {
-    seed: typeof setup.seed === 'number' ? setup.seed : undefined,
-    extraShotOnHit: typeof setup.extraShotOnHit === 'boolean' ? setup.extraShotOnHit : undefined,
-    placements: setup.placements,
-  };
-}
 
 export function AnalysisView({
   config,
@@ -65,18 +54,10 @@ export function AnalysisView({
   );
 
   // Reconstruct the position after each move (states[0] = initial).
-  const states = useMemo(() => {
-    const def = getGame(config.game) as unknown as GameDefinition<unknown, Move>;
-    const variantObj =
-      def.variants.find((v) => v.id === config.variant.id) ?? config.variant;
-    let st = def.createInitialState(variantObj, configFromSetup(setup));
-    const arr: unknown[] = [st];
-    for (const m of moves) {
-      st = def.applyMove(st, m.player, m.move);
-      arr.push(st);
-    }
-    return arr;
-  }, [config.game, config.variant, setup, moves]);
+  const states = useMemo(
+    () => reconstructStates(config.game, config.variant.id, setup, moves),
+    [config.game, config.variant.id, setup, moves],
+  );
 
   const [step, setStep] = useState(moves.length); // start at the final position
   const clamp = (n: number) => Math.max(0, Math.min(moves.length, n));

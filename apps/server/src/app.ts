@@ -8,6 +8,7 @@ import { eloHistoryRoute, headToHeadRoute } from './routes/analytics';
 import { healthRoute } from './routes/health';
 import { leaderboardRoute } from './routes/leaderboard';
 import { matchesRoute, replayRoute } from './routes/matches';
+import { ogRoute } from './routes/og';
 import { ollamaRoute } from './routes/ollama';
 import { resultRoute } from './routes/result';
 import { verifyRoute } from './routes/verify';
@@ -49,6 +50,7 @@ export function buildApp(deps: AppDeps): Hono {
     api.route('/head-to-head', headToHeadRoute({ db: deps.db }));
     api.route('/matches', matchesRoute({ db: deps.db }));
     api.route('/replay', replayRoute({ db: deps.db }));
+    api.route('/og', ogRoute({ db: deps.db }));
   }
 
   app.route('/api', api);
