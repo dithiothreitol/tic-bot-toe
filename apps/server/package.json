@@ -1,0 +1,25 @@
+{
+  "name": "@arena/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --env-file-if-exists=../../.env --import tsx --watch src/index.ts",
+    "start": "node --env-file-if-exists=../../.env --import tsx src/index.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@arena/game-core": "workspace:*",
+    "@hono/node-server": "^2.0.8",
+    "hono": "^4.12.29",
+    "jose": "^6.2.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.3",
+    "vitest": "4.1.10"
+  }
+}

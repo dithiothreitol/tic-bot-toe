@@ -3,6 +3,15 @@
 Jednozdaniowe decyzje podejmowane tam, gdzie SPEC.md nie rozstrzyga (zgodnie z
 regułą 5 promptu startowego). Najnowsze na górze.
 
+## Stage 5 — backend (Hono)
+
+- **`apps/server`**: Hono + `@hono/node-server`. `buildApp(deps)` z wstrzykiwanym `fetch`/`now` (testy bez sieci/zegara), `index.ts` odpala `serve` + `serveStatic` (front z `dist` na jednym porcie, fallback SPA na index.html).
+- **JWT (jose, HS256, 30 min, `jti`)** — `signSession`/`verifySession`; `jti` będzie spalane przy zapisie wyniku (Etap 6). Sekret z env; dev-fallback `dev-insecure-…` z ostrzeżeniem.
+- **Turnstile**: `verifyTurnstile` → siteverify; domyślny sekret = klucz testowy Cloudflare `1x000…AA` (zawsze przechodzi) tylko dla dev. `/api/verify`: Turnstile→JWT lub 403.
+- **Rate limiting**: in-memory sliding window per IP (`verify` 30/h); `X-Forwarded-For` tylko gdy `TRUSTED_PROXY=true`; IP z `getConnInfo` (fallback `unknown` w testach).
+- **CSP (§16)**: `connect-src` = self + openrouter.ai + challenges.cloudflare.com + HF/MLC CDN (wagi WebLLM); `script-src` z `'wasm-unsafe-eval'`, `worker-src blob:` (runtime web-llm). + HSTS, nosniff, Referrer-Policy.
+- **Dev przez `tsx`** (`node --import tsx --watch`), `--env-file-if-exists`. Produkcyjny bundle (tsup, inline `game-core`) w Etapie 8.
+
 ## Stage 4 — WebLLM
 
 - **`@mlc-ai/web-llm` ładowany dynamicznym `import()`** — trafia do osobnego, leniwego chunku (~6 MB), więc główny bundle zostaje ~428 kB; wagi modelu pobierają się dopiero przy pierwszym użyciu modelu lokalnego.
