@@ -32,7 +32,7 @@ export function ArenaPage({ onOpenSettings }: { onOpenSettings: () => void }) {
 
           <SetupScreen onStart={start} onOpenSettings={onOpenSettings} />
 
-          <p className="max-w-prose text-xs text-dim">{pl.stage2Note}</p>
+          <p className="max-w-prose text-xs text-dim">{pl.footerNote}</p>
         </>
       )}
 

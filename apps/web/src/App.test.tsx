@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 
@@ -33,7 +33,12 @@ describe('App', () => {
     const user = userEvent.setup();
     renderApp();
     await user.click(screen.getByLabelText('Ustawienia'));
-    expect(await screen.findByText(/wyłącznie do openrouter\.ai/i)).toBeInTheDocument();
-    expect(screen.getByLabelText('Klucz OpenRouter')).toBeInTheDocument();
+    // Scope to the dialog: the arena footer also mentions openrouter.ai, and this
+    // test is about the notice INSIDE settings (§16).
+    const dialog = await screen.findByRole('dialog');
+    expect(
+      within(dialog).getByText(/wyłącznie do openrouter\.ai/i),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByLabelText('Klucz OpenRouter')).toBeInTheDocument();
   });
 });

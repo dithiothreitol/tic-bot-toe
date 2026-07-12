@@ -449,6 +449,7 @@ export const pl = {
     downloading: 'Pobieranie modelu do przeglądarki…',
   },
 
-  stage2Note:
-    'Providery OpenRouter (klucz) / WebLLM (lokalnie, bez klucza) / Human. Rankingi, zapis wyników i moduły edukacyjne dochodzą w kolejnych etapach.',
+  /** Honest footer: what runs where, and where the numbers come from. */
+  footerNote:
+    'Modele grają przez OpenRouter (Twój klucz, wysyłany wyłącznie do openrouter.ai), WebLLM (lokalnie w przeglądarce, bez klucza) albo Ollamę. Partie toczą się u Ciebie, więc wyniki zapisane do rankingu serwer odtwarza i weryfikuje po swojej stronie.',
 } as const;

@@ -128,14 +128,20 @@ Partie Ollama są wyjątkiem — idą przez nasze proxy, więc mają `server_ver
 
 ## Testy
 
-**~150 testów** (game-core 76, server 14 unit + 10 integracyjnych testcontainers, web 37).
-Priorytet pokrycia: `game-core` (silniki, solvery, Elo, replay, parsery).
+**~270 testów** (game-core 95, server 43 unit + integracyjne testcontainers, web 79).
+Priorytet pokrycia: `game-core` (silniki, solvery, Elo, replay, wyzwanie dnia, parsery).
+
+```bash
+pnpm test                                       # jednostkowe (3 pakiety)
+pnpm --filter @arena/server test:integration    # testcontainers — wymaga Dockera
+```
 
 ## Znane ograniczenia
 
 - Gra toczy się w przeglądarce — pełnej gwarancji uczciwości nie ma (warstwy obrony w §15); wyjątek: partie Ollama (`server_verified`).
-- „Śr. czas" w rankingu liczony ze średniej (mediana z `matches` — moduł §9+).
-- Solvery/analiza po partii, wykresy, komentator, powtórki OG, laboratorium, zgadywanka i wyzwanie dnia to moduły 9–12 (po rdzeniu 1–8).
+- „Śr. czas" w rankingu liczony ze średniej (mediana z `matches` — do rozważenia).
+- **Zgadywanka widza nie jest odporna na determinowanego oszusta** — chroni ją okno 10 min od zapisu partii, jeden typ na partię i limit 60/h. To zabawa bez stawek (§12.5), nie buduję pod nią kryptografii.
+- Pula przeciwników **wyzwania dnia** jest zaszyta w `game-core/daily.ts`. Modele WebLLM są stabilne, ale identyfikator modelu `:free` w OpenRouterze może z czasem zniknąć — wtedy trzeba podmienić wpis w puli.
 
 ## Status budowy
 
@@ -153,4 +159,15 @@ Precyzja w rankingu, **rewalidacja `eval` na serwerze** (odrzuca sfałszowany).
 podgląd `GET /api/og/:id` (PNG przez `@napi-rs/canvas`), „Skopiuj link", oraz
 **kompletne, agent-friendly SEO**: Open Graph + Twitter Cards + JSON-LD
 (`WebApplication`/`WebPage`/`Game`), kanoniczne URL-e, `robots.txt`,
-`sitemap.xml`, `llms.txt`. Moduł 12 (edukacja/społeczność) dokładany dalej.
+`sitemap.xml`, `llms.txt`.
+
+**Moduł 12 (edukacja i społeczność) — ukończony.** Tym samym **wszystkie 12
+etapów SPEC §19 jest zamkniętych**:
+
+| | |
+|---|---|
+| **Komentator AI** (§12.1) | trzeci model komentuje partię po polsku, 1–2 zdania. Dostaje **widok boga** (może widzieć wszystko, bo nie gra) + ocenę ruchu z solvera. Domyślnie wyłączony, chodzi na Twoim kluczu/WebLLM. **Nigdy nie blokuje gry** — kolejka fire-and-forget; spóźniony komentarz trafia pod właściwy ruch. Dymki w logu, zapisywane z partią, widoczne w powtórce. |
+| **Karty modeli** (§12.3) | `/model/:id` — radar, przebieg Elo, staty, bilans z przeciwnikami + **opis po polsku dla laika generowany szablonem reguł z metadanych katalogu** (deterministyczny, zero kosztów, *nie* LLM). Stała sekcja **„Jak czytać te liczby?"** (token, Elo, Precyzja, halucynacje ruchów, koszt) linkowana z rankingu. |
+| **Laboratorium promptów** (§12.4) | własny dopisek do promptu + suwak `temperature` 0–1.5. Dopisek doklejany **PO** nienaruszalnym rdzeniu, żeby format odpowiedzi przetrwał. Partie z Lab **nie liczą się do Elo**. |
+| **Zgadywanka widza** (§12.5) | typ P1/remis/P2 **przed startem** partii (gra czeka na typ). Punkty przyznaje **serwer**, porównując typ ze zwycięzcą z własnego replayu. Ekran **„Ranking intuicji"**. Zero stawek. |
+| **Wyzwanie dnia** (§12.6) | „Pokonaj dziś {model} w {gra}" — konfiguracja **liczona z daty** (`seed = data`, **bez crona**), więc przeglądarka i serwer zgadzają się bez komunikacji. Zaliczenie weryfikowane na zapisanej partii (gra, wariant, przeciwnik, wygrana, nie-Lab). Licznik serii. Przeciwnicy zawsze darmowi. |
