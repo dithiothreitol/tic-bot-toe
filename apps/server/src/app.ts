@@ -1,16 +1,22 @@
 import { Hono } from 'hono';
 
 import type { Config } from './config';
+import type { Database } from './db/client';
 import { rateLimit } from './middleware/rate-limit';
 import { securityHeaders } from './middleware/security';
 import { healthRoute } from './routes/health';
+import { leaderboardRoute } from './routes/leaderboard';
+import { matchesRoute, replayRoute } from './routes/matches';
+import { resultRoute } from './routes/result';
 import { verifyRoute } from './routes/verify';
 
 export interface AppDeps {
   config: Config;
+  /** When absent, ranking endpoints are not mounted (DB not configured). */
+  db?: Database;
   /** Injectable fetch (Turnstile) for tests. */
   fetch?: typeof fetch;
-  /** Injectable clock (rate limiter) for tests. */
+  /** Injectable clock (rate limiter, leaderboard cache) for tests. */
   now?: () => number;
 }
 
@@ -26,6 +32,17 @@ export function buildApp(deps: AppDeps): Hono {
     rateLimit('verify', 30, { trustedProxy: deps.config.trustedProxy, now: deps.now }),
   );
   api.route('/verify', verifyRoute({ config: deps.config, fetch: deps.fetch }));
+
+  if (deps.db) {
+    api.use(
+      '/result',
+      rateLimit('result', 60, { trustedProxy: deps.config.trustedProxy, now: deps.now }),
+    );
+    api.route('/result', resultRoute({ db: deps.db, config: deps.config }));
+    api.route('/leaderboard', leaderboardRoute({ db: deps.db, now: deps.now }));
+    api.route('/matches', matchesRoute({ db: deps.db }));
+    api.route('/replay', replayRoute({ db: deps.db }));
+  }
 
   app.route('/api', api);
   return app;

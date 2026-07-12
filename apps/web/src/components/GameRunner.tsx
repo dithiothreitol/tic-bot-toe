@@ -29,10 +29,31 @@ import {
   runMatch,
 } from '@/game/orchestrator';
 import { type PlayerSpec, makePlayer } from '@/game/players';
+import { toast } from 'sonner';
+
+import type { SaveResultResponse } from '@/api/client';
+import { saveResult } from '@/api/results';
 import { pl } from '@/i18n/pl';
 import { formatCost } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import type { HumanPlayerHandle } from '@/providers/human';
+
+function priceSnapshotFor(config: MatchConfig): Record<string, unknown> {
+  const snap: Record<string, unknown> = {};
+  for (const spec of [config.p1, config.p2]) {
+    if (spec.kind === 'openrouter' && spec.price) snap[`openrouter:${spec.model}`] = spec.price;
+  }
+  return snap;
+}
+
+function shortId(id: string): string {
+  return id.replace(/^(openrouter|webllm):/, '');
+}
+
+function fmtDelta(d: number): string {
+  const r = Math.round(d);
+  return r >= 0 ? `+${r}` : `${r}`;
+}
 
 const EMPTY_TTT: TicTacToeCell[] = Array<TicTacToeCell>(9).fill(null);
 
@@ -67,6 +88,8 @@ export function GameRunner({
   const [outcome, setOutcome] = useState<MatchOutcome | null>(null);
   const [restartKey, setRestartKey] = useState(0);
   const [placement, setPlacement] = useState<number[][] | null>(null);
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const [saveResponse, setSaveResponse] = useState<SaveResultResponse | null>(null);
   const humansRef = useRef<Partial<Record<PlayerSide, HumanPlayerHandle>>>({});
 
   const humanSide = humanSideOf(config);
@@ -91,6 +114,8 @@ export function GameRunner({
     setStatus('playing');
     setToMove('p1');
     setOutcome(null);
+    setSaveState('idle');
+    setSaveResponse(null);
 
     const setupConfig: SetupConfig = {
       seed: config.seed + restartKey,
@@ -138,6 +163,21 @@ export function GameRunner({
   const rematch = () => {
     setPlacement(null);
     setRestartKey((k) => k + 1);
+  };
+
+  const savable = outcome !== null && !outcome.aborted && outcome.winner !== null;
+
+  const handleSave = async () => {
+    if (!outcome) return;
+    setSaveState('saving');
+    try {
+      const resp = await saveResult(outcome, priceSnapshotFor(config));
+      setSaveResponse(resp);
+      setSaveState('saved');
+    } catch (e) {
+      setSaveState('idle');
+      if ((e as Error).message !== 'anulowano') toast.error(pl.result.saveError);
+    }
   };
 
   const statusLine = (() => {
@@ -242,11 +282,29 @@ export function GameRunner({
       </Card>
 
       {outcome && (
-        <div className="flex flex-wrap justify-center gap-3">
-          <Button onClick={rematch}>{pl.result.rematch}</Button>
-          <Button variant="outline" onClick={onExit}>
-            {pl.result.backToSetup}
-          </Button>
+        <div className="flex flex-col items-center gap-3">
+          {savable && saveState !== 'saved' && (
+            <Button onClick={handleSave} disabled={saveState === 'saving'}>
+              {saveState === 'saving' ? pl.result.saving : pl.result.save}
+            </Button>
+          )}
+          {saveResponse && saveResponse.ratingChanges.length > 0 && (
+            <div className="flex flex-col items-center gap-1 font-mono text-xs">
+              <span className="text-emerald-400">{pl.result.saved}</span>
+              {saveResponse.ratingChanges.map((rc) => (
+                <span key={rc.subjectId} className="text-muted-foreground">
+                  {shortId(rc.subjectId)}: {Math.round(rc.before)} → {Math.round(rc.after)} (
+                  {fmtDelta(rc.after - rc.before)})
+                </span>
+              ))}
+            </div>
+          )}
+          <div className="flex flex-wrap justify-center gap-3">
+            <Button onClick={rematch}>{pl.result.rematch}</Button>
+            <Button variant="outline" onClick={onExit}>
+              {pl.result.backToSetup}
+            </Button>
+          </div>
         </div>
       )}
     </div>

@@ -12,5 +12,10 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    // Dev: forward API calls to the Hono backend so the SPA stays same-origin
+    // (matches the single-port production deploy — no CORS anywhere).
+    proxy: {
+      '/api': 'http://localhost:8080',
+    },
   },
 });

@@ -114,6 +114,39 @@ export const pl = {
     newGame: 'Nowa gra',
     rematch: 'Rewanż',
     backToSetup: 'Zmień ustawienia',
+    save: 'Zapisz do rankingu',
+    saving: 'Zapisywanie…',
+    saved: 'Zapisano do rankingu',
+    saveError: 'Nie udało się zapisać wyniku.',
+  },
+
+  nav: {
+    arena: 'Arena',
+    rankings: 'Rankingi',
+  },
+
+  session: {
+    verifyTitle: 'Potwierdź, że nie jesteś botem',
+    verifyDesc:
+      'Weryfikacja Cloudflare Turnstile — wymagana, by zapisać wynik do rankingu.',
+    verifyFailed: 'Weryfikacja nie powiodła się.',
+    turnstileLoadFailed: 'Nie udało się załadować weryfikacji.',
+  },
+
+  leaderboard: {
+    title: 'Rankingi',
+    empty: 'Brak danych — rozegraj i zapisz partie.',
+    loadError: 'Nie udało się pobrać rankingu.',
+    col: {
+      rank: '#',
+      subject: 'Podmiot',
+      elo: 'Elo',
+      games: 'Partie',
+      wld: 'W/P/R',
+      forfeit: 'Wymuszone',
+      latency: 'Śr. czas',
+      cost: 'Koszt/partię',
+    },
   },
 
   actions: {

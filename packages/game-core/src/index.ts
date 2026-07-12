@@ -9,6 +9,8 @@
 export * from './types';
 export * from './tictactoe';
 export * from './battleship';
+export * from './elo';
+export * from './replay';
 
 import type { GameId } from './types';
 import { battleship } from './battleship';

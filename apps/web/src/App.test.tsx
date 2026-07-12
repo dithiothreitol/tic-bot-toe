@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router';
 
 import App from './App';
 
@@ -8,11 +9,13 @@ vi.mock('@/providers/openrouter-catalog', () => ({
   fetchCatalog: () => Promise.resolve([]),
 }));
 
+const renderApp = () => render(<MemoryRouter><App /></MemoryRouter>);
+
 beforeEach(() => localStorage.clear());
 
 describe('App', () => {
   it('renders the setup screen with both game modes', async () => {
-    render(<App />);
+    renderApp();
     expect(await screen.findByText('Nowa partia')).toBeInTheDocument();
     expect(screen.getByText('Człowiek kontra model')).toBeInTheDocument();
     expect(screen.getByText('Model kontra model')).toBeInTheDocument();
@@ -21,14 +24,14 @@ describe('App', () => {
 
   it('switches to battleship and reveals the variant selector', async () => {
     const user = userEvent.setup();
-    render(<App />);
+    renderApp();
     await user.click(await screen.findByRole('tab', { name: 'Statki' }));
     expect(await screen.findByText('Wariant')).toBeInTheDocument();
   });
 
   it('opens settings and surfaces the local-only key notice', async () => {
     const user = userEvent.setup();
-    render(<App />);
+    renderApp();
     await user.click(screen.getByLabelText('Ustawienia'));
     expect(await screen.findByText(/wyłącznie do openrouter\.ai/i)).toBeInTheDocument();
     expect(screen.getByLabelText('Klucz OpenRouter')).toBeInTheDocument();

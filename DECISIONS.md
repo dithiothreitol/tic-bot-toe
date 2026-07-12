@@ -3,6 +3,16 @@
 Jednozdaniowe decyzje podejmowane tam, gdzie SPEC.md nie rozstrzyga (zgodnie z
 regułą 5 promptu startowego). Najnowsze na górze.
 
+## Stage 6 — Postgres / Drizzle / rankingi
+
+- **Serwer jest źródłem prawdy dla Elo/wyniku** (§15): `replayMatch` odtwarza partię wspólnym `game-core` i sam ustala zwycięzcę; `moves_hash` = SHA-256 (`crypto.subtle`, dostępne w przeglądarce i Node) po **stabilnym stringify** (sortowane klucze) — liczone z otrzymanego payloadu, dedup przez `UNIQUE(moves_hash)`.
+- **`movesHash` w `game-core`** wymaga globali WebCrypto/`TextEncoder` — dodane minimalne `webcrypto.d.ts` (bez ciągnięcia całego DOM).
+- **Transakcja zapisu**: `used_jti` (jednorazowe `jti`) → insert `matches` (dedup) → dla `lab=false`: `ratings` obu podmiotów (`SELECT … FOR UPDATE` + upsert), `updateElo` (zero-sum), `elo_history`. Rzucany `Abort` → rollback → kod HTTP. `lab=true` = tylko `matches`.
+- **Sanity §15**: OpenRouter śr. czas < 3 s → 422 (WebLLM/Ollama zwolnione); tokeny > 5k/ruch lub koszt > 1 USD → zapis BEZ agregacji telemetrii (log ostrzeżenia); jti reuse/dedup → 409.
+- **Leaderboard**: śr. czas z sum `latencyMsSum/totalMoves` (mediana z `matches` odłożona do §9+), cache 60 s in-memory.
+- **Testy integracyjne testcontainers** rozdzielone (`test:integration`, wymaga Dockera) od szybkich unitów (`test` bez Dockera). 9 testów na prawdziwym Postgresie.
+- **Frontend**: `react-router` 8, proxy Vite `/api`→8080 w dev (jeden origin jak w prod), widget Turnstile → `/api/verify` → JWT w pamięci (`useSession`), opt-in „Zapisz do rankingu" pokazuje ΔElo. Postgres.js + drizzle-kit migracje (`drizzle/`), auto-migracja przy starcie serwera.
+
 ## Stage 5 — backend (Hono)
 
 - **`apps/server`**: Hono + `@hono/node-server`. `buildApp(deps)` z wstrzykiwanym `fetch`/`now` (testy bez sieci/zegara), `index.ts` odpala `serve` + `serveStatic` (front z `dist` na jednym porcie, fallback SPA na index.html).
