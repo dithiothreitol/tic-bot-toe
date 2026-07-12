@@ -1,3 +1,5 @@
+import { isValidPlayerToken } from '@/lib/id';
+
 import { getOpenRouterKey, useSettings } from './settings';
 
 beforeEach(() => {
@@ -30,9 +32,10 @@ describe('useSettings', () => {
     expect(JSON.parse(raw as string).state.openRouterKey).toBe('sk-or-xyz');
   });
 
-  it('has a stable UUID playerToken', () => {
+  it('has a stable playerToken the API will accept', () => {
     const token = useSettings.getState().playerToken;
-    expect(token).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+    // 256-bit base64url bearer secret (§10/§16) — the server only ever sees its hash.
+    expect(isValidPlayerToken(token)).toBe(true);
     expect(useSettings.getState().playerToken).toBe(token);
   });
 
@@ -40,6 +43,15 @@ describe('useSettings', () => {
     useSettings.getState().setNickname('  Ala  ');
     expect(useSettings.getState().nickname).toBe('Ala');
     useSettings.getState().setNickname('   ');
+    expect(useSettings.getState().nickname).toBeNull();
+  });
+
+  it('adopts an imported identity and drops the old nickname mirror', () => {
+    useSettings.getState().setNickname('Ala');
+    const imported = 'AbCdEfGhIjKlMnOpQrStUvWxYz0123456789_-abcde';
+    useSettings.getState().setPlayerToken(imported);
+    expect(useSettings.getState().playerToken).toBe(imported);
+    // The nickname belongs to the *previous* identity — it must not leak over.
     expect(useSettings.getState().nickname).toBeNull();
   });
 });

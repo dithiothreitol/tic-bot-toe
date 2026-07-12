@@ -1,0 +1,118 @@
+/**
+ * Daily challenge (SPEC §12.6).
+ *
+ * The whole configuration is DERIVED FROM THE DATE — no cron, no stored
+ * schedule, no randomness. `dailyChallenge('2026-07-12')` returns the same
+ * challenge on every machine, forever. That is what lets the browser show the
+ * challenge and the server independently verify that a submitted match really
+ * is today's challenge, without the two ever talking about it.
+ *
+ * Lives in game-core (not the web app) precisely because both sides need it.
+ */
+import { BATTLESHIP_VARIANTS_CONFIG } from './battleship';
+import type { GameId } from './types';
+
+/** Opponent pool: free only, so the challenge never costs the player money (§12.6). */
+export interface DailyOpponent {
+  provider: 'webllm' | 'openrouter';
+  /** Model id within the provider (MLC id / OpenRouter id). */
+  id: string;
+  name: string;
+}
+
+/**
+ * WebLLM models run in the browser with no key at all; the `:free` OpenRouter
+ * variants need a key but cost nothing. Keeping both means the challenge is
+ * playable whether the user has WebGPU or a key.
+ */
+export const DAILY_OPPONENTS: readonly DailyOpponent[] = [
+  { provider: 'webllm', id: 'Llama-3.2-3B-Instruct-q4f16_1-MLC', name: 'Llama 3.2 3B' },
+  { provider: 'webllm', id: 'Phi-3.5-mini-instruct-q4f16_1-MLC', name: 'Phi 3.5 mini' },
+  { provider: 'webllm', id: 'Qwen2.5-3B-Instruct-q4f16_1-MLC', name: 'Qwen2.5 3B' },
+  {
+    provider: 'openrouter',
+    id: 'meta-llama/llama-3.2-3b-instruct:free',
+    name: 'Llama 3.2 3B (free)',
+  },
+  {
+    provider: 'openrouter',
+    id: 'mistralai/mistral-7b-instruct:free',
+    name: 'Mistral 7B (free)',
+  },
+] as const;
+
+export interface DailyChallenge {
+  /** The seed: ISO date `YYYY-MM-DD`. */
+  day: string;
+  game: GameId;
+  variant: string;
+  opponent: DailyOpponent;
+  /** The player always moves first — same handicap for everyone. */
+  humanSide: 'p1';
+}
+
+/** The ranking subject id this opponent plays under (`webllm:…`, `openrouter:…`). */
+export function dailySubjectId(opponent: DailyOpponent): string {
+  return `${opponent.provider}:${opponent.id}`;
+}
+
+/** FNV-1a — small, stable, and identical in every JS runtime. */
+function hash32(text: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
+}
+
+/** Each choice gets its own salted hash, so game/variant/opponent don't correlate. */
+function pick<T>(items: readonly T[], day: string, salt: string): T {
+  return items[hash32(`${day}#${salt}`) % items.length]!;
+}
+
+const GAMES: readonly GameId[] = ['tictactoe', 'battleship'] as const;
+const BATTLESHIP_VARIANT_IDS: readonly string[] = Object.keys(BATTLESHIP_VARIANTS_CONFIG);
+
+/** `YYYY-MM-DD` — anything else would silently produce a different challenge. */
+export function isValidDay(day: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(day);
+}
+
+/**
+ * Today's challenge, derived purely from the date.
+ * @param day ISO `YYYY-MM-DD` (the caller owns "what day is it" — game-core has no clock).
+ */
+export function dailyChallenge(day: string): DailyChallenge {
+  if (!isValidDay(day)) throw new Error(`dailyChallenge: expected YYYY-MM-DD, got "${day}"`);
+
+  const game = pick(GAMES, day, 'game');
+  const variant =
+    game === 'battleship' ? pick(BATTLESHIP_VARIANT_IDS, day, 'variant') : 'standard';
+  const opponent = pick(DAILY_OPPONENTS, day, 'opponent');
+
+  return { day, game, variant, opponent, humanSide: 'p1' };
+}
+
+/** `YYYY-MM-DD` for a Date, in UTC — the server's notion of "today". */
+export function toDayString(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+/**
+ * Consecutive-day streak ending today. If today is not done yet the streak is
+ * still alive — it just counts back from yesterday, so a pending day never
+ * looks like a broken streak.
+ */
+export function streakFrom(completedDays: Iterable<string>, today: string): number {
+  const done = new Set(completedDays);
+  const cursor = new Date(`${today}T00:00:00Z`);
+  if (!done.has(today)) cursor.setUTCDate(cursor.getUTCDate() - 1);
+
+  let streak = 0;
+  while (done.has(toDayString(cursor))) {
+    streak += 1;
+    cursor.setUTCDate(cursor.getUTCDate() - 1);
+  }
+  return streak;
+}

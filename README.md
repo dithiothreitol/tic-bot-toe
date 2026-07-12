@@ -80,7 +80,39 @@ Wszystkie w [`.env.example`](./.env.example). Kluczowe:
 - [x] Partie `lab=true` **nigdy** nie wpływają na `ratings`/`elo_history`.
 - [x] Sekrety **tylko w env** (`.env.example` w repo, `.env` ignorowany).
 - [x] **CSP** pinuje wyjścia (openrouter/turnstile/MLC CDN) + HSTS, nosniff, Referrer-Policy.
-- [x] `player_token` = losowy UUID, bez danych osobowych.
+- [x] Tożsamość gracza = **losowy sekret w `localStorage`**, bez danych osobowych; serwer trzyma wyłącznie jego **SHA-256** (`players.token_hash`). Zero kont, zero e-maili.
+
+## Tożsamość gracza (§10)
+
+Osoba jest rozpoznawana po losowym sekrecie z `localStorage`, wysyłanym jako nagłówek
+`X-Player-Token` **wyłącznie do naszego API**. Dzięki temu **wszystkie partie tej samej
+osoby wpadają do jednego wiersza rankingu** (`ratings.subject_id = human:<players.id>`),
+zamiast rozsypywać się po wspólnym anonimowym koszyku `human`.
+
+- Pseudonim jest **opcjonalny**, unikalny i filtrowany z wulgaryzmów. Bez pseudonimu Elo
+  nadal się kumuluje, ale gracz **nie pojawia się w tabeli** (SPEC §10).
+- Sekret jest **przenośny**: „Skopiuj kod tożsamości" → wklej na innym urządzeniu. To
+  jedyny sposób, by zachować tę samą pozycję po zmianie przeglądarki. Kod = hasło.
+- Wyczyszczenie danych strony = utrata tożsamości (partie zostają w rankingu).
+
+## Model zagrożeń rankingu (§15)
+
+Gra toczy się w przeglądarce, więc **nie da się uniemożliwić botowi lokalnego grania** —
+i nie udajemy, że umiemy. Chronimy wyłącznie **zapis do rankingu**, warstwowo:
+
+| Warstwa | Co powstrzymuje |
+|---|---|
+| Turnstile → JWT z jednorazowym `jti` | masowy, zautomatyzowany zapis wyników |
+| Serwerowy replay + rewalidacja `eval` | zmyślony zwycięzca, nielegalne ruchy, fałszywa „Precyzja" |
+| Token startu partii (`POST /api/match/start`, `iat` serwera) | partię „rozegraną" w ułamku sekundy — bot musi zapłacić realnym czasem |
+| Sanity czasów człowieka (śr. ≥ 800 ms, niezerowy rozrzut) | metronomiczne i natychmiastowe ruchy skryptu |
+| Limity dzienne (30/gracza, 60/IP) | farmienie Elo i mnożenie tożsamości z jednej maszyny |
+| Flaga precyzji (statki: ≥100 ruchów i ≥90% optymalnych) | solver podszywający się pod człowieka — znika z tabeli, nic nie jest kasowane |
+| `moves_hash` (dedup), limity kosztu/tokenów | powtórki tego samego wyniku, absurdalna telemetria |
+
+Świadomie **nie** budujemy: kont/haseł/OAuth, fingerprintingu przeglądarki, CAPTCHA przy
+każdym ruchu ani serwerowej autorytatywności rozgrywki (sprzeczna z BYOK, §15).
+Partie Ollama są wyjątkiem — idą przez nasze proxy, więc mają `server_verified`.
 
 ## Kryteria akceptacji (§20)
 

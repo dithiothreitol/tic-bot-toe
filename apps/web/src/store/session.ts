@@ -32,6 +32,15 @@ export function currentToken(): string | null {
   return s.token && s.expiresAt && s.expiresAt > Date.now() + 5000 ? s.token : null;
 }
 
+/**
+ * Drop the session token. Its `jti` is one-time and is burned by a successful
+ * save, so holding on to it would make the *next* save fail with `jti_used`
+ * instead of re-verifying through Turnstile.
+ */
+export function clearSession(): void {
+  useSession.getState().clear();
+}
+
 let waiters: Array<(token: string | null) => void> = [];
 
 /** Resolve with a valid session token, prompting Turnstile if needed. */

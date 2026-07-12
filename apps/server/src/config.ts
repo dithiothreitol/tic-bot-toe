@@ -6,6 +6,8 @@ export interface Config {
   port: number;
   jwtSecret: string;
   jwtTtlSeconds: number;
+  /** Match-start token lifetime (§15.3 pacing) — long enough for a slow game. */
+  startTtlSeconds: number;
   turnstileSecret: string;
   enableOllama: boolean;
   trustedProxy: boolean;
@@ -27,6 +29,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     port: Number(env.PORT ?? 8080),
     jwtSecret,
     jwtTtlSeconds: 30 * 60,
+    startTtlSeconds: 45 * 60,
     turnstileSecret: env.TURNSTILE_SECRET ?? TURNSTILE_TEST_SECRET,
     enableOllama: env.ENABLE_OLLAMA === 'true',
     trustedProxy: env.TRUSTED_PROXY === 'true',

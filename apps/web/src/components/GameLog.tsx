@@ -1,17 +1,35 @@
+import { Fragment } from 'react';
+
 import { Badge } from '@/components/ui/badge';
 import { SectionLabel } from '@/components/ui/hud';
 import type { MoveLogEntry } from '@/game/orchestrator';
 import { pl } from '@/i18n/pl';
 import { formatCost, formatMove, formatMs, formatTokens } from '@/lib/format';
 import { cn } from '@/lib/utils';
+import type { Commentary } from '@/providers/commentator';
 
 interface GameLogProps {
   moves: MoveLogEntry[];
   names: { p1: string; p2: string };
+  /** Commentator bubbles (§12.1) — may arrive after their move, hence the lookup. */
+  commentary?: Commentary[];
   className?: string;
 }
 
-export function GameLog({ moves, names, className }: GameLogProps) {
+/** A commentator bubble, rendered under the move it is about (§12.1). */
+export function CommentBubble({ text }: { text: string }) {
+  return (
+    <li className="ml-4 flex items-start gap-2 border-l-2 border-edu/50 bg-edu/5 px-2 py-1.5">
+      <span aria-hidden className="font-mono text-xs text-edu">
+        ▸
+      </span>
+      <p className="font-sans text-xs leading-snug text-edu/90">{text}</p>
+    </li>
+  );
+}
+
+export function GameLog({ moves, names, commentary = [], className }: GameLogProps) {
+  const byMove = new Map(commentary.map((c) => [c.moveIndex, c]));
   return (
     <div className={cn('flex flex-col gap-2', className)}>
       <div className="flex items-center justify-between">
@@ -25,8 +43,8 @@ export function GameLog({ moves, names, className }: GameLogProps) {
       ) : (
         <ol className="flex flex-col gap-1">
           {moves.map((m) => (
+            <Fragment key={m.index}>
             <li
-              key={m.index}
               className={cn(
                 'flex flex-wrap items-center gap-x-3 gap-y-0.5 border-l-2 px-2 py-1 font-mono text-xs',
                 m.player === 'p1' ? 'border-p1/60 bg-p1/5' : 'border-p2/60 bg-p2/5',
@@ -55,6 +73,8 @@ export function GameLog({ moves, names, className }: GameLogProps) {
                 </Badge>
               )}
             </li>
+            {byMove.has(m.index) && <CommentBubble text={byMove.get(m.index)!.text} />}
+            </Fragment>
           ))}
         </ol>
       )}

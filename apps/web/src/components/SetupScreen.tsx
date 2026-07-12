@@ -8,6 +8,7 @@ import {
   TICTACTOE_VARIANTS,
 } from '@arena/game-core';
 
+import { BattleshipGlyph, TicTacToeGlyph } from '@/components/GameGlyph';
 import { ModelPicker } from '@/components/ModelPicker';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
@@ -20,7 +21,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Slider } from '@/components/ui/slider';
+import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
 import type { MatchConfig } from '@/components/GameRunner';
 import type { MatchMode } from '@/game/orchestrator';
 import type { PlayerSpec } from '@/game/players';
@@ -37,12 +41,32 @@ import { fetchCatalog } from '@/providers/openrouter-catalog';
 import { isWebGpuAvailable } from '@/providers/webllm';
 import { useSettings } from '@/store/settings';
 
-function specFor(model: SelectableModel, apiKey: string | null): PlayerSpec {
+/**
+ * Game-select tile: glyph over title + meta, stacked and left-aligned
+ * (screen 01). Overrides the Tabs trigger's default centered single-line row.
+ */
+const gameTileClass =
+  'h-auto flex-col items-start justify-start gap-2.5 whitespace-normal px-3 py-3';
+
+/** Prompt-lab overrides applied to every LLM in the match (§12.4). */
+interface LabTuning {
+  temperature: number;
+  systemAppendix: string;
+}
+
+function specFor(
+  model: SelectableModel,
+  apiKey: string | null,
+  lab?: LabTuning,
+): PlayerSpec {
+  const tuning = lab
+    ? { temperature: lab.temperature, systemAppendix: lab.systemAppendix }
+    : {};
   if (model.provider === 'webllm') {
-    return { kind: 'webllm', model: model.id, displayName: model.name };
+    return { kind: 'webllm', model: model.id, displayName: model.name, ...tuning };
   }
   if (model.provider === 'ollama') {
-    return { kind: 'ollama', model: model.id, displayName: model.name };
+    return { kind: 'ollama', model: model.id, displayName: model.name, ...tuning };
   }
   return {
     kind: 'openrouter',
@@ -50,6 +74,7 @@ function specFor(model: SelectableModel, apiKey: string | null): PlayerSpec {
     displayName: model.name,
     apiKey: apiKey ?? '',
     price: model.price,
+    ...tuning,
   };
 }
 
@@ -73,6 +98,12 @@ export function SetupScreen({
   const [p1Model, setP1Model] = useState<SelectableModel | null>(null);
   const [p2Model, setP2Model] = useState<SelectableModel | null>(null);
   const [webGpu] = useState(() => isWebGpuAvailable());
+  const [labOpen, setLabOpen] = useState(false);
+  const [appendix, setAppendix] = useState('');
+  const [temperature, setTemperature] = useState(0.2);
+  // §12.1 — commentator is OFF by default; turning it on means picking a model.
+  const [commentatorOn, setCommentatorOn] = useState(false);
+  const [commentatorModel, setCommentatorModel] = useState<SelectableModel | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -137,21 +168,39 @@ export function SetupScreen({
       return;
     }
 
-    const base = { game, variant, seed: randomSeed() };
+    // The commentator runs on the user's key too — refuse to start without one.
+    if (commentatorOn && commentatorModel?.provider === 'openrouter' && !apiKey) {
+      toast.error(pl.setup.needKey);
+      onOpenSettings();
+      return;
+    }
+
+    const lab: LabTuning | undefined = labOpen
+      ? { temperature, systemAppendix: appendix }
+      : undefined;
+    const commentator =
+      commentatorOn && commentatorModel
+        ? {
+            provider: commentatorModel.provider,
+            id: commentatorModel.id,
+            name: commentatorModel.name,
+          }
+        : undefined;
+    const base = { game, variant, seed: randomSeed(), lab: labOpen, commentator };
     const config: MatchConfig =
       mode === 'model_vs_model'
         ? {
             ...base,
             mode,
-            p1: specFor(p1Model as SelectableModel, apiKey),
-            p2: specFor(p2Model, apiKey),
+            p1: specFor(p1Model as SelectableModel, apiKey, lab),
+            p2: specFor(p2Model, apiKey, lab),
             names: { p1: (p1Model as SelectableModel).name, p2: p2Model.name },
           }
         : {
             ...base,
             mode: 'human_vs_model',
             p1: { kind: 'human' },
-            p2: specFor(p2Model, apiKey),
+            p2: specFor(p2Model, apiKey, lab),
             names: { p1: pl.player.human, p2: p2Model.name },
           };
     onStart(config);
@@ -163,12 +212,38 @@ export function SetupScreen({
         <section className="flex flex-col gap-2">
           <SectionLabel tag="01">{pl.setup.game}</SectionLabel>
           <Tabs value={game} onValueChange={(v) => setGame(v as GameId)}>
-            <TabsList className="grid h-auto w-full grid-cols-2">
-              <TabsTrigger value="tictactoe" className="py-2.5">
-                {pl.games.tictactoe}
+            {/* h-9 comes from the Tabs cva variant — override it with the same
+                selector, otherwise the taller tiles overflow the list. */}
+            <TabsList className="grid h-auto w-full grid-cols-2 gap-2 group-data-[orientation=horizontal]/tabs:h-auto">
+              <TabsTrigger
+                value="tictactoe"
+                aria-label={pl.games.tictactoe}
+                className={gameTileClass}
+              >
+                <TicTacToeGlyph />
+                <span className="flex flex-col items-start gap-0.5 text-left">
+                  <span className="text-sm font-semibold text-foreground">
+                    {pl.games.tictactoe}
+                  </span>
+                  <span className="font-mono text-[10px] normal-case tracking-normal text-faint">
+                    {pl.gameMeta.tictactoe}
+                  </span>
+                </span>
               </TabsTrigger>
-              <TabsTrigger value="battleship" className="py-2.5">
-                {pl.games.battleship}
+              <TabsTrigger
+                value="battleship"
+                aria-label={pl.games.battleship}
+                className={gameTileClass}
+              >
+                <BattleshipGlyph />
+                <span className="flex flex-col items-start gap-0.5 text-left">
+                  <span className="text-sm font-semibold text-foreground">
+                    {pl.games.battleship}
+                  </span>
+                  <span className="font-mono text-[10px] normal-case tracking-normal text-faint">
+                    {pl.gameMeta.battleship}
+                  </span>
+                </span>
               </TabsTrigger>
             </TabsList>
           </Tabs>
@@ -242,6 +317,89 @@ export function SetupScreen({
               onSelect={setP2Model}
             />
           </div>
+        </section>
+
+        <section className="flex flex-col gap-3 border-t border-border/60 pt-5">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-col gap-1">
+              <SectionLabel>{pl.commentator.section}</SectionLabel>
+              <p className="max-w-prose text-xs text-muted-foreground">
+                {pl.commentator.lead}
+              </p>
+            </div>
+            <Switch
+              checked={commentatorOn}
+              onCheckedChange={setCommentatorOn}
+              aria-label={pl.commentator.toggle}
+            />
+          </div>
+
+          {commentatorOn && (
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-edu">{pl.commentator.model}</Label>
+              <ModelPicker
+                models={models}
+                loading={loading}
+                value={commentatorModel?.id ?? null}
+                onSelect={setCommentatorModel}
+              />
+              <p className="font-mono text-[10px] text-dim">{pl.commentator.costHint}</p>
+            </div>
+          )}
+        </section>
+
+        <section className="flex flex-col gap-3 border-t border-border/60 pt-5">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-col gap-1">
+              <SectionLabel>{pl.lab.section}</SectionLabel>
+              <p className="max-w-prose text-xs text-muted-foreground">{pl.lab.lead}</p>
+            </div>
+            <Switch
+              checked={labOpen}
+              onCheckedChange={setLabOpen}
+              aria-label={pl.lab.toggle}
+            />
+          </div>
+
+          {labOpen && (
+            <div className="flex flex-col gap-4 clip-cut border border-edu/30 bg-edu/5 p-4">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="lab-appendix" className="text-edu">
+                  {pl.lab.appendix}
+                </Label>
+                <Textarea
+                  id="lab-appendix"
+                  value={appendix}
+                  onChange={(e) => setAppendix(e.target.value)}
+                  placeholder={pl.lab.appendixPlaceholder}
+                  rows={3}
+                />
+                <p className="font-mono text-[10px] text-dim">{pl.lab.appendixHint}</p>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-edu">{pl.lab.temperature}</Label>
+                  <span className="font-mono text-sm font-bold text-edu">
+                    {temperature.toFixed(2)}
+                  </span>
+                </div>
+                <Slider
+                  value={[temperature]}
+                  onValueChange={([t]) => setTemperature(t ?? 0.2)}
+                  min={0}
+                  max={1.5}
+                  step={0.05}
+                  aria-label={pl.lab.temperature}
+                />
+                <p className="font-mono text-[10px] text-dim">{pl.lab.temperatureHint}</p>
+              </div>
+
+              <p className="font-mono text-[10px] uppercase tracking-wider text-edu/80">
+                {pl.lab.excludedNote}
+              </p>
+            </div>
+          )}
         </section>
       </CardContent>
 

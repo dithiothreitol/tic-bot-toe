@@ -55,6 +55,24 @@ function trackingCellGlyph(cell: BattleshipTrackingCell): string {
   return cell === 'hit' ? 'H' : cell === 'sunk' ? 'S' : cell === 'miss' ? 'M' : '';
 }
 
+/**
+ * Shot feedback (SPEC §7.4). The class lands on the cell the moment it takes
+ * its new state, so the animation fires exactly once per shot.
+ */
+function cellFx(cell: BattleshipOwnCell | BattleshipTrackingCell): string {
+  switch (cell) {
+    case 'miss':
+      return 'fx-splash';
+    case 'hit':
+    case 'ship-hit':
+      return 'fx-hit';
+    case 'sunk':
+      return 'fx-sunk';
+    default:
+      return '';
+  }
+}
+
 export function BattleshipBoard({
   size,
   title,
@@ -119,8 +137,9 @@ export function BattleshipBoard({
                   aria-label={coord}
                   onClick={canClick ? () => onFire?.(coord) : undefined}
                   className={cn(
-                    'flex aspect-square items-center justify-center border border-border/50 font-mono text-[10px] font-bold transition-colors',
+                    'relative flex aspect-square items-center justify-center border border-border/50 font-mono text-[10px] font-bold transition-colors',
                     className,
+                    cellFx(cell),
                     canClick && 'cursor-pointer',
                   )}
                 >

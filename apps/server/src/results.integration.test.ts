@@ -8,15 +8,22 @@ import {
   type Move,
   getGame,
 } from '@arena/game-core';
-import { sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { buildApp } from './app';
-import { newJti, signSession } from './auth/jwt';
+import { newJti, signSession, signStartToken } from './auth/jwt';
+import { type PlayerRecord, resolvePlayer } from './auth/player';
 import { loadConfig } from './config';
 import { type DbHandle, createDb } from './db/client';
-import { matches, ratings } from './db/schema';
-import { type ResultMove, type ResultPayload, submitResult } from './db/results';
+import { matches, players, ratings } from './db/schema';
+import {
+  type ResultMove,
+  type ResultPayload,
+  type StartProof,
+  type SubmitOptions,
+  submitResult,
+} from './db/results';
 import { resetLeaderboardCache } from './routes/leaderboard';
 
 let container: StartedPostgreSqlContainer;
@@ -35,7 +42,7 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await handle.db.execute(
-    sql`TRUNCATE matches, ratings, elo_history, used_jti, predictions, daily_results RESTART IDENTITY CASCADE`,
+    sql`TRUNCATE matches, ratings, elo_history, used_jti, predictions, daily_results, players RESTART IDENTITY CASCADE`,
   );
   resetLeaderboardCache();
 });
@@ -73,6 +80,40 @@ function playOut(
     moves,
     setup: def.serializeSetup(state),
   };
+}
+
+/**
+ * A human_vs_model payload: p1 is the literal 'human', p2 an OpenRouter model.
+ * Battleship + a seed gives a distinct move sequence per game (tictactoe's
+ * first-legal-move line is deterministic and would dedup on moves_hash).
+ * The person's move times vary — a real player is neither instant nor metronomic
+ * (§15.3), so a constant latency would trip the human-timing sanity check.
+ */
+function playHuman(seed: number, modelId = 'openrouter:opp'): ResultPayload {
+  const base = playOut('battleship', 'small', seed, 4000, 'human', modelId);
+  let i = 0;
+  return {
+    ...base,
+    mode: 'human_vs_model',
+    moves: base.moves.map((m) =>
+      m.player === 'p1'
+        ? { ...m, telemetry: { ...m.telemetry, latencyMs: 1500 + ((i++ * 373) % 2500) } }
+        : m,
+    ),
+  };
+}
+
+/** Frozen clock + a start token issued `agoMs` ago (§15.3 pacing). */
+const NOW = 1_800_000_000_000;
+const clock = () => NOW;
+
+function startedAgo(agoMs: number): StartProof {
+  return { jti: newJti(), iat: Math.floor((NOW - agoMs) / 1000) };
+}
+
+/** Options for a ranked human match that has been played at a believable pace. */
+function humanOpts(player: PlayerRecord | null, agoMs = 20 * 60_000): SubmitOptions {
+  return { player, start: startedAgo(agoMs), now: clock };
 }
 
 describe('submitResult (real Postgres via testcontainers)', () => {
@@ -278,5 +319,393 @@ describe('HTTP endpoints (real Postgres)', () => {
       await app.request(`/api/head-to-head?a=openrouter:b&b=openrouter:a&${q}`)
     ).json()) as { aWins: number; bWins: number };
     expect(ba).toMatchObject({ aWins: 0, bWins: 1 });
+  });
+});
+
+describe('player identity (SPEC §10)', () => {
+  it('binds the human side to human:<id> and records matches.player_id', async () => {
+    const player = await resolvePlayer(handle.db, 'tok-alice-1234567890');
+    const res = await submitResult(handle.db, newJti(), playHuman(1), '1.2.3.4', humanOpts(player));
+    expect(res.ok).toBe(true);
+
+    const rated = await handle.db.select({ id: ratings.subjectId }).from(ratings);
+    expect(rated.map((r) => r.id)).toContain(`human:${player.id}`);
+    expect(rated.map((r) => r.id)).not.toContain('human');
+
+    const m = await handle.db.select({ pid: matches.playerId }).from(matches);
+    expect(m[0]!.pid).toBe(player.id);
+  });
+
+  it('accumulates every match by the same token into ONE ranking row', async () => {
+    const player = await resolvePlayer(handle.db, 'tok-bob-0987654321xyz');
+    expect((await submitResult(handle.db, newJti(), playHuman(1), null, humanOpts(player))).ok).toBe(true);
+    expect((await submitResult(handle.db, newJti(), playHuman(2), null, humanOpts(player))).ok).toBe(true);
+
+    const rows = await handle.db
+      .select()
+      .from(ratings)
+      .where(eq(ratings.subjectId, `human:${player.id}`));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.games).toBe(2);
+  });
+
+  it('keeps two different tokens as two independent players', async () => {
+    const a = await resolvePlayer(handle.db, 'tok-carol-111111111111');
+    const b = await resolvePlayer(handle.db, 'tok-dave-2222222222222');
+    expect(a.id).not.toBe(b.id);
+    await submitResult(handle.db, newJti(), playHuman(1), null, humanOpts(a));
+    await submitResult(handle.db, newJti(), playHuman(2), null, humanOpts(b));
+    const humanRows = await handle.db
+      .select({ id: ratings.subjectId })
+      .from(ratings)
+      .where(sql`${ratings.subjectId} LIKE 'human:%'`);
+    expect(humanRows).toHaveLength(2);
+  });
+
+  it('falls back to the shared anonymous human row without a token', async () => {
+    await submitResult(handle.db, newJti(), playHuman(1), null, humanOpts(null));
+    const rows = await handle.db.select({ id: ratings.subjectId }).from(ratings);
+    expect(rows.map((r) => r.id)).toContain('human');
+  });
+
+  it('resolvePlayer is idempotent for the same token', async () => {
+    const first = await resolvePlayer(handle.db, 'tok-eve-33333333333333');
+    const again = await resolvePlayer(handle.db, 'tok-eve-33333333333333');
+    expect(first.id).toBe(again.id);
+    expect(await handle.db.select().from(players)).toHaveLength(1);
+  });
+});
+
+describe('player profile + human leaderboard (HTTP)', () => {
+  const cfg = () => loadConfig({ JWT_SECRET: 'test-secret' });
+  const hdr = (token: string) => ({ 'content-type': 'application/json', 'x-player-token': token });
+
+  it('sets, reads and rejects duplicate nicknames', async () => {
+    const app = buildApp({ config: cfg(), db: handle.db });
+    const set = await app.request('/api/player/nickname', {
+      method: 'POST',
+      headers: hdr('tok-frank-444444444444'),
+      body: JSON.stringify({ nickname: 'Frankie' }),
+    });
+    expect(set.status).toBe(200);
+    expect(((await set.json()) as { nickname: string }).nickname).toBe('frankie');
+
+    const me = await app.request('/api/player/me', { headers: hdr('tok-frank-444444444444') });
+    expect(((await me.json()) as { nickname: string }).nickname).toBe('frankie');
+
+    const taken = await app.request('/api/player/nickname', {
+      method: 'POST',
+      headers: hdr('tok-grace-55555555555'),
+      body: JSON.stringify({ nickname: 'Frankie' }),
+    });
+    expect(taken.status).toBe(409);
+    expect(((await taken.json()) as { error: string }).error).toBe('nickname_taken');
+  });
+
+  it('issues a match-start token from POST /api/match/start', async () => {
+    const app = buildApp({ config: cfg(), db: handle.db });
+    const res = await app.request('/api/match/start', { method: 'POST' });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { startToken: string };
+    expect(body.startToken.split('.')).toHaveLength(3); // a JWT
+  });
+
+  it('rejects a profane nickname (400)', async () => {
+    const app = buildApp({ config: cfg(), db: handle.db });
+    const res = await app.request('/api/player/nickname', {
+      method: 'POST',
+      headers: hdr('tok-henry-666666666666'),
+      body: JSON.stringify({ nickname: 'kurwa99' }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it('shows only named, unflagged players in subject=humans', async () => {
+    const app = buildApp({ config: cfg(), db: handle.db });
+    const q = 'mode=human_vs_model&game=battleship&variant=small&subject=humans';
+
+    const player = await resolvePlayer(handle.db, 'tok-iris-777777777777');
+    await submitResult(handle.db, newJti(), playHuman(1), null, humanOpts(player));
+
+    // No nickname yet → hidden.
+    resetLeaderboardCache();
+    let board = (await (await app.request(`/api/leaderboard?${q}`)).json()) as unknown[];
+    expect(board).toHaveLength(0);
+
+    // Give a nickname → visible, labelled by nickname (not the raw subject id).
+    await handle.db.update(players).set({ nickname: 'iris' }).where(eq(players.id, player.id));
+    resetLeaderboardCache();
+    board = (await (await app.request(`/api/leaderboard?${q}`)).json()) as Array<{ subjectId: string }>;
+    expect(board).toHaveLength(1);
+    expect((board[0] as { subjectId: string }).subjectId).toBe('iris');
+
+    // Flag as suspicious → hidden again.
+    await handle.db
+      .update(players)
+      .set({ flaggedAt: sql`now()` })
+      .where(eq(players.id, player.id));
+    resetLeaderboardCache();
+    board = (await (await app.request(`/api/leaderboard?${q}`)).json()) as unknown[];
+    expect(board).toHaveLength(0);
+  });
+});
+
+describe('anti-bot pacing for ranked human matches (SPEC §15.3)', () => {
+  it('refuses a ranked human match with no start token', async () => {
+    const player = await resolvePlayer(handle.db, 'tok-pacing-1111111111');
+    const res = await submitResult(handle.db, newJti(), playHuman(1), null, {
+      player,
+      start: null,
+      now: clock,
+    });
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.code).toBe(422);
+      expect(res.reason).toBe('missing_start_token');
+    }
+  });
+
+  it('refuses a match played faster than a person could play it', async () => {
+    const player = await resolvePlayer(handle.db, 'tok-pacing-2222222222');
+    // Started 1 second ago, but the payload claims a whole battleship game.
+    const res = await submitResult(handle.db, newJti(), playHuman(1), null, humanOpts(player, 1000));
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.reason).toBe('too_fast_for_human');
+  });
+
+  it('accepts the same match once enough real time has passed', async () => {
+    const player = await resolvePlayer(handle.db, 'tok-pacing-3333333333');
+    const res = await submitResult(
+      handle.db,
+      newJti(),
+      playHuman(1),
+      null,
+      humanOpts(player, 20 * 60_000),
+    );
+    expect(res.ok).toBe(true);
+  });
+
+  it('burns the start token — one start, one saved match', async () => {
+    const player = await resolvePlayer(handle.db, 'tok-pacing-4444444444');
+    const start = startedAgo(20 * 60_000);
+    const first = await submitResult(handle.db, newJti(), playHuman(1), null, {
+      player,
+      start,
+      now: clock,
+    });
+    expect(first.ok).toBe(true);
+
+    const replayed = await submitResult(handle.db, newJti(), playHuman(2), null, {
+      player,
+      start, // same start token
+      now: clock,
+    });
+    expect(replayed.ok).toBe(false);
+    if (!replayed.ok) {
+      expect(replayed.code).toBe(409);
+      expect(replayed.reason).toBe('start_token_used');
+    }
+  });
+
+  it('rejects metronomic human move times (a script, not a person)', async () => {
+    const player = await resolvePlayer(handle.db, 'tok-pacing-5555555555');
+    const payload = playHuman(1);
+    // Every human move takes exactly the same time — no person does that.
+    payload.moves = payload.moves.map((m) =>
+      m.player === 'p1' ? { ...m, telemetry: { ...m.telemetry, latencyMs: 2000 } } : m,
+    );
+    const res = await submitResult(handle.db, newJti(), payload, null, humanOpts(player));
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.reason).toBe('suspicious_timing');
+  });
+
+  it('rejects instant human moves (<800ms average)', async () => {
+    const player = await resolvePlayer(handle.db, 'tok-pacing-6666666666');
+    const payload = playHuman(1);
+    let i = 0;
+    payload.moves = payload.moves.map((m) =>
+      m.player === 'p1'
+        ? { ...m, telemetry: { ...m.telemetry, latencyMs: 100 + (i++ % 50) } }
+        : m,
+    );
+    const res = await submitResult(handle.db, newJti(), payload, null, humanOpts(player));
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.reason).toBe('suspicious_timing');
+  });
+
+  it('leaves model_vs_model matches alone (no start token needed)', async () => {
+    const res = await submitResult(
+      handle.db,
+      newJti(),
+      playOut('tictactoe', 'standard', 0, 4000, 'openrouter:a', 'openrouter:b'),
+      null,
+      { now: clock },
+    );
+    expect(res.ok).toBe(true);
+  });
+
+  it('exempts lab human matches — they never rank', async () => {
+    const payload = { ...playHuman(3), lab: true };
+    const res = await submitResult(handle.db, newJti(), payload, null, { start: null, now: clock });
+    expect(res.ok).toBe(true);
+    if (res.ok) expect(res.lab).toBe(true);
+  });
+
+  it('accepts a real start token minted by /api/match/start', async () => {
+    const { jti } = await signStartToken('test-secret', 2700);
+    const player = await resolvePlayer(handle.db, 'tok-pacing-7777777777');
+    // Token freshly minted → too fast; the same jti aged out → accepted.
+    const res = await submitResult(handle.db, newJti(), playHuman(4), null, {
+      player,
+      start: { jti, iat: Math.floor((NOW - 20 * 60_000) / 1000) },
+      now: clock,
+    });
+    expect(res.ok).toBe(true);
+  });
+});
+
+/** Seed N ranked matches saved "today" for a player / IP, bypassing submitResult. */
+async function seedRankedToday(
+  n: number,
+  by: { playerId?: string; clientIp?: string },
+): Promise<void> {
+  await handle.db.insert(matches).values(
+    Array.from({ length: n }, (_, i) => ({
+      mode: 'human_vs_model',
+      game: 'battleship',
+      variant: 'small',
+      p1Id: 'human',
+      p2Id: 'openrouter:opp',
+      winner: 'p1',
+      moves: [],
+      movesHash: `seed-${by.playerId ?? by.clientIp}-${i}`,
+      lab: false,
+      playerId: by.playerId ?? null,
+      clientIp: by.clientIp ?? null,
+    })),
+  );
+}
+
+describe('daily ranked caps + precision flag (SPEC §15.3)', () => {
+  it('stops one identity after 30 ranked matches in a day', async () => {
+    const player = await resolvePlayer(handle.db, 'tok-limit-11111111111');
+    await seedRankedToday(30, { playerId: player.id });
+
+    const res = await submitResult(handle.db, newJti(), playHuman(9), null, humanOpts(player));
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.code).toBe(429);
+      expect(res.reason).toBe('daily_limit');
+    }
+  });
+
+  it('still accepts the 30th match — the cap is a ceiling, not a fence', async () => {
+    const player = await resolvePlayer(handle.db, 'tok-limit-22222222222');
+    await seedRankedToday(29, { playerId: player.id });
+    const res = await submitResult(handle.db, newJti(), playHuman(9), null, humanOpts(player));
+    expect(res.ok).toBe(true);
+  });
+
+  it('stops one machine minting identities after 60 ranked matches from an IP', async () => {
+    const player = await resolvePlayer(handle.db, 'tok-limit-33333333333');
+    await seedRankedToday(60, { clientIp: '9.9.9.9' });
+
+    const res = await submitResult(handle.db, newJti(), playHuman(9), '9.9.9.9', humanOpts(player));
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.code).toBe(429);
+      expect(res.reason).toBe('daily_limit_ip');
+    }
+  });
+
+  it('does not count lab matches against the cap', async () => {
+    const player = await resolvePlayer(handle.db, 'tok-limit-44444444444');
+    await handle.db.insert(matches).values(
+      Array.from({ length: 40 }, (_, i) => ({
+        mode: 'human_vs_model',
+        game: 'battleship',
+        variant: 'small',
+        p1Id: 'human',
+        p2Id: 'openrouter:opp',
+        winner: 'p1',
+        moves: [],
+        movesHash: `lab-${i}`,
+        lab: true, // lab matches never rank, so they never consume the cap
+        playerId: player.id,
+      })),
+    );
+    const res = await submitResult(handle.db, newJti(), playHuman(9), null, humanOpts(player));
+    expect(res.ok).toBe(true);
+  });
+
+  it('flags solver-like battleship precision and hides the player from the board', async () => {
+    const player = await resolvePlayer(handle.db, 'tok-flag-5555555555');
+    await handle.db.update(players).set({ nickname: 'suspect' }).where(eq(players.id, player.id));
+    await submitResult(handle.db, newJti(), playHuman(11), null, humanOpts(player));
+
+    // Force the aggregate past the threshold. It has to be big enough that the
+    // next match's own moves cannot dilute it back under 0.9, because the flag
+    // is evaluated after this match is folded into the running totals.
+    const subjectId = `human:${player.id}`;
+    await handle.db
+      .update(ratings)
+      .set({ totalMoves: 1000, optimalMoves: 990 })
+      .where(eq(ratings.subjectId, subjectId));
+
+    // The next ranked battleship match re-checks the aggregate and flags.
+    await submitResult(handle.db, newJti(), playHuman(12), null, humanOpts(player));
+
+    const [row] = await handle.db
+      .select({ flaggedAt: players.flaggedAt })
+      .from(players)
+      .where(eq(players.id, player.id));
+    expect(row!.flaggedAt).not.toBeNull();
+
+    const app = buildApp({ config: loadConfig({}), db: handle.db });
+    resetLeaderboardCache();
+    const board = (await (
+      await app.request(
+        '/api/leaderboard?mode=human_vs_model&game=battleship&variant=small&subject=humans',
+      )
+    ).json()) as unknown[];
+    expect(board).toHaveLength(0);
+  });
+
+  it('never flags precision in tictactoe — perfect play there is human', async () => {
+    const player = await resolvePlayer(handle.db, 'tok-flag-6666666666');
+    const ttt: ResultPayload = {
+      ...playOut('tictactoe', 'standard', 0, 4000, 'human', 'openrouter:opp'),
+      mode: 'human_vs_model',
+    };
+    let i = 0;
+    ttt.moves = ttt.moves.map((m) =>
+      m.player === 'p1'
+        ? { ...m, telemetry: { ...m.telemetry, latencyMs: 1500 + ((i++ * 373) % 2500) } }
+        : m,
+    );
+    await submitResult(handle.db, newJti(), ttt, null, humanOpts(player));
+
+    await handle.db
+      .update(ratings)
+      .set({ totalMoves: 200, optimalMoves: 200 }) // flawless, but that is normal in tictactoe
+      .where(eq(ratings.subjectId, `human:${player.id}`));
+
+    const ttt2: ResultPayload = {
+      ...playOut('tictactoe', 'standard', 0, 4000, 'human', 'openrouter:opp2'),
+      mode: 'human_vs_model',
+    };
+    let j = 0;
+    ttt2.moves = ttt2.moves.map((m) =>
+      m.player === 'p1'
+        ? { ...m, telemetry: { ...m.telemetry, latencyMs: 1400 + ((j++ * 411) % 2200) } }
+        : m,
+    );
+    await submitResult(handle.db, newJti(), ttt2, null, humanOpts(player));
+
+    const [row] = await handle.db
+      .select({ flaggedAt: players.flaggedAt })
+      .from(players)
+      .where(eq(players.id, player.id));
+    expect(row!.flaggedAt).toBeNull();
   });
 });

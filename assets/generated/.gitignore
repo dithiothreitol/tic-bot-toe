@@ -1,0 +1,4 @@
+# Raw Gemini renders and dry-run prompts are reproducible from scripts/gen —
+# keep them out of git. Distributed assets live in apps/web/public (tracked).
+*
+!.gitignore

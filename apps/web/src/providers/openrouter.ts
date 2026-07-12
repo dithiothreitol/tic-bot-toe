@@ -18,8 +18,10 @@ export interface OpenRouterConfig {
   /** User's key, read from localStorage. Sent only to openrouter.ai. */
   apiKey: string;
   price?: TokenPrice;
-  temperature?: number; // SPEC §8 default 0.2
+  temperature?: number; // SPEC §8 default 0.2 (lab: 0–1.5 slider, §12.4)
   maxTokens?: number; // SPEC §8: 50–60
+  /** Prompt-lab appendix (§12.4), appended after the core system prompt. */
+  systemAppendix?: string;
   /** HTTP-Referer / X-Title for OpenRouter attribution. */
   referer?: string;
   title?: string;
@@ -102,6 +104,7 @@ export function createOpenRouterPlayer(
       return runLlmMove(view, legal, {
         transport,
         price: config.price,
+        systemAppendix: config.systemAppendix,
         ...config.runner,
       });
     },

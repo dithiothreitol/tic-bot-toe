@@ -1,8 +1,9 @@
 import type { Move, MoveTelemetry } from '@arena/game-core';
 
-import { type SaveResultResponse, apiPost } from '@/api/client';
+import { ApiError, type SaveResultResponse, apiPost } from '@/api/client';
 import type { MatchOutcome } from '@/game/orchestrator';
-import { ensureSession } from '@/store/session';
+import { clearSession, ensureSession } from '@/store/session';
+import { getPlayerToken } from '@/store/settings';
 
 interface ResultPayload {
   mode: string;
@@ -14,11 +15,22 @@ interface ResultPayload {
   setup?: unknown;
   lab: boolean;
   priceSnapshot?: unknown;
+  commentary?: unknown;
+}
+
+export interface SaveResultOptions {
+  priceSnapshot?: unknown;
+  /** Prompt-lab match (§12.4): saved for replays, excluded from Elo (server-enforced). */
+  lab?: boolean;
+  /** Commentator bubbles (§12.1), opt-in — [{moveIndex, text, modelId}]. */
+  commentary?: unknown;
+  /** Match-start token (§15.3) — required for a ranked human match. */
+  startToken?: string;
 }
 
 export function buildResultPayload(
   outcome: MatchOutcome,
-  priceSnapshot?: unknown,
+  opts: SaveResultOptions = {},
 ): ResultPayload {
   return {
     mode: outcome.mode,
@@ -32,16 +44,34 @@ export function buildResultPayload(
       telemetry: m.telemetry,
     })),
     setup: outcome.setup,
-    lab: false,
-    priceSnapshot,
+    lab: opts.lab ?? false,
+    priceSnapshot: opts.priceSnapshot,
+    commentary: opts.commentary,
   };
 }
 
-/** Ensure a Turnstile session, then POST the match to /api/result. */
+/**
+ * Ensure a Turnstile session, then POST the match to /api/result. In
+ * human_vs_model we also send the identity token, so this person's matches all
+ * land in one ranking row instead of the shared anonymous 'human' bucket (§10).
+ */
 export async function saveResult(
   outcome: MatchOutcome,
-  priceSnapshot?: unknown,
+  opts: SaveResultOptions = {},
 ): Promise<SaveResultResponse> {
   const token = await ensureSession();
-  return apiPost<SaveResultResponse>('/api/result', buildResultPayload(outcome, priceSnapshot), token);
+  const playerToken = outcome.mode === 'human_vs_model' ? getPlayerToken() : undefined;
+  try {
+    return await apiPost<SaveResultResponse>('/api/result', buildResultPayload(outcome, opts), {
+      token,
+      playerToken,
+    });
+  } catch (e) {
+    // A spent or rejected session must not linger — the next attempt should
+    // re-verify through Turnstile rather than replay a dead token.
+    if (e instanceof ApiError && (e.status === 401 || e.message === 'jti_used')) {
+      clearSession();
+    }
+    throw e;
+  }
 }

@@ -11,26 +11,56 @@ export class ApiError extends Error {
   }
 }
 
-export async function apiGet<T>(path: string): Promise<T> {
-  const res = await fetch(`${BASE}${path}`);
+/** `playerToken` identifies the person behind a match/profile call (SPEC §10). */
+export interface ApiAuth {
+  token?: string;
+  playerToken?: string;
+}
+
+function authHeaders(auth: ApiAuth = {}): Record<string, string> {
+  return {
+    ...(auth.token ? { authorization: `Bearer ${auth.token}` } : {}),
+    ...(auth.playerToken ? { 'x-player-token': auth.playerToken } : {}),
+  };
+}
+
+export async function apiGet<T>(path: string, auth: ApiAuth = {}): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, { headers: authHeaders(auth) });
   if (!res.ok) throw new ApiError(res.status, `GET ${path} → ${res.status}`);
   return (await res.json()) as T;
 }
 
-export async function apiPost<T>(path: string, body: unknown, token?: string): Promise<T> {
+export async function apiPost<T>(path: string, body: unknown, auth: ApiAuth = {}): Promise<T> {
+  return send<T>('POST', path, auth, body);
+}
+
+export async function apiDelete<T>(path: string, auth: ApiAuth = {}): Promise<T> {
+  return send<T>('DELETE', path, auth);
+}
+
+async function send<T>(
+  method: 'POST' | 'DELETE',
+  path: string,
+  auth: ApiAuth,
+  body?: unknown,
+): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      ...(token ? { authorization: `Bearer ${token}` } : {}),
-    },
-    body: JSON.stringify(body),
+    method,
+    headers: { 'content-type': 'application/json', ...authHeaders(auth) },
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
   if (!res.ok) {
     const detail = (await res.json().catch(() => ({}))) as { error?: string };
     throw new ApiError(res.status, detail.error ?? `HTTP ${res.status}`);
   }
   return (await res.json()) as T;
+}
+
+/** Pseudonymous player profile (SPEC §10). */
+export interface PlayerProfile {
+  id: string;
+  nickname: string | null;
+  flagged: boolean;
 }
 
 export interface LeaderboardRow {

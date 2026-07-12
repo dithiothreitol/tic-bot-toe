@@ -168,4 +168,34 @@ describe('runLlmMove', () => {
     const { transport } = scriptedTransport([{ text: '{"move": 0}' }]);
     await expect(runLlmMove(view, [], { transport })).rejects.toThrow(/no legal moves/);
   });
+
+  // ── Prompt lab (§12.4) ────────────────────────────────────────────────────
+  it('appends the lab systemAppendix AFTER the core system prompt', async () => {
+    const { view, legal } = viewAndLegal();
+    const { transport, calls } = scriptedTransport([{ text: '{"move": 4}' }]);
+
+    await runLlmMove(view, legal, {
+      transport,
+      systemAppendix: 'Play aggressively.',
+    });
+
+    const system = calls[0][0];
+    expect(system.role).toBe('system');
+    // Core prompt stays intact and comes first; the appendix is tacked on the end.
+    expect(system.content.endsWith('Play aggressively.')).toBe(true);
+    expect(system.content.indexOf('Play aggressively.')).toBeGreaterThan(0);
+    // The core response-format instruction still precedes the appendix.
+    const { system: core } = ticTacToe.renderPrompt(view, legal);
+    expect(system.content.startsWith(core)).toBe(true);
+  });
+
+  it('leaves the system prompt untouched when the appendix is blank', async () => {
+    const { view, legal } = viewAndLegal();
+    const { transport, calls } = scriptedTransport([{ text: '{"move": 4}' }]);
+
+    await runLlmMove(view, legal, { transport, systemAppendix: '   ' });
+
+    const { system: core } = ticTacToe.renderPrompt(view, legal);
+    expect(calls[0][0].content).toBe(core);
+  });
 });

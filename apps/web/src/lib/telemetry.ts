@@ -125,3 +125,31 @@ export function buildScatter(rows: LeaderboardRow[]): ScatterPoint[] {
       games: r.games,
     }));
 }
+
+// ------------------------------------------------- 4. Per-player running totals
+/**
+ * What one side has spent so far in the live match: thinking time and tokens.
+ * `tokens` is null when no move reported usage — a missing figure is shown as
+ * "—", never as 0 (SPEC §20: brak tokenów jako „—", nie 0).
+ */
+export interface SideTotals {
+  moves: number;
+  latencyMs: number;
+  tokens: number | null;
+}
+
+export function sideTotals(log: MoveLogEntry[], side: 'p1' | 'p2'): SideTotals {
+  const mine = log.filter((m) => m.player === side);
+  let tokens: number | null = null;
+  for (const m of mine) {
+    const used = (m.telemetry.promptTokens ?? 0) + (m.telemetry.completionTokens ?? 0);
+    const reported =
+      m.telemetry.promptTokens !== undefined || m.telemetry.completionTokens !== undefined;
+    if (reported) tokens = (tokens ?? 0) + used;
+  }
+  return {
+    moves: mine.length,
+    latencyMs: mine.reduce((s, m) => s + m.telemetry.latencyMs, 0),
+    tokens,
+  };
+}

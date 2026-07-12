@@ -82,6 +82,8 @@ function getEngine(
 export interface WebLlmConfig {
   temperature?: number;
   maxTokens?: number;
+  /** Prompt-lab appendix (§12.4), appended after the core system prompt. */
+  systemAppendix?: string;
   factory?: WebLlmEngineFactory;
   runner?: Pick<LlmMoveConfig, 'maxRetries' | 'timeoutMs' | 'rng' | 'now'>;
   /** Override the progress reporter (defaults to the model-load store). */
@@ -131,7 +133,11 @@ export function createWebLlmPlayer(
     kind: 'llm',
     // No price → costUsd stays undefined (free).
     getMove(view: PlayerView, legal: Move[]): Promise<MoveResult> {
-      return runLlmMove(view, legal, { transport, ...config.runner });
+      return runLlmMove(view, legal, {
+        transport,
+        systemAppendix: config.systemAppendix,
+        ...config.runner,
+      });
     },
   };
 }

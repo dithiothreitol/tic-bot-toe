@@ -19,6 +19,27 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 
+/**
+ * Pseudonymous player identity (SPEC §10/§16). One row per person; the client
+ * holds a random bearer secret in localStorage, we store only its SHA-256
+ * (`token_hash`). This is what makes every match by the same person accumulate
+ * into a single ranking row (`ratings.subject_id = human:<players.id>`). No PII.
+ */
+export const players = pgTable(
+  'players',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tokenHash: text('token_hash').notNull(), // sha256 hex (64 chars)
+    nickname: text('nickname'), // NULL = not shown in the human leaderboard
+    flaggedAt: timestamp('flagged_at', { withTimezone: true }), // suspicious precision (T3)
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('players_token_hash').on(t.tokenHash),
+    uniqueIndex('players_nickname').on(t.nickname),
+  ],
+);
+
 /** Match records (SPEC §13). `moves` holds move + telemetry; no prompt text (§16). */
 export const matches = pgTable(
   'matches',
@@ -40,12 +61,15 @@ export const matches = pgTable(
     forfeitMovesP1: integer('forfeit_moves_p1').notNull().default(0),
     forfeitMovesP2: integer('forfeit_moves_p2').notNull().default(0),
     durationMs: integer('duration_ms'),
+    /** Human player behind this match, when identified (T1). Powers daily limits (T3). */
+    playerId: uuid('player_id').references(() => players.id),
     clientIp: inet('client_ip'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     uniqueIndex('matches_dedup').on(t.movesHash),
     index('matches_lb').on(t.mode, t.game, t.variant, t.createdAt.desc()),
+    index('matches_player_day').on(t.playerId, t.createdAt),
     check('matches_mode_chk', sql`${t.mode} IN ('model_vs_model','human_vs_model')`),
     check('matches_winner_chk', sql`${t.winner} IN ('p1','p2','draw')`),
   ],

@@ -5,11 +5,16 @@ import type { Database } from './db/client';
 import { rateLimit } from './middleware/rate-limit';
 import { securityHeaders } from './middleware/security';
 import { eloHistoryRoute, headToHeadRoute } from './routes/analytics';
+import { dailyRoute } from './routes/daily';
 import { healthRoute } from './routes/health';
 import { leaderboardRoute } from './routes/leaderboard';
+import { matchStartRoute } from './routes/match';
 import { matchesRoute, replayRoute } from './routes/matches';
+import { modelRoute } from './routes/model';
 import { ogRoute } from './routes/og';
 import { ollamaRoute } from './routes/ollama';
+import { playerRoute } from './routes/player';
+import { predictionRoute, predictionsLeaderboardRoute } from './routes/predictions';
 import { resultRoute } from './routes/result';
 import { verifyRoute } from './routes/verify';
 
@@ -38,14 +43,34 @@ export function buildApp(deps: AppDeps): Hono {
     rateLimit('verify', 30, { trustedProxy: deps.config.trustedProxy, now: deps.now }),
   );
   api.route('/verify', verifyRoute({ config: deps.config, fetch: deps.fetch }));
+  api.use(
+    '/match/*',
+    rateLimit('match', 120, { trustedProxy: deps.config.trustedProxy, now: deps.now }),
+  );
+  api.route('/match', matchStartRoute({ config: deps.config }));
 
   if (deps.db) {
     api.use(
       '/result',
       rateLimit('result', 60, { trustedProxy: deps.config.trustedProxy, now: deps.now }),
     );
-    api.route('/result', resultRoute({ db: deps.db, config: deps.config }));
+    api.route('/result', resultRoute({ db: deps.db, config: deps.config, now: deps.now }));
+    api.use(
+      '/player/*',
+      rateLimit('player', 30, { trustedProxy: deps.config.trustedProxy, now: deps.now }),
+    );
+    api.route('/player', playerRoute({ db: deps.db }));
+    // Viewer predictions (§12.5): JWT + 60/h per SPEC §14.
+    api.use(
+      '/prediction',
+      rateLimit('prediction', 60, { trustedProxy: deps.config.trustedProxy, now: deps.now }),
+    );
+    api.route('/prediction', predictionRoute({ db: deps.db, config: deps.config, now: deps.now }));
+    api.route('/predictions', predictionsLeaderboardRoute({ db: deps.db }));
+    // Daily challenge (§12.6): config derived from the date, no cron.
+    api.route('/daily', dailyRoute({ db: deps.db }));
     api.route('/leaderboard', leaderboardRoute({ db: deps.db, now: deps.now }));
+    api.route('/model', modelRoute({ db: deps.db }));
     api.route('/elo-history', eloHistoryRoute({ db: deps.db }));
     api.route('/head-to-head', headToHeadRoute({ db: deps.db }));
     api.route('/matches', matchesRoute({ db: deps.db }));

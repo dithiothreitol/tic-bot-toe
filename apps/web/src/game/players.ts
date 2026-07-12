@@ -15,9 +15,22 @@ export type PlayerSpec =
       apiKey: string;
       price?: TokenPrice;
       temperature?: number;
+      systemAppendix?: string;
     }
-  | { kind: 'webllm'; model: string; displayName: string; temperature?: number }
-  | { kind: 'ollama'; model: string; displayName: string; temperature?: number };
+  | {
+      kind: 'webllm';
+      model: string;
+      displayName: string;
+      temperature?: number;
+      systemAppendix?: string;
+    }
+  | {
+      kind: 'ollama';
+      model: string;
+      displayName: string;
+      temperature?: number;
+      systemAppendix?: string;
+    };
 
 export interface BuiltPlayer {
   player: Player;
@@ -35,12 +48,14 @@ export function makePlayer(spec: PlayerSpec): BuiltPlayer {
       return {
         player: createWebLlmPlayer(spec.model, spec.displayName, {
           temperature: spec.temperature,
+          systemAppendix: spec.systemAppendix,
         }),
       };
     case 'ollama':
       return {
         player: createOllamaPlayer(spec.model, spec.displayName, {
           temperature: spec.temperature,
+          systemAppendix: spec.systemAppendix,
         }),
       };
     case 'openrouter':
@@ -51,6 +66,7 @@ export function makePlayer(spec: PlayerSpec): BuiltPlayer {
             apiKey: spec.apiKey,
             price: spec.price,
             temperature: spec.temperature,
+            systemAppendix: spec.systemAppendix,
           },
           spec.displayName,
         ),

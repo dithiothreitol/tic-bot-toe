@@ -1,13 +1,14 @@
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 
 import type { Database } from '../db/client';
-import { ratings } from '../db/schema';
+import { players, ratings } from '../db/schema';
 
 /**
- * GET /api/leaderboard?mode=&game=&variant= — ranking with telemetry (SPEC §10).
- * In-memory cache 60s. Latency is the mean from the running sums (median from
- * `matches` is a Stage 9+ refinement).
+ * GET /api/leaderboard?mode=&game=&variant=&subject= — ranking with telemetry
+ * (SPEC §10). `subject=models` (default) ranks non-human subjects; `subject=humans`
+ * ranks identified people (join `players`), showing nicknames and only players
+ * who set a nickname and are not flagged. In-memory cache 60s.
  */
 interface CacheEntry {
   at: number;
@@ -20,37 +21,67 @@ export function resetLeaderboardCache(): void {
   cache.clear();
 }
 
+/** Shared telemetry projection for a `ratings` row. */
+function project(r: typeof ratings.$inferSelect, label: string) {
+  return {
+    subjectId: label,
+    elo: r.elo,
+    wins: r.wins,
+    losses: r.losses,
+    draws: r.draws,
+    games: r.games,
+    forfeitRate: r.totalMoves > 0 ? r.forfeitMoves / r.totalMoves : 0,
+    avgLatencyMs: r.totalMoves > 0 ? r.latencyMsSum / r.totalMoves : null,
+    avgTokensPerMove: r.totalMoves > 0 ? Number(r.tokensSum) / r.totalMoves : null,
+    avgCostPerGame: r.games > 0 ? Number(r.costUsdSum) / r.games : null,
+    optimalRate: r.totalMoves > 0 ? r.optimalMoves / r.totalMoves : null,
+  };
+}
+
 export function leaderboardRoute(deps: { db: Database; now?: () => number }): Hono {
   const app = new Hono();
   app.get('/', async (c) => {
     const mode = c.req.query('mode') ?? 'model_vs_model';
     const game = c.req.query('game') ?? 'tictactoe';
     const variant = c.req.query('variant') ?? 'standard';
-    const key = `${mode}:${game}:${variant}`;
+    const subject = c.req.query('subject') === 'humans' ? 'humans' : 'models';
+    const key = `${subject}:${mode}:${game}:${variant}`;
     const now = (deps.now ?? Date.now)();
 
     const cached = cache.get(key);
     if (cached && now - cached.at < TTL_MS) return c.json(cached.data);
 
-    const rows = await deps.db
-      .select()
-      .from(ratings)
-      .where(and(eq(ratings.mode, mode), eq(ratings.game, game), eq(ratings.variant, variant)))
-      .orderBy(desc(ratings.elo));
+    const where = and(eq(ratings.mode, mode), eq(ratings.game, game), eq(ratings.variant, variant));
 
-    const data = rows.map((r) => ({
-      subjectId: r.subjectId,
-      elo: r.elo,
-      wins: r.wins,
-      losses: r.losses,
-      draws: r.draws,
-      games: r.games,
-      forfeitRate: r.totalMoves > 0 ? r.forfeitMoves / r.totalMoves : 0,
-      avgLatencyMs: r.totalMoves > 0 ? r.latencyMsSum / r.totalMoves : null,
-      avgTokensPerMove: r.totalMoves > 0 ? Number(r.tokensSum) / r.totalMoves : null,
-      avgCostPerGame: r.games > 0 ? Number(r.costUsdSum) / r.games : null,
-      optimalRate: r.totalMoves > 0 ? r.optimalMoves / r.totalMoves : null,
-    }));
+    let data: unknown;
+    if (subject === 'humans') {
+      // Identified people only: subject_id 'human:<uuid>' joined to a named,
+      // unflagged player. The anonymous aggregate 'human' never appears.
+      const rows = await deps.db
+        .select({ r: ratings, nickname: players.nickname })
+        .from(ratings)
+        .innerJoin(
+          players,
+          eq(players.id, sql`substring(${ratings.subjectId} from 7)::uuid`),
+        )
+        .where(
+          and(
+            where,
+            sql`${ratings.subjectId} LIKE 'human:%'`,
+            sql`${players.nickname} IS NOT NULL`,
+            sql`${players.flaggedAt} IS NULL`,
+          ),
+        )
+        .orderBy(desc(ratings.elo));
+      data = rows.map((row) => project(row.r, row.nickname!));
+    } else {
+      const rows = await deps.db
+        .select()
+        .from(ratings)
+        .where(and(where, sql`${ratings.subjectId} NOT LIKE 'human%'`))
+        .orderBy(desc(ratings.elo));
+      data = rows.map((r) => project(r, r.subjectId));
+    }
 
     cache.set(key, { at: now, data });
     return c.json(data);

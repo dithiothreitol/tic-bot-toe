@@ -24,7 +24,7 @@ import { GameLog } from '@/components/GameLog';
 import { ShipPlacement } from '@/components/ShipPlacement';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { HudPanel } from '@/components/ui/hud';
+import { HudPanel, SectionLabel } from '@/components/ui/hud';
 import {
   type MatchMode,
   type MatchOutcome,
@@ -35,12 +35,34 @@ import {
 import { type PlayerSpec, makePlayer } from '@/game/players';
 import { toast } from 'sonner';
 
-import type { SaveResultResponse } from '@/api/client';
+import { ApiError, type SaveResultResponse } from '@/api/client';
+import {
+  type DailyClaim,
+  type PredictedSide,
+  type PredictionResult,
+  claimDaily,
+  submitPrediction,
+} from '@/api/community';
+import { fetchStartToken } from '@/api/match';
 import { saveResult } from '@/api/results';
+import {
+  type Commentary,
+  type Commentator,
+  classifyLastMove,
+  createCommentator,
+  shouldComment,
+} from '@/providers/commentator';
+import type { ChatTransport } from '@/providers/llm-runner';
+import { createOllamaTransport } from '@/providers/ollama';
+import { createOpenRouterTransport } from '@/providers/openrouter';
+import { createWebLlmTransport } from '@/providers/webllm';
+import { getOpenRouterKey } from '@/store/settings';
 import { pl } from '@/i18n/pl';
-import { formatCost } from '@/lib/format';
+import { formatCost, formatMs, formatTokens } from '@/lib/format';
+import { type SideTotals, sideTotals } from '@/lib/telemetry';
 import { cn } from '@/lib/utils';
 import type { HumanPlayerHandle } from '@/providers/human';
+import { clearSession, ensureSession } from '@/store/session';
 
 function priceSnapshotFor(config: MatchConfig): Record<string, unknown> {
   const snap: Record<string, unknown> = {};
@@ -80,12 +102,47 @@ export interface MatchConfig {
   names: { p1: string; p2: string };
   seed: number;
   extraShotOnHit?: boolean;
+  /** Prompt-lab match (§12.4): excluded from Elo, kept for replays. */
+  lab?: boolean;
+  /** Started from the daily-challenge tile (§12.6) — a win claims the day. */
+  daily?: boolean;
+  /** AI commentator (§12.1) — off unless the user picked a model. Never a player. */
+  commentator?: CommentatorSpec;
+}
+
+export interface CommentatorSpec {
+  provider: 'openrouter' | 'webllm' | 'ollama';
+  id: string;
+  name: string;
+}
+
+/** The commentator runs on the same providers as the players (§12.1), on the user's key. */
+function commentatorTransport(spec: CommentatorSpec, apiKey: string | null): ChatTransport {
+  const tuning = { temperature: 0.7, maxTokens: 90 };
+  if (spec.provider === 'webllm') return createWebLlmTransport(spec.id, tuning);
+  if (spec.provider === 'ollama') return createOllamaTransport(spec.id, tuning);
+  return createOpenRouterTransport({ model: spec.id, apiKey: apiKey ?? '', ...tuning });
 }
 
 function humanSideOf(config: MatchConfig): PlayerSide | null {
   if (config.p1.kind === 'human') return 'p1';
   if (config.p2.kind === 'human') return 'p2';
   return null;
+}
+
+function statusToWinnerSide(status: GameStatus): PlayerSide | null {
+  if (status === 'p1_won') return 'p1';
+  if (status === 'p2_won') return 'p2';
+  return null;
+}
+
+/** Turn an anti-bot rejection (§15.3) into something a person can act on. */
+function saveErrorMessage(e: unknown): string {
+  const reason = e instanceof ApiError ? e.message : '';
+  if (reason === 'too_fast_for_human') return pl.result.saveTooFast;
+  if (reason === 'daily_limit' || reason === 'daily_limit_ip') return pl.result.saveDailyLimit;
+  if (reason === 'missing_start_token') return pl.result.saveNoStart;
+  return pl.result.saveError;
 }
 
 export function GameRunner({
@@ -106,13 +163,29 @@ export function GameRunner({
   const [saveResponse, setSaveResponse] = useState<SaveResultResponse | null>(null);
   const [showAnalysis, setShowAnalysis] = useState(false);
   const humansRef = useRef<Partial<Record<PlayerSide, HumanPlayerHandle>>>({});
+  /** Server-stamped start of this match — proves the person really spent the time (§15.3). */
+  const startTokenRef = useRef<string | null>(null);
+
+  /**
+   * Viewer prediction (§12.5). The bet must be placed BEFORE the first move, so
+   * the match itself is gated on it: `pending` blocks the run loop until the
+   * viewer picks a side or skips. Only meaningful for model vs model.
+   */
+  const [prediction, setPrediction] = useState<PredictedSide | 'pending' | 'skipped'>(
+    config.mode === 'model_vs_model' ? 'pending' : 'skipped',
+  );
+  const [predictionResult, setPredictionResult] = useState<PredictionResult | null>(null);
+  const [dailyClaim, setDailyClaim] = useState<DailyClaim | null>(null);
+  /** Commentator bubbles (§12.1), keyed by the move they belong to. */
+  const [commentary, setCommentary] = useState<Commentary[]>([]);
 
   const humanSide = humanSideOf(config);
   const needsPlacement =
     config.game === 'battleship' && humanSide !== null && placement === null;
+  const needsPrediction = prediction === 'pending';
 
   useEffect(() => {
-    if (needsPlacement) return;
+    if (needsPlacement || needsPrediction) return;
 
     const abort = new AbortController();
     const humans: Partial<Record<PlayerSide, HumanPlayerHandle>> = {};
@@ -132,6 +205,33 @@ export function GameRunner({
     setSaveState('idle');
     setSaveResponse(null);
     setShowAnalysis(false);
+    setPredictionResult(null);
+    setDailyClaim(null);
+    setCommentary([]);
+
+    // §12.1 — a third model narrating. It never enters `players`, so it cannot
+    // influence a single move; it only watches. Comments land asynchronously.
+    let commentator: Commentator | null = null;
+    if (config.commentator) {
+      const spec = config.commentator;
+      commentator = createCommentator({
+        transport: commentatorTransport(spec, getOpenRouterKey()),
+        modelId: `${spec.provider}:${spec.id}`,
+        onComment: (c) =>
+          setCommentary((prev) =>
+            prev.some((x) => x.moveIndex === c.moveIndex) ? prev : [...prev, c],
+          ),
+      });
+    }
+
+    // Stamp the start of a human match server-side (§15.3). Best-effort and
+    // non-blocking: the game runs regardless, only the ranking save needs it.
+    startTokenRef.current = null;
+    if (humanSide !== null) {
+      void fetchStartToken().then((t) => {
+        startTokenRef.current = t;
+      });
+    }
 
     const setupConfig: SetupConfig = {
       seed: config.seed + restartKey,
@@ -147,6 +247,9 @@ export function GameRunner({
       setToMove(snap.toMove);
     };
 
+    /** State BEFORE the move currently being reported — needed to grade it. */
+    let prevState: unknown = null;
+
     void runMatch({
       mode: config.mode,
       game: config.game,
@@ -155,16 +258,43 @@ export function GameRunner({
       players,
       signal: abort.signal,
       safetyMaxMoves: config.game === 'battleship' ? 2 * size * size : 9,
-      onStart: applySnap,
+      onStart: (snap) => {
+        applySnap(snap);
+        prevState = snap.state;
+      },
       onMove: (entry, snap) => {
         setLog((l) => [...l, entry]);
         applySnap(snap);
+
+        if (commentator && prevState !== null) {
+          const quality = classifyLastMove(config.game, prevState, entry.player, entry.move);
+          const isFinal = snap.status !== 'playing';
+          if (shouldComment(entry.index, quality, isFinal)) {
+            const winner = isFinal ? statusToWinnerSide(snap.status) : null;
+            // Fire-and-forget: this returns instantly, the match never waits (§12.1).
+            commentator.enqueue({
+              game: config.game,
+              moveIndex: entry.index,
+              player: entry.player,
+              playerName: entry.player === 'p1' ? config.names.p1 : config.names.p2,
+              move: entry.move,
+              quality,
+              state: snap.state,
+              isFinal,
+              winnerName: winner ? config.names[winner] : null,
+            });
+          }
+        }
+        prevState = snap.state;
       },
       onEnd: setOutcome,
     });
 
-    return () => abort.abort();
-  }, [config, restartKey, placement, needsPlacement, humanSide]);
+    return () => {
+      abort.abort();
+      commentator?.stop();
+    };
+  }, [config, restartKey, placement, needsPlacement, needsPrediction, humanSide]);
 
   const isHumanTurn =
     status === 'playing' && outcome === null && humansRef.current[toMove] !== undefined;
@@ -178,6 +308,7 @@ export function GameRunner({
 
   const rematch = () => {
     setPlacement(null);
+    setPrediction(config.mode === 'model_vs_model' ? 'pending' : 'skipped');
     setRestartKey((k) => k + 1);
   };
 
@@ -187,12 +318,45 @@ export function GameRunner({
     if (!outcome) return;
     setSaveState('saving');
     try {
-      const resp = await saveResult(outcome, priceSnapshotFor(config));
+      // Take the session token up front: the save burns its jti and clears the
+      // session, and the prediction below still needs a valid JWT (§14). Reusing
+      // it here means at most one Turnstile per match.
+      const session = await ensureSession();
+      const resp = await saveResult(outcome, {
+        priceSnapshot: priceSnapshotFor(config),
+        lab: config.lab,
+        startToken: startTokenRef.current ?? undefined,
+        // §12.1 — commentary is opt-in content, so it rides along only when present.
+        commentary: commentary.length > 0 ? [...commentary].sort((a, b) => a.moveIndex - b.moveIndex) : undefined,
+      });
       setSaveResponse(resp);
       setSaveState('saved');
+      // The session jti is burned by a successful save; drop it so the next save
+      // re-verifies through Turnstile instead of failing with jti_used.
+      clearSession();
+
+      // §12.5 — score the bet against the winner the SERVER just replayed.
+      if (prediction !== 'pending' && prediction !== 'skipped') {
+        try {
+          setPredictionResult(await submitPrediction(resp.matchId, prediction, session));
+        } catch {
+          /* points are a bonus, never a reason to fail the save */
+        }
+      }
+
+      // §12.6 — a won daily challenge claims the day and extends the streak.
+      if (config.daily && humanSide !== null && outcome.winner === humanSide) {
+        try {
+          const claim = await claimDaily(resp.matchId);
+          setDailyClaim(claim);
+          toast.success(`${pl.daily.claimed}${claim.streak}`);
+        } catch {
+          toast.error(pl.daily.claimError);
+        }
+      }
     } catch (e) {
       setSaveState('idle');
-      if ((e as Error).message !== 'anulowano') toast.error(pl.result.saveError);
+      if ((e as Error).message !== 'anulowano') toast.error(saveErrorMessage(e));
     }
   };
 
@@ -214,9 +378,34 @@ export function GameRunner({
       <Button variant="ghost" size="sm" onClick={onExit}>
         ← {pl.result.backToSetup}
       </Button>
-      <span className="section-label">
-        {pl.games[config.game]} ·{' '}
-        {config.mode === 'model_vs_model' ? pl.mode.modelVsModel : pl.mode.humanVsModel}
+      <span className="flex items-center gap-2">
+        {config.lab && (
+          <span className="clip-cut border border-edu/50 bg-edu/10 px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-widest text-edu">
+            {pl.lab.badge}
+          </span>
+        )}
+        {prediction !== 'pending' && prediction !== 'skipped' && (
+          <span className="clip-cut border border-border bg-card-inset px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest text-dim">
+            {pl.prediction.locked}:{' '}
+            <span
+              className={cn(
+                'font-bold',
+                prediction === 'p1' && 'text-p1',
+                prediction === 'p2' && 'text-p2',
+              )}
+            >
+              {prediction === 'draw'
+                ? pl.prediction.draw
+                : prediction === 'p1'
+                  ? config.names.p1
+                  : config.names.p2}
+            </span>
+          </span>
+        )}
+        <span className="section-label">
+          {pl.games[config.game]} ·{' '}
+          {config.mode === 'model_vs_model' ? pl.mode.modelVsModel : pl.mode.humanVsModel}
+        </span>
       </span>
     </div>
   );
@@ -235,10 +424,50 @@ export function GameRunner({
           name={side === 'p1' ? config.names.p1 : config.names.p2}
           symbol={slotSymbol(side)}
           active={activeSide(side)}
+          totals={sideTotals(log, side)}
         />
       ))}
     </div>
   );
+
+  // §12.5 — the bet is placed before the match exists, so nothing can leak.
+  if (needsPrediction) {
+    return (
+      <div className="flex w-full flex-col gap-4">
+        {header}
+        {playerSlots}
+        <HudPanel brackets accent="edu" className="flex flex-col items-center gap-4 p-6">
+          <SectionLabel className="text-edu">{pl.prediction.kicker}</SectionLabel>
+          <p className="font-sans text-xl font-bold uppercase tracking-tight">
+            {pl.prediction.question}
+          </p>
+          <p className="max-w-prose text-center text-sm text-muted-foreground">
+            {pl.prediction.lead}
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <Button
+              className="border-p1 bg-p1/15 text-p1 hover:bg-p1/25"
+              onClick={() => setPrediction('p1')}
+            >
+              {config.names.p1}
+            </Button>
+            <Button variant="outline" onClick={() => setPrediction('draw')}>
+              {pl.prediction.draw}
+            </Button>
+            <Button
+              className="border-p2 bg-p2/15 text-p2 hover:bg-p2/25"
+              onClick={() => setPrediction('p2')}
+            >
+              {config.names.p2}
+            </Button>
+          </div>
+          <Button variant="ghost" size="sm" onClick={() => setPrediction('skipped')}>
+            {pl.prediction.skip}
+          </Button>
+        </HudPanel>
+      </div>
+    );
+  }
 
   if (needsPlacement) {
     const vc = getBattleshipVariant(config.variant.id);
@@ -311,7 +540,7 @@ export function GameRunner({
         </HudPanel>
 
         <HudPanel className="min-w-0 p-4">
-          <GameLog moves={log} names={config.names} />
+          <GameLog moves={log} names={config.names} commentary={commentary} />
         </HudPanel>
       </div>
 
@@ -323,6 +552,27 @@ export function GameRunner({
             <Button onClick={handleSave} disabled={saveState === 'saving'}>
               {saveState === 'saving' ? pl.result.saving : pl.result.save}
             </Button>
+          )}
+          {/* §12.5 — a bet only scores once the match is saved and replayed. */}
+          {savable && saveState !== 'saved' && prediction !== 'skipped' && (
+            <p className="font-mono text-[10px] uppercase tracking-wider text-dim">
+              {pl.prediction.saveHint}
+            </p>
+          )}
+          {predictionResult && (
+            <p
+              className={cn(
+                'font-sans text-sm font-bold uppercase tracking-wide',
+                predictionResult.correct ? 'text-edu text-glow-edu' : 'text-danger',
+              )}
+            >
+              {predictionResult.correct ? pl.prediction.hit : pl.prediction.miss}
+            </p>
+          )}
+          {dailyClaim && (
+            <p className="font-sans text-sm font-bold uppercase tracking-wide text-edu text-glow-edu">
+              ✓ {pl.daily.done} · {pl.daily.streak}: {dailyClaim.streak}
+            </p>
           )}
           {saveResponse && saveResponse.ratingChanges.length > 0 && (
             <div className="flex flex-col items-center gap-1 font-mono text-xs">
@@ -412,11 +662,13 @@ function PlayerSlot({
   name,
   symbol,
   active,
+  totals,
 }: {
   side: PlayerSide;
   name: string;
   symbol: string;
   active: boolean;
+  totals: SideTotals;
 }) {
   const isP1 = side === 'p1';
   return (
@@ -442,6 +694,13 @@ function PlayerSlot({
         <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
           {isP1 ? 'Player_01' : 'Player_02'} · {symbol}
         </div>
+        {totals.moves > 0 && (
+          // Running cost of this side's thinking, visible during the match.
+          <div className="font-mono text-[10px] tracking-wider text-dim">
+            {formatMs(totals.latencyMs)} ·{' '}
+            {totals.tokens === null ? '—' : `${formatTokens(totals.tokens)} tok`}
+          </div>
+        )}
       </div>
     </HudPanel>
   );

@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { type GameId, BATTLESHIP_VARIANTS } from '@arena/game-core';
 
 import { type EloHistoryPoint, type LeaderboardRow, apiGet } from '@/api/client';
+import { ExplainNumbers } from '@/components/ExplainNumbers';
 import { EloHistory } from '@/components/charts/EloHistory';
 import { RadarCard } from '@/components/charts/RadarCard';
 import { ScatterCostElo } from '@/components/charts/ScatterCostElo';
@@ -38,21 +39,27 @@ function defaultVariant(game: GameId): string {
   return game === 'battleship' ? 'small' : 'standard';
 }
 
+type Subject = 'models' | 'humans';
+
 export function LeaderboardPage() {
   const [game, setGame] = useState<GameId>('tictactoe');
   const [variant, setVariant] = useState('standard');
   const [mode, setMode] = useState<Mode>('model_vs_model');
+  const [subject, setSubject] = useState<Subject>('models');
   const [rows, setRows] = useState<LeaderboardRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [eloPoints, setEloPoints] = useState<EloHistoryPoint[]>([]);
+
+  // The human board only exists in human_vs_model (SPEC §10).
+  const humans = mode === 'human_vs_model' && subject === 'humans';
 
   useEffect(() => {
     let alive = true;
     setLoading(true);
     setSelectedId(null);
     apiGet<LeaderboardRow[]>(
-      `/api/leaderboard?mode=${mode}&game=${game}&variant=${variant}`,
+      `/api/leaderboard?mode=${mode}&game=${game}&variant=${variant}&subject=${humans ? 'humans' : 'models'}`,
     )
       .then((r) => {
         if (alive) setRows(r);
@@ -66,7 +73,7 @@ export function LeaderboardPage() {
     return () => {
       alive = false;
     };
-  }, [mode, game, variant]);
+  }, [mode, game, variant, humans]);
 
   // Elo history for the selected subject (§9.3.4).
   useEffect(() => {
@@ -134,12 +141,26 @@ export function LeaderboardPage() {
             </SelectContent>
           </Select>
         )}
-        <Tabs value={mode} onValueChange={(v) => setMode(v as Mode)}>
+        <Tabs
+          value={mode}
+          onValueChange={(v) => {
+            setMode(v as Mode);
+            if (v !== 'human_vs_model') setSubject('models');
+          }}
+        >
           <TabsList>
             <TabsTrigger value="model_vs_model">{pl.mode.modelVsModel}</TabsTrigger>
             <TabsTrigger value="human_vs_model">{pl.mode.humanVsModel}</TabsTrigger>
           </TabsList>
         </Tabs>
+        {mode === 'human_vs_model' && (
+          <Tabs value={subject} onValueChange={(v) => setSubject(v as Subject)}>
+            <TabsList>
+              <TabsTrigger value="models">{pl.leaderboard.subjectModels}</TabsTrigger>
+              <TabsTrigger value="humans">{pl.leaderboard.subjectHumans}</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        )}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -153,7 +174,7 @@ export function LeaderboardPage() {
               </div>
             ) : rows.length === 0 ? (
               <p className="py-8 text-center text-sm text-muted-foreground">
-                {pl.leaderboard.empty}
+                {humans ? pl.leaderboard.humansEmpty : pl.leaderboard.empty}
               </p>
             ) : (
               <div className="overflow-x-auto">
@@ -161,7 +182,9 @@ export function LeaderboardPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-8">{pl.leaderboard.col.rank}</TableHead>
-                      <TableHead>{pl.leaderboard.col.subject}</TableHead>
+                      <TableHead>
+                        {humans ? pl.leaderboard.col.player : pl.leaderboard.col.subject}
+                      </TableHead>
                       <TableHead className="text-right">{pl.leaderboard.col.elo}</TableHead>
                       {game === 'tictactoe' && (
                         <TableHead className="text-right">
@@ -171,7 +194,9 @@ export function LeaderboardPage() {
                       <TableHead className="text-right">{pl.leaderboard.col.wld}</TableHead>
                       <TableHead className="text-right">{pl.leaderboard.col.forfeit}</TableHead>
                       <TableHead className="text-right">{pl.leaderboard.col.latency}</TableHead>
-                      <TableHead className="text-right">{pl.leaderboard.col.cost}</TableHead>
+                      {!humans && (
+                        <TableHead className="text-right">{pl.leaderboard.col.cost}</TableHead>
+                      )}
                     </TableRow>
                   </TableHeader>
                   <TableBody className="font-mono text-xs">
@@ -189,7 +214,18 @@ export function LeaderboardPage() {
                       >
                         <TableCell className="text-muted-foreground">{i + 1}</TableCell>
                         <TableCell className="max-w-52 truncate font-sans">
-                          {shortSubject(r.subjectId)}
+                          {humans ? (
+                            // Humans are people, not models — no model card to link to.
+                            r.subjectId
+                          ) : (
+                            <Link
+                              to={`/model/${r.subjectId}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="underline-offset-2 hover:text-p1 hover:underline"
+                            >
+                              {shortSubject(r.subjectId)}
+                            </Link>
+                          )}
                         </TableCell>
                         <TableCell className="text-right font-semibold text-p1">
                           {Math.round(r.elo)}
@@ -220,9 +256,11 @@ export function LeaderboardPage() {
                         <TableCell className="text-right">
                           {r.avgLatencyMs === null ? '—' : formatMs(r.avgLatencyMs)}
                         </TableCell>
-                        <TableCell className="text-right">
-                          {r.avgCostPerGame === null ? '—' : formatCost(r.avgCostPerGame)}
-                        </TableCell>
+                        {!humans && (
+                          <TableCell className="text-right">
+                            {r.avgCostPerGame === null ? '—' : formatCost(r.avgCostPerGame)}
+                          </TableCell>
+                        )}
                       </TableRow>
                     ))}
                   </TableBody>
@@ -235,7 +273,19 @@ export function LeaderboardPage() {
           </CardContent>
         </Card>
 
-        <ScatterCostElo rows={rows} />
+        {/* Cost vs Elo is a model question — people do not pay per move. */}
+        {humans ? (
+          <Card className="w-full">
+            <CardContent>
+              <SectionLabel>{pl.leaderboard.subjectHumans}</SectionLabel>
+              <p className="mt-3 font-mono text-xs leading-relaxed text-muted-foreground">
+                {pl.leaderboard.humansNote}
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <ScatterCostElo rows={rows} />
+        )}
       </div>
 
       {selectedRow && (
@@ -248,6 +298,9 @@ export function LeaderboardPage() {
           <EloHistory points={eloPoints} />
         </div>
       )}
+
+      {/* §12.3 — the educational section is linked from the leaderboard. */}
+      <ExplainNumbers />
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
+import { PlayerProfile } from '@/components/PlayerProfile';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -25,8 +26,6 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   const openRouterKey = useSettings((s) => s.openRouterKey);
   const setOpenRouterKey = useSettings((s) => s.setOpenRouterKey);
   const clearOpenRouterKey = useSettings((s) => s.clearOpenRouterKey);
-  const nickname = useSettings((s) => s.nickname);
-  const setNickname = useSettings((s) => s.setNickname);
   const soundEnabled = useSettings((s) => s.soundEnabled);
   const setSoundEnabled = useSettings((s) => s.setSoundEnabled);
 
@@ -100,16 +99,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
             </div>
           </div>
 
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="nick">{pl.settings.nickname}</Label>
-            <Input
-              id="nick"
-              value={nickname ?? ''}
-              onChange={(e) => setNickname(e.target.value)}
-              placeholder={pl.settings.nicknamePlaceholder}
-              maxLength={24}
-            />
-          </div>
+          <PlayerProfile />
 
           <div className="flex items-center justify-between">
             <Label htmlFor="sound">{pl.settings.sound}</Label>

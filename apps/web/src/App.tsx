@@ -12,7 +12,9 @@ import { pl } from '@/i18n/pl';
 import { cn } from '@/lib/utils';
 import { ArenaPage } from '@/pages/ArenaPage';
 import { ComparePage } from '@/pages/ComparePage';
+import { IntuitionPage } from '@/pages/IntuitionPage';
 import { LeaderboardPage } from '@/pages/LeaderboardPage';
+import { ModelCardPage } from '@/pages/ModelCardPage';
 import { ReplayPage } from '@/pages/ReplayPage';
 import { useSettings } from '@/store/settings';
 
@@ -61,10 +63,14 @@ export default function App() {
           <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3">
             <div className="flex items-center gap-6">
               <Link to="/" className="flex items-center gap-3">
-                {/* Diamond HUD mark (DESIGN screens). */}
-                <span
+                {/* Diamond HUD mark — generated brand asset (scripts/gen). */}
+                <img
+                  src="/logo.png"
+                  alt=""
                   aria-hidden
-                  className="glow-p1 size-6 rotate-45 bg-gradient-to-br from-p1 to-p2"
+                  width={28}
+                  height={28}
+                  className="size-7 shrink-0"
                 />
                 <span className="leading-none">
                   <span className="block font-mono text-base font-bold tracking-tight">
@@ -86,6 +92,9 @@ export default function App() {
                 </NavLink>
                 <NavLink to="/porownaj" className={navClass}>
                   {pl.nav.compare}
+                </NavLink>
+                <NavLink to="/intuicja" className={navClass}>
+                  {pl.nav.intuition}
                 </NavLink>
               </nav>
             </div>
@@ -109,6 +118,9 @@ export default function App() {
             <Route path="/" element={<ArenaPage onOpenSettings={openSettings} />} />
             <Route path="/rankingi" element={<LeaderboardPage />} />
             <Route path="/porownaj" element={<ComparePage />} />
+            <Route path="/intuicja" element={<IntuitionPage />} />
+            {/* Splat: subject ids carry slashes (openrouter:meta-llama/llama-3). */}
+            <Route path="/model/*" element={<ModelCardPage />} />
             <Route path="/replay/:id" element={<ReplayPage />} />
           </Routes>
         </main>

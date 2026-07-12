@@ -53,6 +53,12 @@ export interface LlmMoveConfig {
   rng?: () => number;
   /** Injectable monotonic clock in ms (deterministic latency in tests). */
   now?: () => number;
+  /**
+   * Prompt-lab appendix (SPEC §12.4). Appended AFTER the fixed core system
+   * prompt so the response-format contract from §6/§7 always survives. Blank /
+   * undefined = no change. Lab matches carry `lab=true` and never touch Elo.
+   */
+  systemAppendix?: string;
 }
 
 const DEFAULT_MAX_RETRIES = 3;
@@ -117,8 +123,11 @@ export async function runLlmMove(
   const rng = config.rng ?? Math.random;
 
   const { system, user } = def.renderPrompt(view, legal);
+  // Lab appendix goes AFTER the core prompt — the format rules must win (§12.4).
+  const appendix = config.systemAppendix?.trim();
+  const systemContent = appendix ? `${system}\n\n${appendix}` : system;
   const messages: ChatMessage[] = [
-    { role: 'system', content: system },
+    { role: 'system', content: systemContent },
     { role: 'user', content: user },
   ];
 

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { LeaderboardRow } from '@/api/client';
 import type { MoveLogEntry } from '@/game/orchestrator';
 
-import { buildScatter, buildTimeline, radarForSubjects } from './telemetry';
+import { buildScatter, buildTimeline, radarForSubjects, sideTotals } from './telemetry';
 
 function row(over: Partial<LeaderboardRow>): LeaderboardRow {
   return {
@@ -81,5 +81,36 @@ describe('buildScatter', () => {
     ]);
     expect(pts).toHaveLength(1);
     expect(pts[0]).toMatchObject({ subjectId: 'a', cost: 0.002, elo: 1100, games: 5 });
+  });
+});
+
+describe('sideTotals (per-player running telemetry)', () => {
+  const mv = (
+    player: 'p1' | 'p2',
+    latencyMs: number,
+    promptTokens?: number,
+    completionTokens?: number,
+  ) =>
+    ({
+      index: 0,
+      player,
+      move: 0,
+      telemetry: { latencyMs, retries: 0, forfeit: false, promptTokens, completionTokens },
+    }) as unknown as MoveLogEntry;
+
+  it('sums only that side’s thinking time and tokens', () => {
+    const log = [mv('p1', 1000, 10, 2), mv('p2', 5000, 100, 20), mv('p1', 2000, 30, 8)];
+    expect(sideTotals(log, 'p1')).toEqual({ moves: 2, latencyMs: 3000, tokens: 50 });
+    expect(sideTotals(log, 'p2')).toEqual({ moves: 1, latencyMs: 5000, tokens: 120 });
+  });
+
+  // §20: a missing token count is "—", never 0 — the human player reports none.
+  it('reports null tokens when no move reported usage', () => {
+    const log = [mv('p1', 1200), mv('p1', 900)];
+    expect(sideTotals(log, 'p1')).toEqual({ moves: 2, latencyMs: 2100, tokens: null });
+  });
+
+  it('is empty for a side that has not moved', () => {
+    expect(sideTotals([], 'p1')).toEqual({ moves: 0, latencyMs: 0, tokens: null });
   });
 });

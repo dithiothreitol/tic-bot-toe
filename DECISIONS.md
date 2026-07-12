@@ -122,3 +122,17 @@ regułą 5 promptu startowego). Najnowsze na górze.
 - **`verbatimModuleSyntax: true`**: dyscyplina `import type` w całym repo (nowoczesny ESM, zero konfuzji typ/wartość).
 - **Tożsamość git**: `Dariusz Tyszka <dariusz.tyszka@gmail.com>` (globalna, prywatna) — to prywatny projekt poboczny, nie repo GPF, więc bez służbowego e-maila/organizacji.
 - **Nazwa repo `tic-bot-toe`**, prywatne, w `Documents/GitHub/` (konwencja projektów prywatnych).
+
+## Tożsamość gracza i ochrona rankingu przed botami (plan `docs/PLAN-TOZSAMOSC-ANTYBOT.md`, T1–T3)
+
+- **Tożsamość = bearer secret w `localStorage`, serwer trzyma tylko SHA-256.** Zero kont/PII (§16). Sekret jest jedyną rzeczą, która wiąże człowieka z jego wierszem rankingu: `ratings.subject_id = human:<players.id>`. Wyciek bazy nie pozwala podszyć się pod gracza.
+- **Reużyto istniejący `settings.playerToken`** zamiast tworzyć równoległy store gracza (plan przewidywał `store/player.ts`, ale token już istniał, był persystowany i stabilny — dublowanie byłoby regresem). Nowi użytkownicy dostają `randomSecret()` (256 bit, base64url-43); walidacja serwerowa `^[A-Za-z0-9_-]{20,64}$` celowo **permisywna**, żeby stare tokeny UUID z istniejących przeglądarek dalej działały.
+- **Pseudonim żyje na serwerze** (unikalność + filtr wulgaryzmów), `settings.nickname` to tylko lokalne lustro do wyświetlania. Bez pseudonimu gracz nie pojawia się w tabeli, ale Elo się kumuluje (§10).
+- **Eksport/import kodu tożsamości** — świadomie dodane ponad SPEC: bez tego ta sama osoba na drugim urządzeniu zakłada nową tożsamość i nową pozycję, co przeczy celowi „jedna osoba = jeden wiersz". Kod = hasło.
+- **TanStack Query pominięty** przy profilu gracza: mimo wpisu w sekcji bibliotek nigdy nie został podłączony (brak `QueryClientProvider`), a strony używają `apiGet` + `useEffect`. Trzymam się istniejącego wzorca zamiast wprowadzać zależność dla jednego widoku.
+- **Pacing tokenem startu (`POST /api/match/start`)** — rdzeń antybota. Klient może skłamać w telemetrii ruchu, ale nie w zegarze serwera: `iat` z tokenu vs moment zapisu daje realny czas gry. Próg: 1 s/ruch człowieka, tolerancja 2 s, sufit 15 min (długie statki nie mogą być karane). `jti` tokenu startu wypalany w tej samej transakcji co `jti` sesji → jeden start = jeden zapis.
+- **Sanity czasów człowieka** (śr. < 800 ms → odrzuć; ≥5 ruchów o rozrzucie < 10 ms → odrzuć) to warstwa tania i fałszowalna, świadomie płytka — prawdziwą robotę robi pacing. Nie rozbudowywać.
+- **Limity dzienne 30/gracza i 60/IP** (tylko `lab=false`). Limit IP łapie mnożenie tożsamości z jednej maszyny — czego sam limit per-gracz nie umie.
+- **Flaga precyzji tylko w statkach** (≥100 ruchów i ≥90% optymalnych): w kółko i krzyżyk perfekcyjna gra jest dla człowieka normą i flagowanie jej byłoby fałszywym alarmem. W statkach nie ma strategii doskonałej — trwałe ~90% to solver. Flaga tylko **ukrywa** gracza z tabeli (odwracalne przez `UPDATE players SET flagged_at = NULL`), nic nie kasuje i nie blokuje gry.
+- **Bug naprawiony przy okazji**: token sesji nie był czyszczony po udanym zapisie, a jego `jti` jest jednorazowe — drugi zapis w ciągu 30 min zwracał 409 `jti_used` zamiast ponowić Turnstile.
+- **TODO (moduły 12.5/12.6)**: `predictions`/`daily_results` nadal mają kolumnę `player_token` ze SPEC §13; przy ich finalizacji przejść na `players.id` (jedna tożsamość dla rankingu, zgadywanki i wyzwania dnia).

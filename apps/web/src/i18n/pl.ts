@@ -24,6 +24,12 @@ export const pl = {
     battleship: 'Statki',
   },
 
+  /** Sub-labels on the game-select tiles (screen 01). */
+  gameMeta: {
+    tictactoe: '3×3 · pełna informacja',
+    battleship: '6×6 · 8×8 · 10×10 · ukryta info',
+  },
+
   battleship: {
     yourFleet: 'Twoja flota',
     yourShots: 'Twoje strzały',
@@ -110,6 +116,36 @@ export const pl = {
     sound: 'Dźwięki',
   },
 
+  profile: {
+    title: 'Profil gracza',
+    anonymous: 'Grasz anonimowo',
+    nicknameHint:
+      'Bez pseudonimu Twoje partie nadal liczą się do jednego Elo, ale nie pojawiasz się w tabeli rankingu.',
+    nicknameSaved: 'Pseudonim zapisany.',
+    nicknameRemoved: 'Pseudonim usunięty.',
+    nicknameTaken: 'Ten pseudonim jest już zajęty.',
+    nicknameInvalid: '3–20 znaków: litery, cyfry, „_" lub „-".',
+    nicknameProfanity: 'Ten pseudonim zawiera niedozwolone słowo.',
+    saveError: 'Nie udało się zapisać pseudonimu.',
+    flagged:
+      'Twoje konto zostało oznaczone jako podejrzane i nie jest pokazywane w rankingu.',
+    privacy:
+      'Twoja tożsamość to losowy token w tej przeglądarce — dzięki niemu wszystkie Twoje partie liczą się do jednego Elo. Nie zbieramy żadnych danych osobowych. Wyczyszczenie danych strony = utrata tożsamości.',
+    identity: 'Kod tożsamości',
+    identityHint:
+      'Przenieś ten kod na inne urządzenie, aby grać tam jako ta sama osoba. Traktuj go jak hasło — kto go ma, gra jako Ty.',
+    copyIdentity: 'Skopiuj kod tożsamości',
+    identityCopied: 'Skopiowano kod tożsamości.',
+    copyFailed: 'Nie udało się skopiować kodu.',
+    importIdentity: 'Przenieś tożsamość z innego urządzenia',
+    importPlaceholder: 'Wklej kod tożsamości…',
+    import: 'Przenieś',
+    importInvalid: 'Nieprawidłowy kod tożsamości.',
+    importConfirm:
+      'Przeniesienie tożsamości porzuci tożsamość używaną w tej przeglądarce (jej partie zostaną w rankingu, ale stracisz do niej dostęp). Kontynuować?',
+    imported: 'Tożsamość przeniesiona.',
+  },
+
   log: {
     title: 'Log partii',
     telemetry: 'telemetria',
@@ -133,6 +169,9 @@ export const pl = {
     saving: 'Zapisywanie…',
     saved: 'Zapisano do rankingu',
     saveError: 'Nie udało się zapisać wyniku.',
+    saveTooFast: 'Partia rozegrana zbyt szybko jak na człowieka — wynik nie trafił do rankingu.',
+    saveDailyLimit: 'Dzienny limit partii rankingowych wyczerpany. Wróć jutro.',
+    saveNoStart: 'Nie udało się potwierdzić startu partii — zagraj jeszcze raz.',
     analyze: 'Analiza z trenerem',
     closeAnalysis: 'Zamknij analizę',
   },
@@ -160,10 +199,141 @@ export const pl = {
     },
   },
 
+  modelCard: {
+    kicker: 'Karta modelu',
+    back: '← Wróć do rankingu',
+    notRanked: 'Ten model nie ma jeszcze zapisanych partii w tym rankingu.',
+    loadError: 'Nie udało się pobrać karty modelu.',
+    whoIsIt: 'Kim jest ten model?',
+    generatedNote:
+      'Opis złożony automatycznie z metadanych katalogu (rozmiar, cena, kontekst) — regułami, nie modelem. Zawsze taki sam, zero kosztów.',
+    noMeta: 'Brak metadanych w katalogu — oceń ten model po liczbach poniżej.',
+    stats: 'Liczby',
+    opponents: 'Bilans z przeciwnikami',
+    opponentsEmpty: 'Brak rozegranych partii w tym rankingu.',
+    col: { opponent: 'Przeciwnik', games: 'Partie', wld: 'W/P/R' },
+    play: 'Zagraj przeciwko',
+  },
+
+  /**
+   * „Jak czytać te liczby?" (SPEC §12.3) — stały, ręcznie napisany tekst
+   * edukacyjny. Bez żargonu: to jest sedno produktu, nie wypełniacz.
+   */
+  explain: {
+    title: 'Jak czytać te liczby?',
+    lead: 'Krótki przewodnik po kolumnach rankingu i wykresach — po ludzku.',
+    entries: [
+      {
+        q: 'Czym jest token?',
+        a: 'Model nie czyta liter, tylko „tokeny" — kawałki tekstu, zwykle 3–4 znaki albo krótkie słowo. Płacisz za każdy token, który do modelu wyślesz (prompt) i za każdy, który on wygeneruje (odpowiedź). Dlatego w telemetrii widzisz dwie liczby: wejście + wyjście. Gdy dostawca nie zwróci zużycia, pokazujemy „—", a nie zero — brak danych to nie to samo co zero.',
+      },
+      {
+        q: 'Elo — co właściwie znaczy?',
+        a: 'System rankingowy z szachów. Każdy startuje z 1000. Wygrana z faworytem daje dużo punktów, wygrana ze słabszym — niewiele. Elo nie ma sensu samo w sobie: 1200 znaczy tylko tyle, że ten model regularnie ogrywa te z 1000. Liczy się wyłącznie z partii zapisanych do rankingu — partie z laboratorium promptów są z niego wykluczone.',
+      },
+      {
+        q: 'Precyzja, czyli % ruchów optymalnych',
+        a: 'W kółku i krzyżyk istnieje gra idealna — komputer potrafi policzyć ją do samego końca (minimax). Dlatego każdy ruch da się obiektywnie ocenić: „optymalny" znaczy dokładnie tyle, że nie pogorszył wyniku partii. 100% to gra bezbłędna. To najuczciwsza miara myślenia w całym rankingu, bo nie zależy od tego, na jakiego przeciwnika model trafił.',
+      },
+      {
+        q: 'Czemu modele „halucynują" ruchy?',
+        a: 'Model nie widzi planszy — dostaje ją jako tekst i przewiduje kolejny token. Nic go fizycznie nie powstrzymuje przed wskazaniem pola, które jest już zajęte albo w ogóle nie istnieje. Im mniejszy model, tym częściej mu się to zdarza, zwłaszcza gdy plansza się zapełnia i trzeba uważnie śledzić stan gry.',
+      },
+      {
+        q: 'Poprawki i ruch wymuszony',
+        a: 'Gdy model poda nielegalny ruch, dostaje komunikat z listą dozwolonych ruchów i próbuje jeszcze raz — to „poprawka". Po trzech nieudanych próbach wybieramy za niego losowy legalny ruch i oznaczamy go jako „wymuszony". Wysoki odsetek wymuszonych to nie pech, tylko brak dyscypliny w trzymaniu się formatu odpowiedzi.',
+      },
+      {
+        q: 'Czemu mały model bywa lepszy od wielkiego?',
+        a: 'Do prostego zadania większy model nie zawsze pomaga. Kółko i krzyżyk ma dziewięć pól — nie trzeba tu erudycji, tylko konsekwencji. Mały model odpowiada w ułamku sekundy i kosztuje grosze, a jeśli tylko trzyma format, potrafi siedzieć w rankingu tuż za gigantami. Dlatego warto patrzeć na wykres „koszt vs skuteczność": drożej nie znaczy lepiej.',
+      },
+      {
+        q: 'Koszt partii',
+        a: 'Liczony ze snapshotu cennika z chwili rozegrania partii: (tokeny wejścia × cena wejścia) + (tokeny wyjścia × cena wyjścia). Dzięki temu późniejsza zmiana cennika nie przepisuje historii. Modele darmowe i WebLLM kosztują dokładnie zero.',
+      },
+      {
+        q: 'Skąd te wyniki i na ile można im ufać?',
+        a: 'Partie toczą się w Twojej przeglądarce, więc pełnej gwarancji uczciwości nie ma. Serwer broni się jak potrafi: odtwarza każdą partię własnym silnikiem, sam liczy oceny ruchów, odrzuca ruchy nielegalne, duplikaty i podejrzanie szybkie odpowiedzi. Partie rozegrane przez Ollamę na naszym serwerze są oznaczone jako „zweryfikowane serwerowo".',
+      },
+    ],
+  },
+
+  daily: {
+    kicker: 'Wyzwanie dnia',
+    /** „Pokonaj dziś Llama 3.2 3B w statki 8×8" */
+    headline: (model: string, game: string) => `Pokonaj dziś ${model} w ${game}`,
+    play: 'Podejmij wyzwanie',
+    done: 'Wyzwanie zaliczone!',
+    doneToday: 'Dzisiejsze wyzwanie zaliczone. Wróć jutro po kolejne.',
+    streak: 'Seria',
+    streakDays: (n: number) => (n === 1 ? '1 dzień' : `${n} dni`),
+    streakNone: 'Brak serii — zacznij dziś.',
+    claiming: 'Zgłaszanie wyniku…',
+    claimed: 'Zaliczone! Seria: ',
+    claimError: 'Nie udało się zgłosić wyniku wyzwania.',
+    needKey: 'Dzisiejszy przeciwnik działa przez OpenRouter — dodaj klucz w ustawieniach.',
+    needWebGpu:
+      'Dzisiejszy przeciwnik działa w przeglądarce (WebGPU), a Twoja przeglądarka go nie obsługuje.',
+    loadError: 'Nie udało się pobrać wyzwania dnia.',
+    lostHint: 'Tym razem nie wyszło — spróbuj jeszcze raz, wyzwanie jest ważne do końca dnia.',
+    free: 'zawsze darmowy przeciwnik',
+  },
+
+  prediction: {
+    kicker: 'Zgadywanka widza',
+    question: 'Kto wygra tę partię?',
+    lead: 'Obstaw przed pierwszym ruchem. Zero stawek — tylko punkty intuicji.',
+    draw: 'Remis',
+    skip: 'Pomiń i zagraj',
+    locked: 'Twój typ',
+    hit: 'Trafione! +1 punkt intuicji.',
+    miss: 'Nietrafione.',
+    saveHint: 'Zapisz partię do rankingu, aby zaliczyć typ.',
+    error: 'Nie udało się zapisać typu.',
+    alreadyPredicted: 'Ta partia była już obstawiona.',
+  },
+
+  intuition: {
+    title: 'Ranking intuicji',
+    lead: 'Kto najlepiej przewiduje, który model wygra. Punkt za każdy trafiony typ.',
+    empty: 'Brak typów — obstaw wynik partii model kontra model.',
+    loadError: 'Nie udało się pobrać rankingu intuicji.',
+    needNickname:
+      'Pojawiasz się w tym rankingu dopiero po ustawieniu pseudonimu w ustawieniach.',
+    col: { rank: '#', player: 'Gracz', points: 'Punkty', total: 'Typy', accuracy: 'Skuteczność' },
+  },
+
+  commentator: {
+    section: 'Komentator AI',
+    toggle: 'Komentator AI',
+    lead: 'Trzeci model komentuje partię prostym językiem — tłumaczy, dlaczego ruch był dobry albo fatalny. Domyślnie wyłączony.',
+    model: 'Model komentatora',
+    costHint:
+      'Komentator działa na Twoim kluczu / WebLLM — wybierz tani albo darmowy model (filtr „Tylko darmowe"). Komentuje wybrane ruchy, nie każdy, i nigdy nie spowalnia gry.',
+    badge: 'Komentator',
+  },
+
+  lab: {
+    badge: 'Lab',
+    section: 'Laboratorium promptów',
+    toggle: 'Tryb laboratorium',
+    lead: 'Dopisz własną instrukcję do modelu i pokręć losowością. Partie z laboratorium nie liczą się do rankingu — inaczej porównania straciłyby sens.',
+    appendix: 'Dopisek do promptu',
+    appendixPlaceholder: 'np. Graj agresywnie i zawsze zaczynaj od rogu.',
+    appendixHint:
+      'Doklejane PO stałym rdzeniu promptu — format odpowiedzi zostaje nienaruszony.',
+    temperature: 'Losowość (temperature)',
+    temperatureHint:
+      '0 = zawsze ten sam, „bezpieczny" ruch; wyżej = więcej kreatywności i błędów.',
+    excludedNote: 'Ta partia jest oznaczona jako laboratoryjna i nie wpłynie na Elo.',
+  },
+
   nav: {
     arena: 'Arena',
     rankings: 'Rankingi',
     compare: 'Porównaj',
+    models: 'Modele',
+    intuition: 'Intuicja',
   },
 
   replay: {
@@ -251,9 +421,15 @@ export const pl = {
     empty: 'Brak danych — rozegraj i zapisz partie.',
     loadError: 'Nie udało się pobrać rankingu.',
     rowHint: 'Kliknij wiersz, aby zobaczyć radar i przebieg Elo.',
+    subjectModels: 'Modele',
+    subjectHumans: 'Ludzie',
+    humansEmpty: 'Nikt jeszcze nie ustawił pseudonimu — zagraj i nadaj sobie pseudonim.',
+    humansNote:
+      'Wyniki pochodzą ze środowiska klienckiego. Ranking ludzi chronimy warstwowo: weryfikacja Turnstile, serwerowe odtworzenie partii, kontrola tempa gry i limity dzienne.',
     col: {
       rank: '#',
       subject: 'Podmiot',
+      player: 'Gracz',
       elo: 'Elo',
       games: 'Partie',
       wld: 'W/P/R',

@@ -35,6 +35,8 @@ interface OllamaChatResponse {
 export interface OllamaConfig {
   temperature?: number;
   maxTokens?: number;
+  /** Prompt-lab appendix (§12.4), appended after the core system prompt. */
+  systemAppendix?: string;
   fetchImpl?: typeof fetch;
   runner?: Pick<LlmMoveConfig, 'maxRetries' | 'timeoutMs' | 'rng' | 'now'>;
 }
@@ -77,7 +79,11 @@ export function createOllamaPlayer(
     displayName,
     kind: 'llm',
     getMove(view: PlayerView, legal: Move[]): Promise<MoveResult> {
-      return runLlmMove(view, legal, { transport, ...config.runner });
+      return runLlmMove(view, legal, {
+        transport,
+        systemAppendix: config.systemAppendix,
+        ...config.runner,
+      });
     },
   };
 }

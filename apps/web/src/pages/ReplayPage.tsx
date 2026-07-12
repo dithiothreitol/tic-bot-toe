@@ -23,6 +23,7 @@ import { HudPanel, SectionLabel } from '@/components/ui/hud';
 import type { MoveLogEntry } from '@/game/orchestrator';
 import { pl } from '@/i18n/pl';
 import { formatMove } from '@/lib/format';
+import type { Commentary } from '@/providers/commentator';
 import { reconstructStates } from '@/lib/match-states';
 import { cn } from '@/lib/utils';
 
@@ -101,6 +102,7 @@ function ReplayPlayer({ match }: { match: ReplayMatch }) {
     () => reconstructStates(match.game, match.variant, match.setup, moves),
     [match.game, match.variant, match.setup, moves],
   );
+  const commentary = useMemo(() => parseCommentary(match.commentary), [match.commentary]);
 
   const [step, setStep] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -276,8 +278,51 @@ function ReplayPlayer({ match }: { match: ReplayMatch }) {
           ))}
         </ol>
       </HudPanel>
+
+      {/* §12.1 — commentary saved with the match is replayed with it. */}
+      {commentary.length > 0 && (
+        <HudPanel accent="edu" className="p-4">
+          <SectionLabel className="text-edu">{pl.commentator.section}</SectionLabel>
+          <ol className="mt-2 flex flex-col gap-1.5">
+            {commentary.map((c) => (
+              <li key={c.moveIndex}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPlaying(false);
+                    setStep(c.moveIndex + 1);
+                  }}
+                  className={cn(
+                    'flex w-full items-start gap-2 border-l-2 px-2 py-1.5 text-left transition-colors',
+                    step === c.moveIndex + 1
+                      ? 'border-edu bg-edu/10'
+                      : 'border-edu/40 bg-edu/5 hover:bg-edu/10',
+                  )}
+                >
+                  <span className="font-mono text-[11px] text-edu">#{c.moveIndex + 1}</span>
+                  <span className="font-sans text-xs leading-snug text-edu/90">{c.text}</span>
+                </button>
+              </li>
+            ))}
+          </ol>
+        </HudPanel>
+      )}
     </div>
   );
+}
+
+/** `matches.commentary` is untyped JSONB — validate before trusting it. */
+function parseCommentary(raw: unknown): Commentary[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter(
+      (c): c is Commentary =>
+        typeof c === 'object' &&
+        c !== null &&
+        typeof (c as Commentary).moveIndex === 'number' &&
+        typeof (c as Commentary).text === 'string',
+    )
+    .sort((a, b) => a.moveIndex - b.moveIndex);
 }
 
 function BattleshipGodView({ state, p1, p2 }: { state: BattleshipState; p1: string; p2: string }) {

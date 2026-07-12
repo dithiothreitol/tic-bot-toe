@@ -11,8 +11,9 @@ import {
 } from '@arena/game-core';
 import { and, eq, sql } from 'drizzle-orm';
 
+import type { PlayerRecord } from '../auth/player';
 import type { Database } from './client';
-import { eloHistory, matches, ratings, usedJti } from './schema';
+import { eloHistory, matches, players, ratings, usedJti } from './schema';
 
 export interface ResultMoveTelemetry {
   latencyMs: number;
@@ -41,6 +42,8 @@ export interface ResultPayload {
   priceSnapshot?: unknown;
   durationMs?: number;
   commentary?: unknown;
+  /** Match-start token from POST /api/match/start — required for ranked human matches (§15.3). */
+  startToken?: string;
 }
 
 export interface RatingChange {
@@ -50,15 +53,47 @@ export interface RatingChange {
 }
 export type SubmitResult =
   | { ok: true; matchId: string; winner: 'p1' | 'p2' | 'draw'; lab: boolean; ratingChanges: RatingChange[] }
-  | { ok: false; code: 400 | 401 | 409 | 422; reason: string };
+  | { ok: false; code: 400 | 401 | 409 | 422 | 429; reason: string };
 
 const MAX_TOKENS_PER_MOVE = 5000;
 const MAX_COST_PER_MATCH = 1;
 const MIN_AVG_LATENCY_MS = 3000; // SPEC §15 (openrouter only; not local providers)
 
+/**
+ * Anti-bot pacing for the human ranking (§15.3). A person needs real time to
+ * move; a script does not. We require at least ~1s of wall-clock per human move
+ * (measured from the server-issued match-start token, which the client cannot
+ * forge), with a tolerance for fast-but-genuine play and a ceiling so long
+ * battleship games are not punished.
+ */
+const MIN_MS_PER_HUMAN_MOVE = 1000;
+const PACING_TOLERANCE_MS = 2000;
+const PACING_CEILING_MS = 15 * 60_000;
+
+/** Cheap, forgeable second layer: no person plays this fast or this evenly. */
+const MIN_HUMAN_AVG_LATENCY_MS = 800;
+const MIN_HUMAN_LATENCY_SPREAD_MS = 10;
+
+/**
+ * Daily ranked-match caps (§15.3). The per-player cap bounds how fast one
+ * identity can climb; the per-IP cap catches someone minting fresh identities
+ * from one machine. Generous enough that a keen human never notices.
+ */
+const MAX_RANKED_MATCHES_PER_PLAYER_DAY = 30;
+const MAX_RANKED_MATCHES_PER_IP_DAY = 60;
+
+/**
+ * Precision flag (§15.3). Sustained near-perfect battleship play is a solver,
+ * not a person — battleship has no perfect strategy, only better guessing. We
+ * do NOT apply this to tictactoe: perfect play there is easy and expected of a
+ * human. Flagging only hides the player from the board; nothing is deleted.
+ */
+const FLAG_MIN_MOVES = 100;
+const FLAG_OPTIMAL_RATE = 0.9;
+
 class Abort {
   constructor(
-    readonly code: 409,
+    readonly code: 409 | 429,
     readonly reason: string,
   ) {}
 }
@@ -123,6 +158,57 @@ async function loadElo(tx: Tx, subjectId: string, p: ResultPayload): Promise<num
   return rows[0]?.elo ?? ELO_START;
 }
 
+/** Ranked matches saved today (UTC day), by player identity or by source IP. */
+async function rankedToday(
+  tx: Tx,
+  by: { playerId?: string; clientIp?: string },
+): Promise<number> {
+  const who = by.playerId
+    ? eq(matches.playerId, by.playerId)
+    : sql`${matches.clientIp} = ${by.clientIp}::inet`;
+  const rows = await tx
+    .select({ n: sql<number>`count(*)::int` })
+    .from(matches)
+    .where(and(who, eq(matches.lab, false), sql`${matches.createdAt} >= date_trunc('day', now())`));
+  return rows[0]?.n ?? 0;
+}
+
+/**
+ * Flag a player whose battleship precision is machine-like (§15.3). Idempotent;
+ * reversible by clearing `flagged_at` in SQL. The player keeps playing and their
+ * matches keep saving — they just stop appearing in the public human board.
+ */
+async function maybeFlagPrecision(
+  tx: Tx,
+  p: ResultPayload,
+  playerId: string,
+  subjectId: string,
+): Promise<void> {
+  if (p.game !== 'battleship') return;
+  const rows = await tx
+    .select({ total: ratings.totalMoves, optimal: ratings.optimalMoves })
+    .from(ratings)
+    .where(
+      and(
+        eq(ratings.subjectId, subjectId),
+        eq(ratings.mode, p.mode),
+        eq(ratings.game, p.game),
+        eq(ratings.variant, p.variant),
+      ),
+    );
+  const r = rows[0];
+  if (!r || r.total < FLAG_MIN_MOVES) return;
+  if (r.optimal / r.total < FLAG_OPTIMAL_RATE) return;
+
+  console.warn(
+    `[result] flagging player ${playerId}: battleship precision ${r.optimal}/${r.total} — solver-like`,
+  );
+  await tx
+    .update(players)
+    .set({ flaggedAt: sql`now()` })
+    .where(and(eq(players.id, playerId), sql`${players.flaggedAt} IS NULL`));
+}
+
 async function upsertRating(
   tx: Tx,
   p: ResultPayload,
@@ -175,15 +261,71 @@ async function upsertRating(
     });
 }
 
+/** In human_vs_model the frontend sends the literal id 'human' for the person. */
+function humanSideOf(payload: ResultPayload): 'p1' | 'p2' | null {
+  if (payload.mode !== 'human_vs_model') return null;
+  if (payload.p1Id === 'human') return 'p1';
+  if (payload.p2Id === 'human') return 'p2';
+  return null;
+}
+
+/**
+ * Wall-clock a genuine person needs for `moveCount` moves, per the start token.
+ * Exported for tests — this threshold is the whole point of the pacing layer.
+ */
+export function requiredElapsedMs(moveCount: number): number {
+  return Math.max(
+    0,
+    Math.min(moveCount * MIN_MS_PER_HUMAN_MOVE, PACING_CEILING_MS) - PACING_TOLERANCE_MS,
+  );
+}
+
+/** Latencies of the person's own moves are too fast / too machine-even to be real. */
+export function suspiciousHumanTiming(latencies: number[]): boolean {
+  if (latencies.length >= 3) {
+    const avg = latencies.reduce((s, v) => s + v, 0) / latencies.length;
+    if (avg < MIN_HUMAN_AVG_LATENCY_MS) return true;
+  }
+  if (latencies.length >= 5) {
+    const spread = Math.max(...latencies) - Math.min(...latencies);
+    if (spread < MIN_HUMAN_LATENCY_SPREAD_MS) return true;
+  }
+  return false;
+}
+
+/** Match-start proof (§15.3): server-issued `iat` + a one-time `jti`. */
+export interface StartProof {
+  jti: string;
+  iat: number;
+}
+
+export interface SubmitOptions {
+  player?: PlayerRecord | null;
+  start?: StartProof | null;
+  now?: () => number;
+}
+
 export async function submitResult(
   db: Database,
   jti: string,
   payload: ResultPayload,
   clientIp: string | null,
+  opts: SubmitOptions = {},
 ): Promise<SubmitResult> {
+  const player = opts.player ?? null;
+  const start = opts.start ?? null;
+  const now = (opts.now ?? Date.now)();
+
   if (!Array.isArray(payload.moves) || payload.moves.length === 0) {
     return { ok: false, code: 400, reason: 'no moves' };
   }
+
+  // Bind the human side to the identified player so every match by the same
+  // person accumulates under one ranking row `human:<players.id>` (SPEC §10).
+  const humanSide = humanSideOf(payload);
+  const playerId = player && humanSide ? player.id : null;
+  if (playerId && humanSide === 'p1') payload.p1Id = `human:${playerId}`;
+  if (playerId && humanSide === 'p2') payload.p2Id = `human:${playerId}`;
 
   // 1. Server replay — the winner is authoritative, never trusted from client.
   const replayMoves: ReplayMove[] = payload.moves.map((m) => ({ player: m.player, move: m.move }));
@@ -212,6 +354,24 @@ export async function submitResult(
     return { ok: false, code: 422, reason: 'suspicious_timing' };
   }
 
+  // 2b. Anti-bot pacing for the human ranking (§15.3). Ranked human matches must
+  // carry a server-issued start token, and enough real time must have passed for
+  // a person to have actually played those moves. Lab matches never rank, so
+  // they are exempt.
+  const ranked = humanSide !== null && !(payload.lab ?? false);
+  if (ranked) {
+    if (!start) return { ok: false, code: 422, reason: 'missing_start_token' };
+
+    const humanMoves = payload.moves.filter((m) => m.player === humanSide);
+    const elapsedMs = now - start.iat * 1000;
+    if (elapsedMs < requiredElapsedMs(humanMoves.length)) {
+      return { ok: false, code: 422, reason: 'too_fast_for_human' };
+    }
+    if (suspiciousHumanTiming(humanMoves.map((m) => m.telemetry.latencyMs))) {
+      return { ok: false, code: 422, reason: 'suspicious_timing' };
+    }
+  }
+
   // 3. Telemetry bounds → still save, but skip aggregation (§15).
   const totalCost = s1.cost + s2.cost;
   const anyHugeMove = payload.moves.some(
@@ -235,6 +395,28 @@ export async function submitResult(
       const jtiRow = await tx.insert(usedJti).values({ jti }).onConflictDoNothing().returning();
       if (jtiRow.length === 0) throw new Abort(409, 'jti_used');
 
+      // One start token = one saved match (§15.3): burn it in the same transaction.
+      if (ranked && start) {
+        const startRow = await tx
+          .insert(usedJti)
+          .values({ jti: start.jti })
+          .onConflictDoNothing()
+          .returning();
+        if (startRow.length === 0) throw new Abort(409, 'start_token_used');
+      }
+
+      // Daily ranked caps (§15.3) — bound how much one identity, or one machine
+      // minting identities, can push into the ranking in a day.
+      const ip = sanitizeIp(clientIp);
+      if (!lab) {
+        if (playerId && (await rankedToday(tx, { playerId })) >= MAX_RANKED_MATCHES_PER_PLAYER_DAY) {
+          throw new Abort(429, 'daily_limit');
+        }
+        if (ip && (await rankedToday(tx, { clientIp: ip })) >= MAX_RANKED_MATCHES_PER_IP_DAY) {
+          throw new Abort(429, 'daily_limit_ip');
+        }
+      }
+
       // Insert match; dedup on moves_hash.
       const inserted = await tx
         .insert(matches)
@@ -255,7 +437,8 @@ export async function submitResult(
           forfeitMovesP1: s1.forfeits,
           forfeitMovesP2: s2.forfeits,
           durationMs: payload.durationMs ?? null,
-          clientIp: sanitizeIp(clientIp),
+          playerId,
+          clientIp: ip,
         })
         .onConflictDoNothing({ target: matches.movesHash })
         .returning({ id: matches.id });
@@ -278,6 +461,11 @@ export async function submitResult(
 
       await upsertRating(tx, payload, s1, a, wld1, skipTelemetry);
       await upsertRating(tx, payload, s2, b, wld2, skipTelemetry);
+
+      // Solver-like battleship precision → hide from the human board (§15.3).
+      if (playerId && humanSide) {
+        await maybeFlagPrecision(tx, payload, playerId, humanSide === 'p1' ? s1.id : s2.id);
+      }
 
       await tx.insert(eloHistory).values([
         { subjectId: s1.id, mode: payload.mode, game: payload.game, variant: payload.variant, matchId, eloAfter: a },
