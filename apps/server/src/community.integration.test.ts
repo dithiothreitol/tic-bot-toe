@@ -68,6 +68,7 @@ async function insertMatch(over: {
   lab?: boolean;
   movesHash?: string;
   createdAt?: Date;
+  moves?: unknown;
 }): Promise<string> {
   const rows = await handle.db
     .insert(matches)
@@ -78,13 +79,34 @@ async function insertMatch(over: {
       p1Id: over.p1Id,
       p2Id: over.p2Id,
       winner: over.winner,
-      moves: [],
+      moves: over.moves ?? realMoves(),
       movesHash: over.movesHash ?? `hash-${Math.random()}`,
       lab: over.lab ?? false,
       ...(over.createdAt ? { createdAt: over.createdAt } : {}),
     })
     .returning({ id: matches.id });
   return rows[0]!.id;
+}
+
+const tele = (forfeit: boolean) => ({ latencyMs: 4000, retries: 0, forfeit });
+
+/** A match where the opponent actually made decisions. */
+function realMoves(): unknown {
+  return [
+    { player: 'p1', move: 4, telemetry: tele(false) },
+    { player: 'p2', move: 0, telemetry: tele(false) },
+    { player: 'p1', move: 8, telemetry: tele(false) },
+  ];
+}
+
+/** A match where every one of the opponent's moves was a forfeited random move. */
+function ghostMoves(): unknown {
+  return [
+    { player: 'p1', move: 4, telemetry: tele(false) },
+    { player: 'p2', move: 0, telemetry: tele(true) },
+    { player: 'p1', move: 8, telemetry: tele(false) },
+    { player: 'p2', move: 1, telemetry: tele(true) },
+  ];
 }
 
 /** The daily challenge is derived from the date, so the test derives it too. */
@@ -351,6 +373,44 @@ describe('POST /api/daily/result (§12.6)', () => {
     const res = await post(wrong);
     expect(res.status).toBe(422);
     expect(await res.json()).toMatchObject({ error: 'wrong_opponent' });
+  });
+
+  it('rejects a "win" over an opponent that never played (retired id / 429 → forfeits)', async () => {
+    const c = todayChallenge();
+    const ghost = await insertMatch({
+      game: c.game,
+      variant: c.variant,
+      mode: 'human_vs_model',
+      p1Id: 'human',
+      p2Id: dailySubjectId(c.opponent),
+      winner: 'p1',
+      moves: ghostMoves(), // every opponent move was a forfeited random move
+    });
+    const res = await post(ghost);
+    expect(res.status).toBe(422);
+    expect(await res.json()).toMatchObject({ error: 'opponent_never_played' });
+    expect(await handle.db.select().from(dailyResults)).toHaveLength(0);
+  });
+
+  it('still accepts a win over a weak-but-alive model (one real move is enough)', async () => {
+    const c = todayChallenge();
+    const weak = await insertMatch({
+      game: c.game,
+      variant: c.variant,
+      mode: 'human_vs_model',
+      p1Id: 'human',
+      p2Id: dailySubjectId(c.opponent),
+      winner: 'p1',
+      moves: [
+        { player: 'p1', move: 4, telemetry: tele(false) },
+        { player: 'p2', move: 0, telemetry: tele(true) }, // forfeited one…
+        { player: 'p1', move: 8, telemetry: tele(false) },
+        { player: 'p2', move: 1, telemetry: tele(false) }, // …but did decide once
+      ],
+    });
+    const res = await post(weak);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ completed: true, streak: 1 });
   });
 
   it('rejects a lab match (a tuned prompt must not win the day)', async () => {

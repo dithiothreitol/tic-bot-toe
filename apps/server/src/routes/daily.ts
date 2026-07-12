@@ -22,6 +22,29 @@ function isToday(createdAt: Date, today: string): boolean {
   return toDayString(createdAt) === today;
 }
 
+interface StoredMove {
+  player: 'p1' | 'p2';
+  telemetry?: { forfeit?: boolean };
+}
+
+/**
+ * Did the opponent actually play?
+ *
+ * A retired `:free` model id (they get pulled without notice) or a 429 — routine
+ * for free models — both end the same way: every call fails, the runner exhausts
+ * its retries and substitutes a RANDOM legal move flagged `forfeit`. The match
+ * then looks like a clean human win over a model that never made a decision.
+ *
+ * Beating a ghost is not beating the model, so it does not complete the day.
+ * Weak-but-alive models are unaffected: one real move is enough.
+ */
+function opponentEverPlayed(moves: unknown, opponentSide: 'p1' | 'p2'): boolean {
+  if (!Array.isArray(moves)) return false;
+  const theirs = (moves as StoredMove[]).filter((m) => m?.player === opponentSide);
+  if (theirs.length === 0) return false;
+  return theirs.some((m) => m.telemetry?.forfeit !== true);
+}
+
 function tokenHashFrom(c: { req: { header: (k: string) => string | undefined } }): string | null {
   const raw = c.req.header('x-player-token');
   if (!raw || !isValidPlayerToken(raw)) return null;
@@ -100,6 +123,11 @@ export function dailyRoute(deps: { db: Database; now?: () => Date }): Hono {
 
     // Only a win counts (§12.6: "Pokonaj dziś {model}").
     if (match.winner !== 'p1') return c.json({ error: 'not_won' }, 422);
+
+    // …and only a win over an opponent that actually played (see above).
+    if (!opponentEverPlayed(match.moves, 'p2')) {
+      return c.json({ error: 'opponent_never_played' }, 422);
+    }
 
     await deps.db
       .insert(dailyResults)

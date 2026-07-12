@@ -14,6 +14,7 @@ import { HudPanel, SectionLabel } from '@/components/ui/hud';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { PlayerSpec } from '@/game/players';
 import { pl } from '@/i18n/pl';
+import { type CatalogModel, fetchCatalog } from '@/providers/openrouter-catalog';
 import { isWebGpuAvailable } from '@/providers/webllm';
 import { useSettings } from '@/store/settings';
 
@@ -56,6 +57,7 @@ export function DailyChallengeCard({
   const [state, setState] = useState<DailyState | null>(null);
   const [loading, setLoading] = useState(true);
   const [webGpu] = useState(() => isWebGpuAvailable());
+  const [catalog, setCatalog] = useState<CatalogModel[] | null>(null);
   const hasKey = useSettings((s) => s.openRouterKey !== null);
 
   useEffect(() => {
@@ -76,6 +78,21 @@ export function DailyChallengeCard({
     };
   }, []);
 
+  // Needed to tell "today's opponent was retired" from "it's just offline".
+  useEffect(() => {
+    let alive = true;
+    fetchCatalog()
+      .then((c) => {
+        if (alive) setCatalog(c);
+      })
+      .catch(() => {
+        if (alive) setCatalog(null); // catalog unreachable — don't accuse the pool
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   if (loading) return <Skeleton className="h-28 w-full" />;
   if (!state) return null;
 
@@ -86,8 +103,17 @@ export function DailyChallengeCard({
   const label =
     challenge.game === 'battleship' ? `${gameLabel} · ${variant.label}` : gameLabel;
 
-  const blocked =
-    opp.provider === 'webllm' && !webGpu
+  // A retired `:free` id would otherwise let the player "win" against a model
+  // that only ever forfeits random moves. Refuse the challenge instead of
+  // serving a phantom — the server would reject the claim anyway.
+  const retired =
+    opp.provider === 'openrouter' &&
+    catalog !== null &&
+    !catalog.some((m) => m.id === opp.id);
+
+  const blocked = retired
+    ? pl.daily.opponentRetired
+    : opp.provider === 'webllm' && !webGpu
       ? pl.daily.needWebGpu
       : opp.provider === 'openrouter' && !hasKey
         ? pl.daily.needKey
@@ -149,7 +175,7 @@ export function DailyChallengeCard({
         ) : blocked ? (
           <div className="flex max-w-64 flex-col gap-2">
             <p className="text-xs text-warn">{blocked}</p>
-            {opp.provider === 'openrouter' && (
+            {opp.provider === 'openrouter' && !retired && (
               <Button variant="outline" size="sm" onClick={onOpenSettings}>
                 {pl.actions.settings}
               </Button>

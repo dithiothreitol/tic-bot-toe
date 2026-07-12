@@ -31,6 +31,32 @@ describe('parseCatalog', () => {
     expect(models).toHaveLength(1);
     expect(models[0].id).toBe('ok');
   });
+
+  it('drops models that cannot answer with plain text (they cannot play)', () => {
+    // Real case: google/lyria-3 is a MUSIC model. It prices per second of audio,
+    // so prompt/completion are "0" — it used to pass the "free" filter and show
+    // up in the picker as a selectable opponent.
+    const models = parseCatalog({
+      data: [
+        {
+          id: 'google/lyria-3-pro-preview',
+          pricing: { prompt: '0', completion: '0' },
+          architecture: { output_modalities: ['text', 'audio'] },
+        },
+        {
+          id: 'meta-llama/llama-3.2-3b-instruct:free',
+          pricing: { prompt: '0', completion: '0' },
+          architecture: { output_modalities: ['text'] },
+        },
+      ],
+    });
+    expect(models.map((m) => m.id)).toEqual(['meta-llama/llama-3.2-3b-instruct:free']);
+  });
+
+  it('keeps models that do not declare modalities (unknown ≠ unusable)', () => {
+    const models = parseCatalog({ data: [{ id: 'vendor/mystery' }] });
+    expect(models).toHaveLength(1);
+  });
 });
 
 describe('priceForModel', () => {

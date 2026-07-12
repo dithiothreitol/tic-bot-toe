@@ -16,7 +16,8 @@
     "dev": "pnpm --filter @arena/web run dev",
     "dev:server": "pnpm --filter @arena/server run dev",
     "assets:prompts": "tsx scripts/gen/preview-prompts.ts",
-    "assets:typecheck": "tsc -p scripts/tsconfig.json"
+    "assets:typecheck": "tsc -p scripts/tsconfig.json",
+    "daily:check": "tsx scripts/check-daily-pool.ts"
   },
   "devDependencies": {
     "@types/node": "^22.19.0",

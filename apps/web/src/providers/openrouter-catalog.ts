@@ -21,11 +21,29 @@ interface RawModel {
   name?: string;
   context_length?: number | null;
   pricing?: { prompt?: string | number; completion?: string | number };
+  architecture?: { output_modalities?: string[] };
 }
 
 function toNumber(value: string | number | undefined): number {
   const n = typeof value === 'number' ? value : Number(value ?? '0');
   return Number.isFinite(n) ? n : 0;
+}
+
+/**
+ * Can this model be a game opponent at all?
+ *
+ * The catalog also carries image/audio models. They price by second, not by
+ * token, so `prompt === 0 && completion === 0` marks them "free" and they used
+ * to show up in the picker's "Tylko darmowe" list (e.g. `google/lyria-3-*`, a
+ * music model) — pickable as an opponent, and guaranteed to fail. A game
+ * opponent must answer with plain text and nothing else.
+ *
+ * Models that don't declare their modalities are kept: unknown ≠ unusable.
+ */
+export function isPlayable(m: RawModel): boolean {
+  const out = m.architecture?.output_modalities;
+  if (!Array.isArray(out) || out.length === 0) return true;
+  return out.length === 1 && out[0] === 'text';
 }
 
 export function parseCatalog(raw: unknown): CatalogModel[] {
@@ -35,6 +53,7 @@ export function parseCatalog(raw: unknown): CatalogModel[] {
 
   return list
     .filter((m): m is RawModel => Boolean(m && typeof m.id === 'string'))
+    .filter(isPlayable)
     .map((m) => {
       const prompt = toNumber(m.pricing?.prompt);
       const completion = toNumber(m.pricing?.completion);

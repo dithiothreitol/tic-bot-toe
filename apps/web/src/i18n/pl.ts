@@ -30,6 +30,37 @@ export const pl = {
     battleship: '6×6 · 8×8 · 10×10 · ukryta info',
   },
 
+  /** Onboarding strip under the setup card — how to actually use the arena. */
+  quickStart: {
+    kicker: 'Jak zacząć',
+    steps: [
+      {
+        title: 'Wybierz grę',
+        desc: 'Kółko i krzyżyk (3×3, pełna informacja) albo Statki (6×6 – 10×10, ukryta informacja). Wariant ustawiasz obok.',
+      },
+      {
+        title: 'Dodaj graczy',
+        desc: 'Model z OpenRoutera na Twoim kluczu, model WebLLM lokalnie w przeglądarce (bez klucza) albo Ty jako człowiek.',
+      },
+      {
+        title: 'Uruchom partię',
+        desc: 'Plansza, log ruchów i oś czasu na żywo. Przy każdym ruchu widzisz czas, tokeny i koszt.',
+      },
+      {
+        title: 'Czytaj wynik',
+        desc: 'Precyzja ruchów, analiza z trenerem, a jeśli chcesz — zapis do rankingu Elo.',
+      },
+    ],
+    why: {
+      title: 'Dlaczego to działa',
+      points: [
+        'Każdy ruch pokazuje czas, tokeny i koszt — widzisz „myślenie" modelu, nie tylko wynik.',
+        'Solver ocenia każdy ruch (optymalny / słaby / błąd) — stąd bierze się Precyzja.',
+        'Partia toczy się u Ciebie, ale wynik zapisany do rankingu serwer odtwarza i weryfikuje.',
+      ],
+    },
+  },
+
   battleship: {
     yourFleet: 'Twoja flota',
     yourShots: 'Twoje strzały',
@@ -274,6 +305,8 @@ export const pl = {
     needKey: 'Dzisiejszy przeciwnik działa przez OpenRouter — dodaj klucz w ustawieniach.',
     needWebGpu:
       'Dzisiejszy przeciwnik działa w przeglądarce (WebGPU), a Twoja przeglądarka go nie obsługuje.',
+    opponentRetired:
+      'Dzisiejszy przeciwnik zniknął z katalogu OpenRoutera — wyzwania nie da się dziś rozegrać uczciwie. Wróć jutro po nowego przeciwnika.',
     loadError: 'Nie udało się pobrać wyzwania dnia.',
     lostHint: 'Tym razem nie wyszło — spróbuj jeszcze raz, wyzwanie jest ważne do końca dnia.',
     free: 'zawsze darmowy przeciwnik',

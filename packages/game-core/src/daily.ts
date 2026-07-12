@@ -24,6 +24,22 @@ export interface DailyOpponent {
  * WebLLM models run in the browser with no key at all; the `:free` OpenRouter
  * variants need a key but cost nothing. Keeping both means the challenge is
  * playable whether the user has WebGPU or a key.
+ *
+ * ⚠ THE OPENROUTER IDS ROT. Free variants get retired without notice (we already
+ * lost `mistralai/mistral-7b-instruct:free`), and the ones that survive are
+ * aggressively rate-limited. Both failure modes look identical to the game: the
+ * call fails, the runner retries, and the "opponent" ends up playing forfeited
+ * random moves — which would hand the player a fake win.
+ *
+ * That is defended in two places, NOT by hoping this list stays fresh:
+ *   - the server refuses to complete a challenge whose opponent never made a
+ *     single real move (`opponent_never_played`, routes/daily.ts);
+ *   - the client hides the challenge when today's OpenRouter opponent is no
+ *     longer in the live catalog (DailyChallengeCard).
+ * Run `pnpm daily:check` to see rot before your users do.
+ *
+ * WebLLM ids are stable (they are pinned MLC builds) — keep at least one in the
+ * pool so the challenge survives even a total OpenRouter outage.
  */
 export const DAILY_OPPONENTS: readonly DailyOpponent[] = [
   { provider: 'webllm', id: 'Llama-3.2-3B-Instruct-q4f16_1-MLC', name: 'Llama 3.2 3B' },
@@ -36,9 +52,11 @@ export const DAILY_OPPONENTS: readonly DailyOpponent[] = [
   },
   {
     provider: 'openrouter',
-    id: 'mistralai/mistral-7b-instruct:free',
-    name: 'Mistral 7B (free)',
+    id: 'meta-llama/llama-3.3-70b-instruct:free',
+    name: 'Llama 3.3 70B (free)',
   },
+  { provider: 'openrouter', id: 'openai/gpt-oss-20b:free', name: 'GPT-OSS 20B (free)' },
+  { provider: 'openrouter', id: 'google/gemma-4-31b-it:free', name: 'Gemma 4 31B (free)' },
 ] as const;
 
 export interface DailyChallenge {

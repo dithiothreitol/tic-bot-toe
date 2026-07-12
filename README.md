@@ -102,17 +102,33 @@ i nie udajemy, że umiemy. Chronimy wyłącznie **zapis do rankingu**, warstwowo
 
 | Warstwa | Co powstrzymuje |
 |---|---|
+| Walidacja payloadu (zod) + **zarezerwowany namespace `human:`** | podszycie się pod cudzy wiersz rankingu i ominięcie warstw poniżej; zniekształcony payload = 400, nie 500 |
 | Turnstile → JWT z jednorazowym `jti` | masowy, zautomatyzowany zapis wyników |
 | Serwerowy replay + rewalidacja `eval` | zmyślony zwycięzca, nielegalne ruchy, fałszywa „Precyzja" |
-| Token startu partii (`POST /api/match/start`, `iat` serwera) | partię „rozegraną" w ułamku sekundy — bot musi zapłacić realnym czasem |
+| Token startu partii (`POST /api/match/start`, `iat` serwera, **wiązany z tożsamością**) | partię „rozegraną" w ułamku sekundy; pulowanie tokenów między tożsamościami |
 | Sanity czasów człowieka (śr. ≥ 800 ms, niezerowy rozrzut) | metronomiczne i natychmiastowe ruchy skryptu |
-| Limity dzienne (30/gracza, 60/IP) | farmienie Elo i mnożenie tożsamości z jednej maszyny |
-| Flaga precyzji (statki: ≥100 ruchów i ≥90% optymalnych) | solver podszywający się pod człowieka — znika z tabeli, nic nie jest kasowane |
+| Limity dzienne partii **człowieka** (30/gracza, 60/IP, doba UTC) | farmienie Elo i mnożenie tożsamości z jednej maszyny |
+| Flaga precyzji (statki, **sumarycznie po wariantach**: ≥100 ruchów i ≥90% optymalnych) | solver podszywający się pod człowieka — znika z tabeli, nic nie jest kasowane |
 | `moves_hash` (dedup), limity kosztu/tokenów | powtórki tego samego wyniku, absurdalna telemetria |
+
+**Kluczowa zasada:** przestrzeń nazw `human:` należy **wyłącznie do serwera** — jest
+nadawana z zweryfikowanego tokenu gracza. Payload od klienta, który sam podaje
+`p1Id: "human:<uuid>"`, jest odrzucany (400 `reserved_subject_id`). Bez tego można by
+ominąć wszystkie warstwy poniżej i pisać do cudzego rankingu.
+
+Limity dzienne celowo liczą **tylko partie `human_vs_model`** — objęcie nimi partii
+model-vs-model karałoby wszystkich za jednym NAT-em (biuro, uczelnia, CGNAT) w głównym
+scenariuszu użycia aplikacji.
 
 Świadomie **nie** budujemy: kont/haseł/OAuth, fingerprintingu przeglądarki, CAPTCHA przy
 każdym ruchu ani serwerowej autorytatywności rozgrywki (sprzeczna z BYOK, §15).
 Partie Ollama są wyjątkiem — idą przez nasze proxy, więc mają `server_verified`.
+
+**Ryzyko szczątkowe (uczciwie):** token startu jest wiązany z tożsamością, ale nie jest
+zużywany „po jednym naraz". Bot może pobrać kilka tokenów zawczasu, odczekać raz i zapisać
+kilka partii szybciej niż je „grał". Sufitem pozostaje limit 30 partii rankingowych na
+gracza dziennie, więc skala jest ograniczona; nie budujemy pod to osobnego rejestru
+wydanych tokenów, bo koszt przewyższa zysk dla tabeli wyników gry towarzyskiej.
 
 ## Kryteria akceptacji (§20)
 
@@ -141,7 +157,10 @@ pnpm --filter @arena/server test:integration    # testcontainers — wymaga Dock
 - Gra toczy się w przeglądarce — pełnej gwarancji uczciwości nie ma (warstwy obrony w §15); wyjątek: partie Ollama (`server_verified`).
 - „Śr. czas" w rankingu liczony ze średniej (mediana z `matches` — do rozważenia).
 - **Zgadywanka widza nie jest odporna na determinowanego oszusta** — chroni ją okno 10 min od zapisu partii, jeden typ na partię i limit 60/h. To zabawa bez stawek (§12.5), nie buduję pod nią kryptografii.
-- Pula przeciwników **wyzwania dnia** jest zaszyta w `game-core/daily.ts`. Modele WebLLM są stabilne, ale identyfikator modelu `:free` w OpenRouterze może z czasem zniknąć — wtedy trzeba podmienić wpis w puli.
+- Pula przeciwników **wyzwania dnia** jest zaszyta w `game-core/daily.ts`. Identyfikatory `:free` w OpenRouterze **znikają bez uprzedzenia** (straciliśmy już `mistralai/mistral-7b-instruct:free`), a te, które zostają, bywają ostro limitowane (429). Oba przypadki wyglądają dla gry tak samo: model nie odpowiada → runner robi ruchy wymuszone → „przeciwnik" gra losowo. Dlatego **nie polegamy na świeżości listy**:
+  - serwer **odmawia zaliczenia dnia**, jeśli przeciwnik nie wykonał ani jednego realnego ruchu (`opponent_never_played`) — nie da się zaliczyć wyzwania „wygraną z duchem";
+  - front **nie oferuje wyzwania**, gdy dzisiejszego przeciwnika nie ma już w katalogu;
+  - `pnpm daily:check` sprawdza całą pulę i najbliższe 30 dni względem żywego katalogu (kod ≠ 0 przy zgniłym wpisie — nadaje się do crona/CI).
 
 ## Status budowy
 
