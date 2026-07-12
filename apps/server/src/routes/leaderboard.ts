@@ -47,6 +47,7 @@ export function leaderboardRoute(deps: { db: Database; now?: () => number }): Ho
       games: r.games,
       forfeitRate: r.totalMoves > 0 ? r.forfeitMoves / r.totalMoves : 0,
       avgLatencyMs: r.totalMoves > 0 ? r.latencyMsSum / r.totalMoves : null,
+      avgTokensPerMove: r.totalMoves > 0 ? Number(r.tokensSum) / r.totalMoves : null,
       avgCostPerGame: r.games > 0 ? Number(r.costUsdSum) / r.games : null,
       optimalRate: r.totalMoves > 0 ? r.optimalMoves / r.totalMoves : null,
     }));

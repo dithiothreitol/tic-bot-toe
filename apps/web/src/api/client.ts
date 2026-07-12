@@ -40,8 +40,25 @@ export interface LeaderboardRow {
   games: number;
   forfeitRate: number;
   avgLatencyMs: number | null;
+  avgTokensPerMove: number | null;
   avgCostPerGame: number | null;
   optimalRate: number | null;
+}
+
+/** One Elo checkpoint (SPEC §9.3.4). */
+export interface EloHistoryPoint {
+  eloAfter: number;
+  at: string;
+}
+
+/** Head-to-head tally between two subjects, A's perspective (SPEC §9.3.5). */
+export interface HeadToHead {
+  a: string;
+  b: string;
+  games: number;
+  aWins: number;
+  bWins: number;
+  draws: number;
 }
 
 export interface RatingChange {

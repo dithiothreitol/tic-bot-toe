@@ -4,6 +4,7 @@ import type { Config } from './config';
 import type { Database } from './db/client';
 import { rateLimit } from './middleware/rate-limit';
 import { securityHeaders } from './middleware/security';
+import { eloHistoryRoute, headToHeadRoute } from './routes/analytics';
 import { healthRoute } from './routes/health';
 import { leaderboardRoute } from './routes/leaderboard';
 import { matchesRoute, replayRoute } from './routes/matches';
@@ -44,6 +45,8 @@ export function buildApp(deps: AppDeps): Hono {
     );
     api.route('/result', resultRoute({ db: deps.db, config: deps.config }));
     api.route('/leaderboard', leaderboardRoute({ db: deps.db, now: deps.now }));
+    api.route('/elo-history', eloHistoryRoute({ db: deps.db }));
+    api.route('/head-to-head', headToHeadRoute({ db: deps.db }));
     api.route('/matches', matchesRoute({ db: deps.db }));
     api.route('/replay', replayRoute({ db: deps.db }));
   }

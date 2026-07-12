@@ -3,6 +3,20 @@
 Jednozdaniowe decyzje podejmowane tam, gdzie SPEC.md nie rozstrzyga (zgodnie z
 regułą 5 promptu startowego). Najnowsze na górze.
 
+## Moduł 9 — Wykresy / telemetria (SPEC §9.3)
+
+- **Recharts 3.9** (dep dokładana dopiero teraz, jak planowano). Zgodny z React 19. Wszystkie 5 wykresów przez wspólną ramkę `ChartFrame` (HudPanel + `// TYTUŁ` + eksport PNG + stan pusty + „▸ co z tego wynika") — SPEC §9.3 wymaga tooltip + stan pusty + eksport PNG dla każdego.
+- **Czyste transformacje w `lib/telemetry.ts`** (bez React/Recharts) — testowalne w izolacji: `buildTimeline`, `radarForSubjects` (min-max normalizacja per oś względem populacji), `buildScatter`. 6 testów jednostkowych pokrywa kryterium §9.3.3 (normalizacja vs populacja; **brak wybuchu przy < 2 podmiotach → stan pusty**; równe wartości → neutralne 50; null telemetrii WebLLM → dolny koniec bez psucia osi).
+- **Radar (§9.3.2)**: 5 osi (Siła=Elo, Szybkość=−czas, Dyscyplina=1−forfeit, Oszczędność=−tokeny/ruch, Taniość=−koszt/partię), każda min-max 0–100 na populacji. Szybkość liczona ze **śr.** czasu (mediana z `matches` to nadal dług §9.2 z rdzenia — nieblokujące). Nakłada do 2 podmiotów (używany też w CompareView).
+- **Scatter (§9.3.3)**: oś X = koszt/partię w skali **log** (Recharts `scale="log"`), Y = Elo, promień = liczba partii; darmowe modele (koszt 0/null) świadomie poza wykresem (log). Kolor po providerze (OpenRouter cyjan, WebLLM/Ollama limonka).
+- **EloHistory (§9.3.4)**: `elo_history` **już** zapisywana w transakcji z rdzenia (etap 6) — moduł 9 dodaje tylko endpoint `GET /api/elo-history` + wykres liniowy (prepend startu 1000).
+- **CompareView (§9.3.5)**: ekran `/porownaj` (nowa trasa + pozycja w nawigacji) — dwa selektory, radar nałożony + **bilans bezpośredni** z `GET /api/head-to-head` (zlicza po `p1_id/p2_id/winner`, tylko partie nie-`lab`).
+- **Nowe endpointy publiczne (bez JWT)** `analytics.ts`: elo-history + head-to-head — ta sama postawa co leaderboard (agregaty nieosobowe). `avgTokensPerMove` dodane do `/api/leaderboard` (z `tokensSum/totalMoves` — kolumny już istniały). +2 testy testcontainers (elo-history uporządkowane, head-to-head z obu perspektyw) → 12 integracyjnych.
+- **Radar/EloHistory montowane na ekranie rankingów** (klik wiersza → panel radar + przebieg Elo dla podmiotu) zamiast osobnej „karty modelu" — pełna karta modelu (z tekstami „Jak czytać te liczby?") należy do modułu 12; komponenty wykresów są już gotowe do ponownego użycia tam.
+- **Eksport PNG** (`lib/chart-export.ts`): serializacja SVG Rechartsa → canvas (tło HUD) → pobranie, w pełni po stronie klienta (bez `/api/og`, które jest osobno w module 11).
+- **Bundle**: Recharts dokłada ~270 kB gzip do głównego chunku (ładowany na ekranach gra/rankingi/porównaj). Ewentualny code-split tych tras — do rozważenia później (nieblokujące; ostrzeżenie o rozmiarze chunku istniało już przed modułem 9).
+- **Weryfikacja wizualna z danymi**: compose + seed SQL (5 modeli, 6 elo_history, 6 partii) → realny zrzut rankingów (tabela + scatter z 4 bąblami, „9%" forfeit w kolorze `warn`) zgodny ze screenem 04; endpointy potwierdzone `curl` end-to-end.
+
 ## Warstwa wizualna — Cyber-HUD (handoff/DESIGN.md)
 
 - **Źródło prawdy wyglądu = `handoff/DESIGN.md` + `handoff/screens/*.png`** (kierunek „Cyber-HUD / Tactical"). Odwzorowany na istniejącym stacku **shadcn/ui + Tailwind 4** — nie zastąpiono ani jednego komponentu shadcn; przeskórowano je w jednej warstwie tokenów.

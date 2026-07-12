@@ -198,9 +198,54 @@ describe('HTTP endpoints (real Postgres)', () => {
       '/api/leaderboard?mode=model_vs_model&game=tictactoe&variant=standard',
     );
     expect(res.status).toBe(200);
-    const board = (await res.json()) as Array<{ subjectId: string; elo: number }>;
+    const board = (await res.json()) as Array<{
+      subjectId: string;
+      elo: number;
+      avgTokensPerMove: number | null;
+    }>;
     expect(board).toHaveLength(2);
     expect(board[0].subjectId).toBe('openrouter:winner');
     expect(board[0].elo).toBeGreaterThan(board[1].elo);
+    // §9.2 aggregate exposed for the radar "Oszczędność" axis (10+2 tokens/move).
+    expect(board[0].avgTokensPerMove).toBeCloseTo(12, 5);
+  });
+
+  it('GET /api/elo-history returns ordered checkpoints for a subject', async () => {
+    const config = loadConfig({});
+    const app = buildApp({ config, db: handle.db });
+    await submitResult(
+      handle.db,
+      newJti(),
+      playOut('tictactoe', 'standard', 0, 4000, 'openrouter:winner', 'openrouter:loser'),
+      null,
+    );
+    const res = await app.request(
+      '/api/elo-history?subjectId=openrouter:winner&mode=model_vs_model&game=tictactoe&variant=standard',
+    );
+    expect(res.status).toBe(200);
+    const points = (await res.json()) as Array<{ eloAfter: number; at: string }>;
+    expect(points).toHaveLength(1);
+    expect(points[0].eloAfter).toBeGreaterThan(1000);
+  });
+
+  it('GET /api/head-to-head tallies wins from each perspective', async () => {
+    const config = loadConfig({});
+    const app = buildApp({ config, db: handle.db });
+    await submitResult(
+      handle.db,
+      newJti(),
+      playOut('tictactoe', 'standard', 0, 4000, 'openrouter:a', 'openrouter:b'), // a (p1) wins
+      null,
+    );
+    const q = 'mode=model_vs_model&game=tictactoe&variant=standard';
+    const ab = (await (
+      await app.request(`/api/head-to-head?a=openrouter:a&b=openrouter:b&${q}`)
+    ).json()) as { games: number; aWins: number; bWins: number; draws: number };
+    expect(ab).toMatchObject({ games: 1, aWins: 1, bWins: 0, draws: 0 });
+
+    const ba = (await (
+      await app.request(`/api/head-to-head?a=openrouter:b&b=openrouter:a&${q}`)
+    ).json()) as { aWins: number; bWins: number };
+    expect(ba).toMatchObject({ aWins: 0, bWins: 1 });
   });
 });

@@ -138,6 +138,62 @@ export const pl = {
   nav: {
     arena: 'Arena',
     rankings: 'Rankingi',
+    compare: 'Porównaj',
+  },
+
+  charts: {
+    exportPng: 'Eksportuj PNG',
+    empty: 'Za mało danych — rozegraj partie.',
+    timeline: {
+      title: 'Oś czasu partii',
+      takeaway: 'dłuższy słupek = model dłużej „myślał".',
+      seconds: 's',
+      move: 'Ruch',
+      retries: 'poprawki',
+      forfeit: 'wymuszony',
+    },
+    radar: {
+      title: 'Profil modelu',
+      takeaway:
+        'osie znormalizowane 0–100 względem populacji rankingu — im dalej od środka, tym lepiej.',
+      axes: {
+        strength: 'Siła',
+        speed: 'Szybkość',
+        discipline: 'Dyscyplina',
+        economy: 'Oszczędność',
+        cheapness: 'Taniość',
+      },
+    },
+    scatter: {
+      title: 'Koszt vs skuteczność',
+      takeaway: 'drożej nie zawsze znaczy lepiej — tanie modele bywają blisko czołówki.',
+      x: 'koszt / partię (log)',
+      y: 'Elo',
+      games: 'partie',
+    },
+    elo: {
+      title: 'Przebieg Elo',
+      takeaway: 'linia po każdej zapisanej partii — trend siły w czasie.',
+      start: 'start',
+    },
+    compare: {
+      title: 'Porównaj modele',
+      lead: 'Wybierz dwa podmioty — radar nałożony + bilans wspólnych partii.',
+      pickA: 'Model A',
+      pickB: 'Model B',
+      pickPrompt: 'Wybierz…',
+      h2h: 'Bilans bezpośredni',
+      games: 'Wspólne partie',
+      wins: 'wygrane',
+      draws: 'remisy',
+      noShared: 'Brak wspólnych partii w tym rankingu.',
+      sameModel: 'Wybierz dwa różne modele.',
+    },
+    tooltip: {
+      elo: 'Elo',
+      cost: 'Koszt/partię',
+      games: 'Partie',
+    },
   },
 
   session: {
@@ -152,6 +208,7 @@ export const pl = {
     title: 'Rankingi',
     empty: 'Brak danych — rozegraj i zapisz partie.',
     loadError: 'Nie udało się pobrać rankingu.',
+    rowHint: 'Kliknij wiersz, aby zobaczyć radar i przebieg Elo.',
     col: {
       rank: '#',
       subject: 'Podmiot',

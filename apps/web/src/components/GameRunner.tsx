@@ -17,6 +17,7 @@ import {
 
 import { Board3x3 } from '@/components/Board3x3';
 import { BattleshipBoard } from '@/components/BattleshipBoard';
+import { TimelineChart } from '@/components/charts/TimelineChart';
 import { GameLog } from '@/components/GameLog';
 import { ShipPlacement } from '@/components/ShipPlacement';
 import { Button } from '@/components/ui/button';
@@ -299,6 +300,8 @@ export function GameRunner({
           <GameLog moves={log} names={config.names} />
         </HudPanel>
       </div>
+
+      <TimelineChart log={log} live={live} />
 
       {outcome && (
         <div className="flex flex-col items-center gap-3">

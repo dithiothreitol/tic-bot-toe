@@ -11,6 +11,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { pl } from '@/i18n/pl';
 import { cn } from '@/lib/utils';
 import { ArenaPage } from '@/pages/ArenaPage';
+import { ComparePage } from '@/pages/ComparePage';
 import { LeaderboardPage } from '@/pages/LeaderboardPage';
 import { useSettings } from '@/store/settings';
 
@@ -82,6 +83,9 @@ export default function App() {
                 <NavLink to="/rankingi" className={navClass}>
                   {pl.nav.rankings}
                 </NavLink>
+                <NavLink to="/porownaj" className={navClass}>
+                  {pl.nav.compare}
+                </NavLink>
               </nav>
             </div>
             <div className="flex items-center gap-2">
@@ -103,6 +107,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={<ArenaPage onOpenSettings={openSettings} />} />
             <Route path="/rankingi" element={<LeaderboardPage />} />
+            <Route path="/porownaj" element={<ComparePage />} />
           </Routes>
         </main>
 

@@ -107,5 +107,9 @@ Priorytet pokrycia: `game-core` (silniki, solvery, Elo, replay, parsery).
 
 ## Status budowy
 
-**Rdzeń 1–8 (wdrażalny produkt) — ukończony.** Moduły 9–12 (telemetria/wykresy,
-analiza+solvery, powtórki+OG, edukacja/społeczność) dokładane na działającym rdzeniu.
+**Rdzeń 1–8 (wdrażalny produkt) — ukończony.** Warstwa wizualna Cyber-HUD
+(`handoff/DESIGN.md`) nałożona. **Moduł 9 (wykresy/telemetria) — ukończony**:
+oś czasu partii (na żywo), radar profilu modelu, koszt-vs-Elo (scatter log),
+przebieg Elo, ekran „Porównaj" (radar nałożony + bilans bezpośredni) — Recharts
+w stylu HUD, z objaśnieniem i eksportem PNG pod każdym. Moduły 10–12
+(analiza+solvery, powtórki+OG, edukacja/społeczność) dokładane dalej.
