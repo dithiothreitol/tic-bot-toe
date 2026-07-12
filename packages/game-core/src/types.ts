@@ -130,6 +130,12 @@ export interface GameDefinition<S, M extends Move> {
   id: GameId;
   variants: Variant[];
   createInitialState(variant: Variant, config: SetupConfig): S;
+  /**
+   * Whose turn it is. Non-trivial for games where a side moves again (e.g.
+   * battleship's extra shot after a hit), so it lives in the engine, not the
+   * orchestrator.
+   */
+  currentPlayer(state: S): PlayerSide;
   /** Legal moves for `player` — empty when it is not their turn or game over. */
   legalMoves(state: S, player: PlayerSide): M[];
   /** Immutable; throws on an illegal move (wrong turn / occupied / over). */

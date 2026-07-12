@@ -143,6 +143,10 @@ export const ticTacToe: GameDefinition<TicTacToeState, number> = {
     };
   },
 
+  currentPlayer(state: TicTacToeState): PlayerSide {
+    return currentTurn(state);
+  },
+
   legalMoves(state: TicTacToeState, player: PlayerSide): number[] {
     if (computeStatus(state.board) !== 'playing') return [];
     if (currentTurn(state) !== player) return [];

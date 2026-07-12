@@ -54,6 +54,11 @@ describe('symbolFor / currentTurn', () => {
     expect(currentTurn(play([4, 0]))).toBe('p1');
     expect(currentTurn(play([4, 0, 8]))).toBe('p2');
   });
+
+  it('exposes currentPlayer on the GameDefinition', () => {
+    expect(ticTacToe.currentPlayer(play([]))).toBe('p1');
+    expect(ticTacToe.currentPlayer(play([4]))).toBe('p2');
+  });
 });
 
 describe('createInitialState', () => {

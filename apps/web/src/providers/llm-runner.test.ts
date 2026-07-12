@@ -1,0 +1,171 @@
+import { TICTACTOE_VARIANTS, ticTacToe } from '@arena/game-core';
+
+import {
+  type ChatCompletion,
+  type ChatMessage,
+  runLlmMove,
+} from './llm-runner';
+
+function viewAndLegal() {
+  const s = ticTacToe.createInitialState(TICTACTOE_VARIANTS[0], {});
+  return {
+    view: ticTacToe.viewFor(s, 'p1'),
+    legal: ticTacToe.legalMoves(s, 'p1'), // [0..8]
+  };
+}
+
+/** now() steps by `step` each call; each attempt makes 2 calls → +step latency. */
+function steppingClock(step = 10) {
+  let t = 0;
+  return () => {
+    const cur = t;
+    t += step;
+    return cur;
+  };
+}
+
+/** Transport that returns queued responses (last one repeats) and records calls. */
+function scriptedTransport(steps: Array<ChatCompletion | Error>) {
+  const calls: ChatMessage[][] = [];
+  let i = 0;
+  const transport = async (messages: ChatMessage[]): Promise<ChatCompletion> => {
+    calls.push(messages.map((m) => ({ ...m })));
+    const step = steps[Math.min(i, steps.length - 1)];
+    i += 1;
+    if (step instanceof Error) throw step;
+    return step as ChatCompletion;
+  };
+  return { transport, calls };
+}
+
+const price = { prompt: 0.001, completion: 0.002 };
+
+describe('runLlmMove', () => {
+  it('parses a valid move on the first attempt', async () => {
+    const { view, legal } = viewAndLegal();
+    const { transport, calls } = scriptedTransport([
+      { text: '{"move": 4}', promptTokens: 20, completionTokens: 5 },
+    ]);
+
+    const result = await runLlmMove(view, legal, {
+      transport,
+      price,
+      now: steppingClock(10),
+    });
+
+    expect(result.move).toBe(4);
+    expect(result.telemetry.retries).toBe(0);
+    expect(result.telemetry.forfeit).toBe(false);
+    expect(result.telemetry.latencyMs).toBe(10);
+    expect(result.telemetry.promptTokens).toBe(20);
+    expect(result.telemetry.completionTokens).toBe(5);
+    expect(result.telemetry.costUsd).toBeCloseTo(20 * 0.001 + 5 * 0.002, 10);
+    expect(result.raw).toBe('{"move": 4}');
+    // First call carries exactly the system + user prompt.
+    expect(calls[0]).toHaveLength(2);
+    expect(calls[0][0].role).toBe('system');
+    expect(calls[0][1].role).toBe('user');
+  });
+
+  it('retries with a corrective message then succeeds', async () => {
+    const { view, legal } = viewAndLegal();
+    const { transport, calls } = scriptedTransport([
+      { text: 'I think I will pass', promptTokens: 10, completionTokens: 3 },
+      { text: '{"move": 0}', promptTokens: 12, completionTokens: 2 },
+    ]);
+
+    const result = await runLlmMove(view, legal, {
+      transport,
+      price,
+      now: steppingClock(10),
+    });
+
+    expect(result.move).toBe(0);
+    expect(result.telemetry.retries).toBe(1);
+    expect(result.telemetry.forfeit).toBe(false);
+    expect(result.telemetry.latencyMs).toBe(20); // 2 attempts
+    // Tokens summed across both attempts.
+    expect(result.telemetry.promptTokens).toBe(22);
+    expect(result.telemetry.completionTokens).toBe(5);
+    // The second call includes the model's bad answer + a correction listing legals.
+    expect(calls[1]).toHaveLength(4);
+    expect(calls[1][2]).toEqual({ role: 'assistant', content: 'I think I will pass' });
+    expect(calls[1][3].role).toBe('user');
+    expect(calls[1][3].content).toContain('legal moves');
+  });
+
+  it('forfeits to a random legal move after exhausting retries', async () => {
+    const { view, legal } = viewAndLegal();
+    const { transport, calls } = scriptedTransport([{ text: 'no valid move here' }]);
+
+    const result = await runLlmMove(view, legal, {
+      transport,
+      rng: () => 0, // → legal[0]
+      now: steppingClock(10),
+    });
+
+    expect(result.telemetry.forfeit).toBe(true);
+    expect(result.telemetry.retries).toBe(3);
+    expect(legal).toContain(result.move);
+    expect(result.move).toBe(0);
+    expect(calls).toHaveLength(4); // initial + 3 retries
+    expect(result.telemetry.latencyMs).toBe(40);
+  });
+
+  it('picks the forfeit move deterministically from rng', async () => {
+    const { view, legal } = viewAndLegal();
+    const { transport } = scriptedTransport([{ text: 'garbage' }]);
+
+    const result = await runLlmMove(view, legal, {
+      transport,
+      rng: () => 0.999, // floor(0.999 * 9) = 8
+    });
+
+    expect(result.move).toBe(8);
+    expect(result.telemetry.forfeit).toBe(true);
+  });
+
+  it('treats a transport error as a failed attempt and recovers', async () => {
+    const { view, legal } = viewAndLegal();
+    const { transport } = scriptedTransport([
+      new Error('network down'),
+      { text: '{"move": 2}' },
+    ]);
+
+    const result = await runLlmMove(view, legal, { transport });
+
+    expect(result.move).toBe(2);
+    expect(result.telemetry.retries).toBe(1);
+    expect(result.telemetry.forfeit).toBe(false);
+  });
+
+  it('leaves token fields undefined when usage is absent (rendered as "—", not 0)', async () => {
+    const { view, legal } = viewAndLegal();
+    const { transport } = scriptedTransport([{ text: '{"move": 1}' }]);
+
+    const result = await runLlmMove(view, legal, { transport, price });
+
+    expect(result.telemetry.promptTokens).toBeUndefined();
+    expect(result.telemetry.completionTokens).toBeUndefined();
+    expect(result.telemetry.costUsd).toBeUndefined();
+  });
+
+  it('reports tokens but no cost when price is unknown', async () => {
+    const { view, legal } = viewAndLegal();
+    const { transport } = scriptedTransport([
+      { text: '{"move": 3}', promptTokens: 8, completionTokens: 4 },
+    ]);
+
+    const result = await runLlmMove(view, legal, { transport });
+
+    expect(result.telemetry.promptTokens).toBe(8);
+    expect(result.telemetry.completionTokens).toBe(4);
+    expect(result.telemetry.costUsd).toBeUndefined();
+  });
+
+  it('throws when there are no legal moves', async () => {
+    const { view } = viewAndLegal();
+    const { transport } = scriptedTransport([{ text: '{"move": 0}' }]);
+    await expect(runLlmMove(view, [], { transport })).rejects.toThrow(/no legal moves/);
+  });
+});

@@ -3,6 +3,17 @@
 Jednozdaniowe decyzje podejmowane tam, gdzie SPEC.md nie rozstrzyga (zgodnie z
 regułą 5 promptu startowego). Najnowsze na górze.
 
+## Stage 2 — providery + orchestrator
+
+- **Semantyka retry (SPEC §8 „maks. 3 próby")**: 1 próba wstępna + do 3 prób korygujących (max 4 wywołania), `retries` ∈ 0..3 — dokładnie zgodne z `MoveTelemetry.retries: 0..3`. `forfeit` przy wyczerpaniu 3 retry → losowy legalny ruch.
+- **Współdzielony `llm-runner`**: cała logika retry/forfeit/telemetrii jest jedna, providery (OpenRouter, później WebLLM/Ollama) dostarczają tylko `ChatTransport`. Prompt budowany wyłącznie z `PlayerView` przez `game.renderPrompt`.
+- **`currentPlayer(state)` dodane do `GameDefinition`** — generyczne ustalanie tury (kluczowe dla statków: dodatkowy strzał po trafieniu). Orchestrator nie zna reguł tur.
+- **Klucz OpenRouter**: wyłącznie w `localStorage` (zustand persist `arena-settings`), wysyłany wyłącznie do `openrouter.ai` — pilnowane testem-strażnikiem (`openrouter.test.ts`).
+- **`human_vs_model`**: człowiek zawsze jako p1 (X). `model_vs_model`: oba sloty LLM.
+- **Toaster (sonner) uproszczony** — usunięty `next-themes` (aplikacja dark-only), motyw na sztywno `dark`.
+- **`lucide-react` dodany ręcznie** — shadcn CLI dodał pliki komponentów importujące lucide, ale nie dopisał paczki do `package.json`.
+- **`react-router` odłożony** do etapu z trasami (6/11); w Etapie 2 przełączanie ekranów przez `useState` (setup ↔ game), bez przedwczesnej zależności.
+
 ## Dobór bibliotek i wersji (zweryfikowany względem rejestru npm)
 
 - **Najnowsze kompatybilne wersje, potwierdzone peer-dependency graph** (nie z pamięci): React **19.2.7** (na życzenie użytkownika, nadpisuje literalne „React 18" ze SPEC §3 — react-router 8 i tak wymaga `react >=19.2.7`), TypeScript **5.9.3** (najnowszy w pełni kompatybilny z ekosystemem; TS 7.0 istnieje, ale drizzle-kit/vitest mogą jeszcze nie nadążać), Vite **8.1**, Vitest **4.1.10** (pin dokładny — `@vitest/coverage-v8` ma exact peer na tę wersję), @vitejs/plugin-react **6** (wymaga vite `^8`), Tailwind **4.3**, Zod **4.4** (akceptowany przez `@hono/zod-validator` i `drizzle-zod`), Hono **4.12**, Drizzle ORM **0.45** / kit **0.31**, Recharts **3.9**, jose **6**, testcontainers **12**.

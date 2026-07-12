@@ -1,7 +1,6 @@
 /**
  * Polish UI strings (SPEC hard constraint: interface + educational copy in
- * Polish; model prompts stay English). Grows per stage; educational texts
- * (SPEC §12.3 "Jak czytać te liczby?") land in Stage 12.
+ * Polish; model prompts stay English). Grows per stage.
  */
 export const pl = {
   appName: 'tic-bot-toe',
@@ -12,31 +11,91 @@ export const pl = {
   },
 
   mode: {
+    label: 'Tryb',
+    humanVsModel: 'Człowiek kontra model',
+    modelVsModel: 'Model kontra model',
     localHotseat: 'Gra lokalna — dwie osoby, jedno urządzenie',
   },
 
   board: {
     label: 'Plansza 3×3',
     cellEmpty: 'puste',
-    cell: (i: number, mark: string | null) =>
-      `Pole ${i}, ${mark ?? 'puste'}`,
+    cell: (i: number, mark: string | null) => `Pole ${i}, ${mark ?? 'puste'}`,
   },
 
   status: {
     turn: 'Ruch',
     wins: 'Wygrywa',
     draw: 'Remis',
+    thinking: 'myśli…',
+    yourTurn: 'Twój ruch',
+    aborted: 'Partia przerwana',
   },
 
   player: {
     p1: 'Gracz 1',
     p2: 'Gracz 2',
+    human: 'Człowiek',
+  },
+
+  setup: {
+    title: 'Nowa partia',
+    chooseModel: 'Wybierz model',
+    searchModel: 'Szukaj modelu…',
+    onlyFree: 'Tylko darmowe',
+    noModels: 'Brak modeli',
+    loadingModels: 'Ładowanie katalogu…',
+    modelP1: 'Model — Gracz 1',
+    modelP2: 'Model — Gracz 2',
+    start: 'Start',
+    needKey: 'Najpierw dodaj klucz OpenRouter w ustawieniach.',
+    needModel: 'Wybierz model dla każdego gracza LLM.',
+    catalogError: 'Nie udało się pobrać katalogu modeli OpenRouter.',
+  },
+
+  settings: {
+    title: 'Ustawienia',
+    openRouterKey: 'Klucz OpenRouter',
+    keyPlaceholder: 'sk-or-…',
+    keyLocalOnly:
+      'Klucz jest przechowywany wyłącznie w Twojej przeglądarce (localStorage) i wysyłany wyłącznie do openrouter.ai. Nigdy nie trafia na nasz serwer.',
+    save: 'Zapisz',
+    test: 'Testuj',
+    remove: 'Usuń',
+    keyValid: 'Klucz działa.',
+    keyInvalid: 'Klucz nieprawidłowy lub brak połączenia.',
+    keySaved: 'Klucz zapisany.',
+    keyRemoved: 'Klucz usunięty.',
+    nickname: 'Pseudonim (opcjonalnie)',
+    nicknamePlaceholder: 'np. KrzyżykowyMistrz',
+    sound: 'Dźwięki',
+  },
+
+  log: {
+    title: 'Log partii',
+    empty: 'Brak ruchów.',
+    latency: 'czas',
+    tokens: 'tokeny',
+    cost: 'koszt',
+    retry: 'retry',
+    forfeit: 'wymuszony',
+  },
+
+  result: {
+    title: 'Wynik',
+    youWon: 'Wygrywasz!',
+    youLost: 'Porażka',
+    cost: 'Koszt partii',
+    newGame: 'Nowa gra',
+    rematch: 'Rewanż',
+    backToSetup: 'Zmień ustawienia',
   },
 
   actions: {
     newGame: 'Nowa gra',
+    settings: 'Ustawienia',
   },
 
-  stage1Note:
-    'Etap 1: silnik gry + plansza. Przeciwnicy AI (OpenRouter, WebLLM) dochodzą w Etapie 2.',
+  stage2Note:
+    'Etap 2: providery OpenRouter/Human + telemetria. Rankingi, zapis wyników i kolejne gry dochodzą w następnych etapach.',
 } as const;
