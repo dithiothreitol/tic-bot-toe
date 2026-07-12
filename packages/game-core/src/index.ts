@@ -11,6 +11,7 @@ export * from './tictactoe';
 export * from './battleship';
 export * from './elo';
 export * from './replay';
+export * from './solvers';
 
 import type { GameId } from './types';
 import { battleship } from './battleship';

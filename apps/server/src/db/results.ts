@@ -2,7 +2,9 @@ import {
   ELO_START,
   type GameId,
   type Move,
+  type MoveQuality,
   type ReplayMove,
+  analyzeMatch,
   movesHash,
   replayMatch,
   updateElo,
@@ -73,6 +75,8 @@ interface SideAgg {
   tokens: number;
   cost: number;
   forfeits: number;
+  /** Optimal moves per §12.2, computed server-side (never trusted from client). */
+  optimal: number;
 }
 
 function aggregate(payload: ResultPayload, side: 'p1' | 'p2'): SideAgg {
@@ -88,6 +92,7 @@ function aggregate(payload: ResultPayload, side: 'p1' | 'p2'): SideAgg {
     ),
     cost: mv.reduce((s, m) => s + (m.telemetry.costUsd ?? 0), 0),
     forfeits: mv.filter((m) => m.telemetry.forfeit).length,
+    optimal: 0, // filled from server-side analysis in submitResult
   };
 }
 
@@ -144,6 +149,7 @@ async function upsertRating(
       latencyMsSum: skipTelemetry ? 0 : agg.latencySum,
       tokensSum: skipTelemetry ? 0 : agg.tokens,
       costUsdSum: skipTelemetry ? '0' : String(agg.cost),
+      optimalMoves: agg.optimal,
     })
     .onConflictDoUpdate({
       target: [ratings.subjectId, ratings.mode, ratings.game, ratings.variant],
@@ -164,6 +170,7 @@ async function upsertRating(
         costUsdSum: skipTelemetry
           ? sql`${ratings.costUsdSum}`
           : sql`${ratings.costUsdSum} + ${agg.cost}`,
+        optimalMoves: sql`${ratings.optimalMoves} + ${agg.optimal}`,
       },
     });
 }
@@ -185,8 +192,20 @@ export async function submitResult(
   if (replay.winner === null) return { ok: false, code: 422, reason: 'match not finished' };
   const winner = replay.winner;
 
+  // 1b. Recompute move analysis server-side (§15.1). We NEVER trust the client's
+  // `eval`; if it sent one and it disagrees with ours, the result is falsified.
+  const analysis = analyzeMatch(payload.game, payload.variant, payload.setup as never, replayMoves);
+  for (let i = 0; i < payload.moves.length; i++) {
+    const claimed = (payload.moves[i].eval as { quality?: MoveQuality } | undefined)?.quality;
+    if (claimed !== undefined && claimed !== analysis.moves[i]?.quality) {
+      return { ok: false, code: 422, reason: 'eval_mismatch' };
+    }
+  }
+
   const s1 = aggregate(payload, 'p1');
   const s2 = aggregate(payload, 'p2');
+  s1.optimal = analysis.accuracy.p1.optimal;
+  s2.optimal = analysis.accuracy.p2.optimal;
 
   // 2. Sanity: suspicious OpenRouter timing.
   if (suspiciousTiming(s1) || suspiciousTiming(s2)) {

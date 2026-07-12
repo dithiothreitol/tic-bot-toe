@@ -3,6 +3,16 @@
 Jednozdaniowe decyzje podejmowane tam, gdzie SPEC.md nie rozstrzyga (zgodnie z
 regułą 5 promptu startowego). Najnowsze na górze.
 
+## Moduł 10 — Analiza + solvery (SPEC §12.2, §15.1)
+
+- **Solvery w `game-core/solvers/`** (SPEC narzuca lokalizację): `tictactoe.ts` (pełny negamax z memoizacją — przestrzeń < 6k plansz), `battleship.ts` (heurystyka percentylowa: mapa ciepła = liczba legalnych ułożeń pozostałych statków przez każdą komórkę + tryb „polowania" po świeżym trafieniu), `index.ts` (dyspozytor `analyzeMatch(game, variant, setup, moves)` odtwarza partię TYM SAMYM silnikiem co gra/replay i klasyfikuje każdy ruch). **Nigdy nie grają w rankingu — tylko analiza (§6, §12.2).**
+- **Klasyfikacja kółka wg §12.2 przez wartość gry** (tiery loss/draw/win z perspektywy grającego): `optimal` = nie pogarsza wyniku; `blunder` = wygrana→remis/przegrana lub remis→przegrana; `weak` = pogorszenie bez przekroczenia progu blundera (w 3×3 praktycznie nie występuje — zachowane dla statków, które mają wszystkie 4). Reużyty istniejący `MoveQuality` z root `types.ts` (nie duplikat).
+- **Statki**: `optimal | good | weak | blunder` z percentyla mapy ciepła; strzał przy nierozwiązanym trafieniu → sąsiedni = optimal, gdzie indziej = weak; komórka o cieple 0 (nie zmieści statku) = blunder. Bez reguły no-touch w enumeracji (dla wydajności — udokumentowane; klasyczne przybliżenie).
+- **Rewalidacja `eval` na serwerze (§15.1, §20.4)**: `submitResult` po replayu liczy `analyzeMatch` SAM; jeśli klient dosłał `eval.quality` niezgodny z serwerowym → **odrzuca 422 `eval_mismatch`**. `optimalMoves` liczone serwerowo i agregowane w `ratings` (kolumna już istniała) → `optimalRate` (Precyzja) staje się realne. +2 testy testcontainers (odrzucenie sfałszowanego eval; Precyzja niepusta) → **13 integracyjnych**.
+- **9 testów solverów** (§20.4): minimax 100% na znanych pozycjach — **blok jako jedyny optymalny** przeciw natychmiastowej groźbie, ruch wygrywający = wartość +1, pozycja przegrana → każdy ruch „optimal" (nie da się pogorszyć); analiza znajduje moment zwrotny; heurystyka statków (polowanie/blunder/otwarta plansza).
+- **Ekran analizy (klient) `AnalysisView`**: liczony z żywej partii w `GameRunner` (nie z zapisu — powtórki to moduł 11), przycisk „Analiza z trenerem" po partii. Krok-po-kroku plansza (kółko: `Board3x3` z ringiem koloru jakości — zielony/żółty/czerwony wg §12.2), Precyzja % per gracz, moment zwrotny (skok), kolorowana lista ruchów (oba warianty gier). Statki: lista ruchów + telemetria (bez pełnej rekonstrukcji plansz na tym etapie).
+- **Kolumna „Precyzja"** w rankingu tylko dla kółka i krzyżyk (§12.2), ≥90% podświetlone na limonkowo.
+
 ## Moduł 9 — Wykresy / telemetria (SPEC §9.3)
 
 - **Recharts 3.9** (dep dokładana dopiero teraz, jak planowano). Zgodny z React 19. Wszystkie 5 wykresów przez wspólną ramkę `ChartFrame` (HudPanel + `// TYTUŁ` + eksport PNG + stan pusty + „▸ co z tego wynika") — SPEC §9.3 wymaga tooltip + stan pusty + eksport PNG dla każdego.

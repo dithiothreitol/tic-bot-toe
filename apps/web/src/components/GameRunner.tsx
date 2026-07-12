@@ -7,6 +7,7 @@ import {
   type Move,
   type PlayerSide,
   type SetupConfig,
+  type SetupRecord,
   type TicTacToeCell,
   type TicTacToeState,
   type Variant,
@@ -15,6 +16,7 @@ import {
   ticTacToe,
 } from '@arena/game-core';
 
+import { AnalysisView } from '@/components/AnalysisView';
 import { Board3x3 } from '@/components/Board3x3';
 import { BattleshipBoard } from '@/components/BattleshipBoard';
 import { TimelineChart } from '@/components/charts/TimelineChart';
@@ -92,6 +94,7 @@ export function GameRunner({
   const [placement, setPlacement] = useState<number[][] | null>(null);
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [saveResponse, setSaveResponse] = useState<SaveResultResponse | null>(null);
+  const [showAnalysis, setShowAnalysis] = useState(false);
   const humansRef = useRef<Partial<Record<PlayerSide, HumanPlayerHandle>>>({});
 
   const humanSide = humanSideOf(config);
@@ -118,6 +121,7 @@ export function GameRunner({
     setOutcome(null);
     setSaveState('idle');
     setSaveResponse(null);
+    setShowAnalysis(false);
 
     const setupConfig: SetupConfig = {
       seed: config.seed + restartKey,
@@ -331,11 +335,31 @@ export function GameRunner({
           )}
           <div className="flex flex-wrap justify-center gap-3">
             <Button onClick={rematch}>{pl.result.rematch}</Button>
+            {log.length > 0 && (
+              <Button
+                variant="outline"
+                onClick={() => setShowAnalysis((v) => !v)}
+              >
+                {showAnalysis ? pl.result.closeAnalysis : pl.result.analyze}
+              </Button>
+            )}
             <Button variant="outline" onClick={onExit}>
               {pl.result.backToSetup}
             </Button>
           </div>
         </div>
+      )}
+
+      {outcome && showAnalysis && (
+        <AnalysisView
+          config={config}
+          log={log}
+          setup={
+            config.game === 'battleship' && state
+              ? (battleship.serializeSetup(state as BattleshipState) as SetupRecord)
+              : null
+          }
+        />
       )}
     </div>
   );

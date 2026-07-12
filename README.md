@@ -111,5 +111,9 @@ Priorytet pokrycia: `game-core` (silniki, solvery, Elo, replay, parsery).
 (`handoff/DESIGN.md`) nałożona. **Moduł 9 (wykresy/telemetria) — ukończony**:
 oś czasu partii (na żywo), radar profilu modelu, koszt-vs-Elo (scatter log),
 przebieg Elo, ekran „Porównaj" (radar nałożony + bilans bezpośredni) — Recharts
-w stylu HUD, z objaśnieniem i eksportem PNG pod każdym. Moduły 10–12
-(analiza+solvery, powtórki+OG, edukacja/społeczność) dokładane dalej.
+w stylu HUD, z objaśnieniem i eksportem PNG pod każdym. **Moduł 10
+(analiza+solvery) — ukończony**: minimax kółka i krzyżyk + heurystyka
+percentylowa statków (`game-core/solvers`), ekran „Analiza z trenerem"
+(krok-po-kroku, kolorowe znaczniki, Precyzja %, moment zwrotny), kolumna
+Precyzja w rankingu, **rewalidacja `eval` na serwerze** (odrzuca sfałszowany).
+Moduły 11–12 (powtórki+OG, edukacja/społeczność) dokładane dalej.

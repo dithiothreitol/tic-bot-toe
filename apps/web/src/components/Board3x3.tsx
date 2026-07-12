@@ -10,6 +10,8 @@ interface Board3x3Props {
   onCellClick?: (cell: number) => void;
   /** Index of the most recent move, glow-highlighted. */
   lastMove?: number | null;
+  /** Overrides the last-move highlight (e.g. analysis quality color). */
+  lastMoveClass?: string;
   className?: string;
 }
 
@@ -22,6 +24,7 @@ export function Board3x3({
   interactive = [],
   onCellClick,
   lastMove = null,
+  lastMoveClass,
   className,
 }: Board3x3Props) {
   const clickable = new Set(interactive);
@@ -52,8 +55,9 @@ export function Board3x3({
               !canClick && mark === null && 'opacity-60',
               mark === 'X' && 'text-p1 text-glow-p1',
               mark === 'O' && 'text-p2 text-glow-p2',
-              lastMove === i && mark === 'X' && 'glow-p1',
-              lastMove === i && mark === 'O' && 'glow-p2',
+              lastMove === i && !lastMoveClass && mark === 'X' && 'glow-p1',
+              lastMove === i && !lastMoveClass && mark === 'O' && 'glow-p2',
+              lastMove === i && lastMoveClass,
             )}
           >
             {mark ?? ''}

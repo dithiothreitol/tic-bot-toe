@@ -133,6 +133,31 @@ export const pl = {
     saving: 'Zapisywanie…',
     saved: 'Zapisano do rankingu',
     saveError: 'Nie udało się zapisać wyniku.',
+    analyze: 'Analiza z trenerem',
+    closeAnalysis: 'Zamknij analizę',
+  },
+
+  analysis: {
+    title: 'Powtórka z trenerem',
+    intro: 'Każdy ruch oceniony solverem — zielony optymalny, żółty słaby, czerwony błąd.',
+    precision: 'Precyzja',
+    turningPoint: 'Moment zwrotny',
+    turningPointDesc: 'pierwszy błąd w partii',
+    noBlunder: 'Brak błędów — czysta partia.',
+    goToTurningPoint: 'Skocz do momentu zwrotnego',
+    step: 'Krok',
+    start: 'Start',
+    first: '⏮',
+    prev: '◀',
+    next: '▶',
+    last: '⏭',
+    moveList: 'Ruchy',
+    quality: {
+      optimal: 'optymalny',
+      good: 'dobry',
+      weak: 'słaby',
+      blunder: 'błąd',
+    },
   },
 
   nav: {
@@ -218,6 +243,7 @@ export const pl = {
       forfeit: 'Wymuszone',
       latency: 'Śr. czas',
       cost: 'Koszt/partię',
+      precision: 'Precyzja',
     },
   },
 

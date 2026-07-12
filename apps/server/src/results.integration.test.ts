@@ -100,6 +100,15 @@ describe('submitResult (real Postgres via testcontainers)', () => {
     if (!res.ok) expect(res.code).toBe(422);
   });
 
+  it('rejects a match whose client eval disagrees with server analysis (§15.1)', async () => {
+    const payload = playOut('tictactoe', 'standard', 0, 4000, 'a', 'b');
+    // The first move on an empty board is 'optimal' — claiming 'blunder' is a lie.
+    payload.moves[0] = { ...payload.moves[0]!, eval: { quality: 'blunder' } };
+    const res = await submitResult(handle.db, newJti(), payload, null);
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.reason).toBe('eval_mismatch');
+  });
+
   it('rejects a reused jti (one-time token)', async () => {
     const jti = newJti();
     const first = await submitResult(
@@ -202,12 +211,17 @@ describe('HTTP endpoints (real Postgres)', () => {
       subjectId: string;
       elo: number;
       avgTokensPerMove: number | null;
+      optimalRate: number | null;
     }>;
     expect(board).toHaveLength(2);
     expect(board[0].subjectId).toBe('openrouter:winner');
     expect(board[0].elo).toBeGreaterThan(board[1].elo);
     // §9.2 aggregate exposed for the radar "Oszczędność" axis (10+2 tokens/move).
     expect(board[0].avgTokensPerMove).toBeCloseTo(12, 5);
+    // §12.2 Precyzja: optimal-rate is computed server-side, not null.
+    expect(board[0].optimalRate).not.toBeNull();
+    expect(board[0].optimalRate).toBeGreaterThanOrEqual(0);
+    expect(board[0].optimalRate as number).toBeLessThanOrEqual(1);
   });
 
   it('GET /api/elo-history returns ordered checkpoints for a subject', async () => {

@@ -163,6 +163,11 @@ export function LeaderboardPage() {
                       <TableHead className="w-8">{pl.leaderboard.col.rank}</TableHead>
                       <TableHead>{pl.leaderboard.col.subject}</TableHead>
                       <TableHead className="text-right">{pl.leaderboard.col.elo}</TableHead>
+                      {game === 'tictactoe' && (
+                        <TableHead className="text-right">
+                          {pl.leaderboard.col.precision}
+                        </TableHead>
+                      )}
                       <TableHead className="text-right">{pl.leaderboard.col.wld}</TableHead>
                       <TableHead className="text-right">{pl.leaderboard.col.forfeit}</TableHead>
                       <TableHead className="text-right">{pl.leaderboard.col.latency}</TableHead>
@@ -189,6 +194,18 @@ export function LeaderboardPage() {
                         <TableCell className="text-right font-semibold text-p1">
                           {Math.round(r.elo)}
                         </TableCell>
+                        {game === 'tictactoe' && (
+                          <TableCell
+                            className={cn(
+                              'text-right',
+                              r.optimalRate !== null && r.optimalRate >= 0.9 && 'text-edu',
+                            )}
+                          >
+                            {r.optimalRate === null
+                              ? '—'
+                              : `${Math.round(r.optimalRate * 100)}%`}
+                          </TableCell>
+                        )}
                         <TableCell className="text-right">
                           {r.wins}/{r.losses}/{r.draws}
                         </TableCell>
