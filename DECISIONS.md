@@ -3,6 +3,15 @@
 Jednozdaniowe decyzje podejmowane tam, gdzie SPEC.md nie rozstrzyga (zgodnie z
 regułą 5 promptu startowego). Najnowsze na górze.
 
+## Stage 3 — statki
+
+- **`GameDefinition<S, M, V extends PlayerView>`** — sparametryzowane typem widoku (domyślnie `PlayerView`), żeby konkretne silniki (`ticTacToe`, `battleship`) zachowały swój widok bez rzutowań; orchestrator/runner używają domyślnego `PlayerView` przez rzut `GameDefinition<unknown, Move>`.
+- **Ukryta informacja (kluczowe, §5/§20)**: `viewFor` czyta `oppShots` do decyzji „unknown vs ujawnij" — pola nieostrzelane zawsze `unknown`, więc rozstawienie wroga NIGDY nie trafia do widoku. Pilnowane testem (każde nieostrzelane pole = `unknown`, serializacja bez `ships`).
+- **Dodatkowy strzał po trafieniu**: `turn` przechowywany w stanie (nie da się wyliczyć z liczby ruchów); trafienie + `extraShotOnHit` → ta sama tura. Bezpiecznik pętli 2·N².
+- **`serializeSetup` zapisuje OBA rozstawienia + seed** — serwer odtwarza dokładny stan (nie regeneruje). Ekran obserwacji LLM vs LLM = widok boga (dwie własne plansze przez `viewFor`).
+- **Człowiek zawsze p1**; rozstawienie floty przed partią (LLM zawsze losowo z seeda). Rewanż = nowy seed (`seed + restartKey`) + ponowne rozstawienie.
+- **Helpery rozstawienia** (`shipCellsAt`, `canPlaceShip`) eksportowane z silnika — UI używa przetestowanej logiki zamiast reimplementacji.
+
 ## Stage 2 — providery + orchestrator
 
 - **Semantyka retry (SPEC §8 „maks. 3 próby")**: 1 próba wstępna + do 3 prób korygujących (max 4 wywołania), `retries` ∈ 0..3 — dokładnie zgodne z `MoveTelemetry.retries: 0..3`. `forfeit` przy wyczerpaniu 3 retry → losowy legalny ruch.

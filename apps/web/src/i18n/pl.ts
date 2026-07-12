@@ -8,6 +8,27 @@ export const pl = {
 
   games: {
     tictactoe: 'Kółko i krzyżyk',
+    battleship: 'Statki',
+  },
+
+  battleship: {
+    yourFleet: 'Twoja flota',
+    yourShots: 'Twoje strzały',
+    fleetP1: 'Flota — Gracz 1',
+    fleetP2: 'Flota — Gracz 2',
+  },
+
+  placement: {
+    title: 'Rozstaw flotę',
+    instruction:
+      'Klikaj pola, aby stawiać statki. Statki nie mogą się stykać — także po skosie.',
+    rotate: 'Obróć',
+    random: 'Rozstaw losowo',
+    clear: 'Wyczyść',
+    ready: 'Gotowe',
+    remaining: 'Do rozstawienia',
+    nextShip: (len: number) => `Stawiasz statek długości ${len}`,
+    allPlaced: 'Cała flota rozstawiona.',
   },
 
   mode: {
@@ -40,6 +61,8 @@ export const pl = {
 
   setup: {
     title: 'Nowa partia',
+    game: 'Gra',
+    variant: 'Wariant',
     chooseModel: 'Wybierz model',
     searchModel: 'Szukaj modelu…',
     onlyFree: 'Tylko darmowe',

@@ -131,7 +131,7 @@ function asTicTacToeView(view: PlayerView): TicTacToeView {
   return view;
 }
 
-export const ticTacToe: GameDefinition<TicTacToeState, number> = {
+export const ticTacToe: GameDefinition<TicTacToeState, number, TicTacToeView> = {
   id: 'tictactoe',
   variants: TICTACTOE_VARIANTS,
 

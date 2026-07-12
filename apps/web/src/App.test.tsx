@@ -19,6 +19,13 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: 'Start' })).toBeInTheDocument();
   });
 
+  it('switches to battleship and reveals the variant selector', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(await screen.findByRole('tab', { name: 'Statki' }));
+    expect(await screen.findByText('Wariant')).toBeInTheDocument();
+  });
+
   it('opens settings and surfaces the local-only key notice', async () => {
     const user = userEvent.setup();
     render(<App />);

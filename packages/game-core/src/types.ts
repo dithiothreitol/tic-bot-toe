@@ -116,17 +116,48 @@ export interface TicTacToeView extends PlayerViewBase {
   symbol: TicTacToeSymbol;
 }
 
+// ---------------------------------------------------------------------------
+// Battleship (HIDDEN information — the view must NEVER leak enemy ship layout)
+// ---------------------------------------------------------------------------
+
+/** A cell on the player's own board. */
+export type BattleshipOwnCell = 'water' | 'ship' | 'ship-hit' | 'miss';
+
+/** A cell on the tracking board (what the player knows about the enemy). */
+export type BattleshipTrackingCell = 'unknown' | 'miss' | 'hit' | 'sunk';
+
+export interface BattleshipView extends PlayerViewBase {
+  game: 'battleship';
+  size: number; // N (board is N×N)
+  extraShotOnHit: boolean;
+  /** Own fleet + incoming fire (row-major, length N·N). Safe: it's the player's own board. */
+  ownBoard: BattleshipOwnCell[];
+  /**
+   * What the player knows about the enemy board (row-major, length N·N).
+   * Only fired cells carry information — the rest are 'unknown'. This is the
+   * ONLY enemy data in the view: raw enemy ship positions never appear here.
+   */
+  trackingBoard: BattleshipTrackingCell[];
+  /** Lengths of enemy ships not yet sunk. */
+  enemyShipsRemaining: number[];
+  /** Coordinate strings ("A1"…) not yet fired at. */
+  legalTargets: string[];
+}
+
 /**
- * Union of every per-game view. Extended as games are added (battleship in
- * Stage 3). `renderPrompt`/`parseMove` narrow on `view.game`.
+ * Union of every per-game view. `renderPrompt`/`parseMove` narrow on `view.game`.
  */
-export type PlayerView = TicTacToeView;
+export type PlayerView = TicTacToeView | BattleshipView;
 
 // ---------------------------------------------------------------------------
 // Multi-game contract
 // ---------------------------------------------------------------------------
 
-export interface GameDefinition<S, M extends Move> {
+export interface GameDefinition<
+  S,
+  M extends Move,
+  V extends PlayerView = PlayerView,
+> {
   id: GameId;
   variants: Variant[];
   createInitialState(variant: Variant, config: SetupConfig): S;
@@ -142,8 +173,8 @@ export interface GameDefinition<S, M extends Move> {
   applyMove(state: S, player: PlayerSide, move: M): S;
   status(state: S): GameStatus;
   /** Hidden-information games: never leak the opponent's secret state. */
-  viewFor(state: S, player: PlayerSide): PlayerView;
-  renderPrompt(view: PlayerView, legal: M[]): RenderedPrompt;
+  viewFor(state: S, player: PlayerSide): V;
+  renderPrompt(view: V, legal: M[]): RenderedPrompt;
   parseMove(raw: string, legal: M[]): M | null;
   serializeSetup(state: S): SetupRecord;
   /** Optional post-game analysis (SPEC §12.2), added per game in Stage 10. */

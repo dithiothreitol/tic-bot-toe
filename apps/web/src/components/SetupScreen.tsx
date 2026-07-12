@@ -1,5 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
+
+import {
+  type GameId,
+  type Variant,
+  BATTLESHIP_VARIANTS,
+  TICTACTOE_VARIANTS,
+} from '@arena/game-core';
 
 import { ModelPicker } from '@/components/ModelPicker';
 import { Button } from '@/components/ui/button';
@@ -12,6 +19,13 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { MatchConfig } from '@/components/GameRunner';
 import type { MatchMode } from '@/game/orchestrator';
@@ -33,6 +47,10 @@ function specFor(model: CatalogModel, apiKey: string): PlayerSpec {
   };
 }
 
+function randomSeed(): number {
+  return Math.floor(Math.random() * 2 ** 31);
+}
+
 export function SetupScreen({
   onStart,
   onOpenSettings,
@@ -40,6 +58,8 @@ export function SetupScreen({
   onStart: (config: MatchConfig) => void;
   onOpenSettings: () => void;
 }) {
+  const [game, setGame] = useState<GameId>('tictactoe');
+  const [variantId, setVariantId] = useState('small');
   const [mode, setMode] = useState<MatchMode>('human_vs_model');
   const [models, setModels] = useState<CatalogModel[]>([]);
   const [loading, setLoading] = useState(true);
@@ -64,6 +84,14 @@ export function SetupScreen({
     };
   }, []);
 
+  const variant: Variant = useMemo(
+    () =>
+      game === 'battleship'
+        ? (BATTLESHIP_VARIANTS.find((v) => v.id === variantId) ?? BATTLESHIP_VARIANTS[0])
+        : TICTACTOE_VARIANTS[0],
+    [game, variantId],
+  );
+
   const start = () => {
     const apiKey = useSettings.getState().openRouterKey;
     if (!apiKey) {
@@ -77,15 +105,18 @@ export function SetupScreen({
       return;
     }
 
+    const base = { game, variant, seed: randomSeed() };
     const config: MatchConfig =
       mode === 'model_vs_model'
         ? {
+            ...base,
             mode,
             p1: specFor(p1Model as CatalogModel, apiKey),
             p2: specFor(p2Model, apiKey),
             names: { p1: (p1Model as CatalogModel).name, p2: p2Model.name },
           }
         : {
+            ...base,
             mode: 'human_vs_model',
             p1: { kind: 'human' },
             p2: specFor(p2Model, apiKey),
@@ -98,16 +129,47 @@ export function SetupScreen({
     <Card className="w-full">
       <CardHeader>
         <CardTitle>{pl.setup.title}</CardTitle>
-        <CardDescription>{pl.games.tictactoe}</CardDescription>
+        <CardDescription>{pl.games[game]}</CardDescription>
       </CardHeader>
 
       <CardContent className="flex flex-col gap-5">
-        <Tabs value={mode} onValueChange={(v) => setMode(v as MatchMode)}>
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="human_vs_model">{pl.mode.humanVsModel}</TabsTrigger>
-            <TabsTrigger value="model_vs_model">{pl.mode.modelVsModel}</TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <div className="flex flex-col gap-2">
+          <Label>{pl.setup.game}</Label>
+          <Tabs value={game} onValueChange={(v) => setGame(v as GameId)}>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="tictactoe">{pl.games.tictactoe}</TabsTrigger>
+              <TabsTrigger value="battleship">{pl.games.battleship}</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
+
+        {game === 'battleship' && (
+          <div className="flex flex-col gap-2">
+            <Label>{pl.setup.variant}</Label>
+            <Select value={variantId} onValueChange={setVariantId}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {BATTLESHIP_VARIANTS.map((v) => (
+                  <SelectItem key={v.id} value={v.id}>
+                    {v.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
+        <div className="flex flex-col gap-2">
+          <Label>{pl.mode.label}</Label>
+          <Tabs value={mode} onValueChange={(v) => setMode(v as MatchMode)}>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="human_vs_model">{pl.mode.humanVsModel}</TabsTrigger>
+              <TabsTrigger value="model_vs_model">{pl.mode.modelVsModel}</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
 
         {mode === 'model_vs_model' ? (
           <div className="flex flex-col gap-2">
@@ -121,7 +183,9 @@ export function SetupScreen({
           </div>
         ) : (
           <div className="flex items-center gap-2 rounded-lg border border-p1/30 px-3 py-2 text-sm">
-            <span className="font-mono text-lg font-bold text-p1 text-glow-p1">X</span>
+            <span className="font-mono text-lg font-bold text-p1 text-glow-p1">
+              {game === 'tictactoe' ? 'X' : '⚓'}
+            </span>
             <span>{pl.player.human}</span>
           </div>
         )}
