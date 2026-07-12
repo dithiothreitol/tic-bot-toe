@@ -4,13 +4,8 @@ import { toast } from 'sonner';
 import { type GameId, BATTLESHIP_VARIANTS } from '@arena/game-core';
 
 import { type LeaderboardRow, apiGet } from '@/api/client';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
+import { SectionLabel } from '@/components/ui/hud';
 import {
   Select,
   SelectContent,
@@ -74,11 +69,14 @@ export function LeaderboardPage() {
   };
 
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle>{pl.leaderboard.title}</CardTitle>
-        <CardDescription>{pl.games[game]}</CardDescription>
-      </CardHeader>
+    <div className="flex flex-col gap-6">
+      <header className="flex flex-col gap-2">
+        <SectionLabel>{pl.leaderboard.title}</SectionLabel>
+        <h1 className="font-sans text-4xl font-bold uppercase tracking-tight sm:text-5xl">
+          {pl.games[game]}
+        </h1>
+      </header>
+      <Card className="w-full">
       <CardContent className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center gap-3">
           <Tabs value={game} onValueChange={(v) => onGameChange(v as GameId)}>
@@ -164,6 +162,7 @@ export function LeaderboardPage() {
           </div>
         )}
       </CardContent>
-    </Card>
+      </Card>
+    </div>
   );
 }

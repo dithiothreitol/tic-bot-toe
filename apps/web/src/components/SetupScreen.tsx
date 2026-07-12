@@ -10,14 +10,8 @@ import {
 
 import { ModelPicker } from '@/components/ModelPicker';
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent, CardFooter } from '@/components/ui/card';
+import { SectionLabel } from '@/components/ui/hud';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -165,25 +159,24 @@ export function SetupScreen({
 
   return (
     <Card className="w-full">
-      <CardHeader>
-        <CardTitle>{pl.setup.title}</CardTitle>
-        <CardDescription>{pl.games[game]}</CardDescription>
-      </CardHeader>
-
-      <CardContent className="flex flex-col gap-5">
-        <div className="flex flex-col gap-2">
-          <Label>{pl.setup.game}</Label>
+      <CardContent className="flex flex-col gap-6">
+        <section className="flex flex-col gap-2">
+          <SectionLabel tag="01">{pl.setup.game}</SectionLabel>
           <Tabs value={game} onValueChange={(v) => setGame(v as GameId)}>
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="tictactoe">{pl.games.tictactoe}</TabsTrigger>
-              <TabsTrigger value="battleship">{pl.games.battleship}</TabsTrigger>
+            <TabsList className="grid h-auto w-full grid-cols-2">
+              <TabsTrigger value="tictactoe" className="py-2.5">
+                {pl.games.tictactoe}
+              </TabsTrigger>
+              <TabsTrigger value="battleship" className="py-2.5">
+                {pl.games.battleship}
+              </TabsTrigger>
             </TabsList>
           </Tabs>
-        </div>
+        </section>
 
         {game === 'battleship' && (
-          <div className="flex flex-col gap-2">
-            <Label>{pl.setup.variant}</Label>
+          <section className="flex flex-col gap-2">
+            <SectionLabel tag="02">{pl.setup.variant}</SectionLabel>
             <Select value={variantId} onValueChange={setVariantId}>
               <SelectTrigger>
                 <SelectValue />
@@ -196,51 +189,64 @@ export function SetupScreen({
                 ))}
               </SelectContent>
             </Select>
-          </div>
+          </section>
         )}
 
-        <div className="flex flex-col gap-2">
-          <Label>{pl.mode.label}</Label>
+        <section className="flex flex-col gap-2">
+          <SectionLabel tag={game === 'battleship' ? '03' : '02'}>
+            {pl.mode.label}
+          </SectionLabel>
           <Tabs value={mode} onValueChange={(v) => setMode(v as MatchMode)}>
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="human_vs_model">{pl.mode.humanVsModel}</TabsTrigger>
-              <TabsTrigger value="model_vs_model">{pl.mode.modelVsModel}</TabsTrigger>
+            <TabsList className="grid h-auto w-full grid-cols-2">
+              <TabsTrigger value="human_vs_model" className="py-2.5">
+                {pl.mode.humanVsModel}
+              </TabsTrigger>
+              <TabsTrigger value="model_vs_model" className="py-2.5">
+                {pl.mode.modelVsModel}
+              </TabsTrigger>
             </TabsList>
           </Tabs>
-        </div>
+        </section>
 
-        {mode === 'model_vs_model' ? (
+        <section className="grid gap-4 sm:grid-cols-2">
+          {mode === 'model_vs_model' ? (
+            <div className="flex flex-col gap-2">
+              <Label className="text-p1">{pl.setup.modelP1}</Label>
+              <ModelPicker
+                models={models}
+                loading={loading}
+                value={p1Model?.id ?? null}
+                onSelect={setP1Model}
+              />
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              <Label className="text-p1">{pl.player.p1}</Label>
+              <div className="clip-cut flex items-center gap-2 border border-p1/30 bg-card-inset px-3 py-2 text-sm">
+                <span className="font-mono text-lg font-bold text-p1 text-glow-p1">
+                  {game === 'tictactoe' ? 'X' : '⚓'}
+                </span>
+                <span>{pl.player.human}</span>
+              </div>
+            </div>
+          )}
+
           <div className="flex flex-col gap-2">
-            <Label>{pl.setup.modelP1}</Label>
+            <Label className="text-p2">
+              {mode === 'model_vs_model' ? pl.setup.modelP2 : pl.setup.chooseModel}
+            </Label>
             <ModelPicker
               models={models}
               loading={loading}
-              value={p1Model?.id ?? null}
-              onSelect={setP1Model}
+              value={p2Model?.id ?? null}
+              onSelect={setP2Model}
             />
           </div>
-        ) : (
-          <div className="flex items-center gap-2 rounded-lg border border-p1/30 px-3 py-2 text-sm">
-            <span className="font-mono text-lg font-bold text-p1 text-glow-p1">
-              {game === 'tictactoe' ? 'X' : '⚓'}
-            </span>
-            <span>{pl.player.human}</span>
-          </div>
-        )}
-
-        <div className="flex flex-col gap-2">
-          <Label>{mode === 'model_vs_model' ? pl.setup.modelP2 : pl.setup.chooseModel}</Label>
-          <ModelPicker
-            models={models}
-            loading={loading}
-            value={p2Model?.id ?? null}
-            onSelect={setP2Model}
-          />
-        </div>
+        </section>
       </CardContent>
 
       <CardFooter>
-        <Button className="w-full" onClick={start}>
+        <Button size="lg" className="w-full" onClick={start}>
           {pl.setup.start}
         </Button>
       </CardFooter>

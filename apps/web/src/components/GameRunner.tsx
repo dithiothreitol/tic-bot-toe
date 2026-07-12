@@ -21,6 +21,7 @@ import { GameLog } from '@/components/GameLog';
 import { ShipPlacement } from '@/components/ShipPlacement';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { HudPanel } from '@/components/ui/hud';
 import {
   type MatchMode,
   type MatchOutcome,
@@ -198,10 +199,29 @@ export function GameRunner({
       <Button variant="ghost" size="sm" onClick={onExit}>
         ← {pl.result.backToSetup}
       </Button>
-      <span className="font-mono text-xs text-muted-foreground">
+      <span className="section-label">
         {pl.games[config.game]} ·{' '}
         {config.mode === 'model_vs_model' ? pl.mode.modelVsModel : pl.mode.humanVsModel}
       </span>
+    </div>
+  );
+
+  const slotSymbol = (side: PlayerSide): string =>
+    config.game === 'tictactoe' ? (side === 'p1' ? 'X' : 'O') : '⚓';
+  const activeSide = (side: PlayerSide): boolean =>
+    outcome ? outcome.winner === side : status === 'playing' && toMove === side;
+
+  const playerSlots = (
+    <div className="grid grid-cols-2 gap-3">
+      {(['p1', 'p2'] as const).map((side) => (
+        <PlayerSlot
+          key={side}
+          side={side}
+          name={side === 'p1' ? config.names.p1 : config.names.p2}
+          symbol={slotSymbol(side)}
+          active={activeSide(side)}
+        />
+      ))}
     </div>
   );
 
@@ -224,62 +244,61 @@ export function GameRunner({
     );
   }
 
+  const live = status === 'playing' && outcome === null;
+
   return (
     <div className="flex w-full flex-col gap-4">
       {header}
-      <Card>
-        <CardContent className="grid gap-6 pt-6 md:grid-cols-[auto_1fr]">
-          <div className="flex flex-col items-center gap-4">
-            <p
-              aria-live="polite"
-              className={cn(
-                'flex items-center gap-2 text-center font-mono text-sm',
-                outcome?.winner === 'p1' && 'text-p1',
-                outcome?.winner === 'p2' && 'text-p2',
-              )}
-            >
-              {thinking && (
-                <span
-                  className={cn(
-                    'inline-block size-2 animate-pulse rounded-full',
-                    toMove === 'p1' ? 'bg-p1' : 'bg-p2',
-                  )}
-                />
-              )}
-              {statusLine}
+      {playerSlots}
+      <div className="grid gap-4 md:grid-cols-[minmax(0,auto)_1fr]">
+        <HudPanel
+          brackets
+          scanner={live}
+          accent={thinking && toMove === 'p2' ? 'p2' : 'p1'}
+          className="flex flex-col items-center gap-4 p-5"
+        >
+          <p
+            aria-live="polite"
+            className={cn(
+              'flex items-center gap-2 text-center font-mono text-sm',
+              outcome?.winner === 'p1' && 'text-p1',
+              outcome?.winner === 'p2' && 'text-p2',
+            )}
+          >
+            {thinking && <ThinkDots side={toMove} />}
+            {statusLine}
+          </p>
+
+          {config.game === 'tictactoe' ? (
+            <TicTacToeArena
+              state={state as TicTacToeState | null}
+              interactive={isHumanTurn}
+              toMove={toMove}
+              onPlay={(cell) => submit(cell)}
+            />
+          ) : (
+            <BattleshipArena
+              state={state as BattleshipState | null}
+              mode={config.mode}
+              humanSide={humanSide}
+              canFire={isHumanTurn}
+              toMove={toMove}
+              names={config.names}
+              onFire={(coord) => submit(coord)}
+            />
+          )}
+
+          {hasCost && (
+            <p className="font-mono text-xs text-muted-foreground">
+              {pl.result.cost}: {formatCost(totalCost)}
             </p>
+          )}
+        </HudPanel>
 
-            {config.game === 'tictactoe' ? (
-              <TicTacToeArena
-                state={state as TicTacToeState | null}
-                interactive={isHumanTurn}
-                toMove={toMove}
-                onPlay={(cell) => submit(cell)}
-              />
-            ) : (
-              <BattleshipArena
-                state={state as BattleshipState | null}
-                mode={config.mode}
-                humanSide={humanSide}
-                canFire={isHumanTurn}
-                toMove={toMove}
-                names={config.names}
-                onFire={(coord) => submit(coord)}
-              />
-            )}
-
-            {hasCost && (
-              <p className="font-mono text-xs text-muted-foreground">
-                {pl.result.cost}: {formatCost(totalCost)}
-              </p>
-            )}
-          </div>
-
-          <div className="min-w-0">
-            <GameLog moves={log} names={config.names} />
-          </div>
-        </CardContent>
-      </Card>
+        <HudPanel className="min-w-0 p-4">
+          <GameLog moves={log} names={config.names} />
+        </HudPanel>
+      </div>
 
       {outcome && (
         <div className="flex flex-col items-center gap-3">
@@ -290,13 +309,21 @@ export function GameRunner({
           )}
           {saveResponse && saveResponse.ratingChanges.length > 0 && (
             <div className="flex flex-col items-center gap-1 font-mono text-xs">
-              <span className="text-emerald-400">{pl.result.saved}</span>
-              {saveResponse.ratingChanges.map((rc) => (
-                <span key={rc.subjectId} className="text-muted-foreground">
-                  {shortId(rc.subjectId)}: {Math.round(rc.before)} → {Math.round(rc.after)} (
-                  {fmtDelta(rc.after - rc.before)})
-                </span>
-              ))}
+              <span className="text-edu text-glow-edu uppercase tracking-wide">
+                {pl.result.saved}
+              </span>
+              {saveResponse.ratingChanges.map((rc) => {
+                const delta = rc.after - rc.before;
+                return (
+                  <span key={rc.subjectId} className="text-muted-foreground">
+                    {shortId(rc.subjectId)}: {Math.round(rc.before)} →{' '}
+                    {Math.round(rc.after)}{' '}
+                    <span className={delta >= 0 ? 'text-edu' : 'text-danger'}>
+                      ({fmtDelta(delta)})
+                    </span>
+                  </span>
+                );
+              })}
             </div>
           )}
           <div className="flex flex-wrap justify-center gap-3">
@@ -308,6 +335,63 @@ export function GameRunner({
         </div>
       )}
     </div>
+  );
+}
+
+/** Two-diamond "model is thinking" indicator in the active player's color. */
+function ThinkDots({ side }: { side: PlayerSide }) {
+  const color = side === 'p1' ? 'bg-p1' : 'bg-p2';
+  return (
+    <span className="inline-flex items-center gap-1" aria-hidden>
+      {[0, 0.2, 0.4].map((delay) => (
+        <span
+          key={delay}
+          className={cn('size-1.5 rounded-full', color)}
+          style={{ animation: `think 1s ease-in-out ${delay}s infinite` }}
+        />
+      ))}
+    </span>
+  );
+}
+
+/** Player slot (DESIGN screen 02): swatch + name + PLAYER_0n · symbol. */
+function PlayerSlot({
+  side,
+  name,
+  symbol,
+  active,
+}: {
+  side: PlayerSide;
+  name: string;
+  symbol: string;
+  active: boolean;
+}) {
+  const isP1 = side === 'p1';
+  return (
+    <HudPanel
+      cut
+      accent={isP1 ? 'p1' : 'p2'}
+      className={cn(
+        'flex items-center gap-3 px-4 py-3 transition-shadow',
+        active && (isP1 ? 'glow-p1' : 'glow-p2'),
+      )}
+    >
+      <span
+        aria-hidden
+        className={cn(
+          'clip-cut flex size-9 shrink-0 items-center justify-center bg-gradient-to-br font-mono text-lg font-bold',
+          isP1 ? 'from-p1/80 to-p1/20 text-p1-foreground' : 'from-p2/80 to-p2/20 text-p2-foreground',
+        )}
+      >
+        {symbol}
+      </span>
+      <div className="min-w-0">
+        <div className="truncate font-sans font-bold tracking-wide">{name}</div>
+        <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+          {isP1 ? 'Player_01' : 'Player_02'} · {symbol}
+        </div>
+      </div>
+    </HudPanel>
   );
 }
 

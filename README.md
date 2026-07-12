@@ -13,7 +13,7 @@ po stronie serwera.
 | Pakiet | Rola |
 |---|---|
 | [`packages/game-core`](./packages/game-core) | Czysty TS: silniki gier, solvery, Elo, replay, parsery (bez DOM/Node — działa w przeglądarce i na serwerze) |
-| [`apps/web`](./apps/web) | Frontend: Vite 8 + React 19 + TS + Tailwind 4 + shadcn/ui + Zustand |
+| [`apps/web`](./apps/web) | Frontend: Vite 8 + React 19 + TS + Tailwind 4 + shadcn/ui + Zustand. Warstwa wizualna „Cyber-HUD" wg [`handoff/DESIGN.md`](./handoff/DESIGN.md) (fonty self-hosted przez `@fontsource`) |
 | [`apps/server`](./apps/server) | Backend: Node 22 + Hono + Drizzle + PostgreSQL |
 
 ## Pierwsze uruchomienie (Docker, 5 kroków)

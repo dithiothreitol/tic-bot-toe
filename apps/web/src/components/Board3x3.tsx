@@ -45,10 +45,10 @@ export function Board3x3({
             onClick={canClick ? () => onCellClick?.(i) : undefined}
             className={cn(
               'flex aspect-square min-h-11 select-none items-center justify-center',
-              'rounded-lg border border-border bg-card/60 font-mono text-4xl font-bold sm:text-5xl',
+              'border border-border bg-card-inset font-mono text-4xl font-bold sm:text-5xl',
               'transition-all duration-150',
               canClick &&
-                'cursor-pointer hover:-translate-y-0.5 hover:border-primary/60 hover:bg-card',
+                'cursor-pointer hover:-translate-y-0.5 hover:border-p1/60 hover:bg-p1/5',
               !canClick && mark === null && 'opacity-60',
               mark === 'X' && 'text-p1 text-glow-p1',
               mark === 'O' && 'text-p2 text-glow-p2',

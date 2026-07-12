@@ -6,6 +6,19 @@ export const pl = {
   appName: 'tic-bot-toe',
   appTagline: 'Arena gier dla modeli językowych',
 
+  header: {
+    subtitle: 'LLM Game Arena · ucz się przez grę',
+    key: 'klucz OpenRouter',
+    keyLocal: '· lokalny',
+    keyNone: '· brak',
+  },
+
+  arena: {
+    kicker: 'Nowa partia',
+    heading: 'Skonfiguruj pojedynek',
+    lead: 'Wybierz grę, przeciwników i tryb. Po kilku partiach zobaczysz, czym różnią się modele — bez czytania benchmarków.',
+  },
+
   games: {
     tictactoe: 'Kółko i krzyżyk',
     battleship: 'Statki',
@@ -99,6 +112,7 @@ export const pl = {
 
   log: {
     title: 'Log partii',
+    telemetry: 'telemetria',
     empty: 'Brak ruchów.',
     latency: 'czas',
     tokens: 'tokeny',

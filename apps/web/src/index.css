@@ -4,54 +4,86 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * Gaming-educational look & feel (SPEC §4).
- * Dark-first: deep navy background, neon player accents (P1 cyan, P2 magenta),
- * monospace for logs/stats, subtle glow on active elements.
- * This is the single token layer — do NOT redefine colors per component.
+ * Cyber-HUD / Tactical look & feel — single source of truth: handoff/DESIGN.md.
+ * Esport overlay: sharp corners (radius 0 + clip-path), tech grid, corner
+ * brackets, scanners; Rajdhani for chrome, JetBrains Mono for data/telemetry.
+ * This is the ONE token layer — do NOT restyle colors per component (DESIGN §2).
  */
 :root {
-  --radius: 0.625rem;
+  /* --- surfaces --- */
+  --background: #05070c; /* page + HUD grid */
+  --card: #080d18; /* panels (angular) */
+  --card-inset: #060a14; /* fields inside panels (cells, inputs) */
+  --border-tech: rgba(53, 231, 255, 0.16); /* tech frame (cyan) */
+  --border-soft: rgba(255, 255, 255, 0.1); /* neutral frame */
 
-  --background: #0b1020;
-  --foreground: #e6eaf5;
+  /* --- text --- */
+  --foreground: #dce6f5;
+  --muted-fg: #8a96b8;
+  --dim-fg: #6e7b9e;
+  --faint-fg: #4b587c;
 
-  --card: #111a2e;
-  --card-foreground: #e6eaf5;
+  /* --- accents --- */
+  --p1: #35e7ff; /* Player_01 · cyan */
+  --p2: #ff3d9a; /* Player_02 · magenta */
+  --accent-edu: #b6ff3c; /* educational module / positive */
+  --danger: #ff4d6a; /* Elo drop, error */
+  --warn: #ff8a3c; /* high forfeit rate */
 
-  --popover: #0e1626;
-  --popover-foreground: #e6eaf5;
+  /* --- typography --- */
+  --font-sans: 'Rajdhani', ui-sans-serif, system-ui, sans-serif; /* chrome, headings, buttons */
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas,
+    monospace; /* data, telemetry, code */
+
+  /* --- geometry --- */
+  --radius: 0; /* angular; corners = clip-path */
+  --clip-cut: polygon(
+    12px 0,
+    100% 0,
+    100% calc(100% - 12px),
+    calc(100% - 12px) 100%,
+    0 100%,
+    0 12px
+  );
+  --clip-tab: polygon(8px 0, 100% 0, 100% 100%, 0 100%, 0 8px);
+
+  /* --- glow --- */
+  --glow-p1: 0 0 22px rgba(53, 231, 255, 0.3);
+  --glow-p2: 0 0 22px rgba(255, 61, 154, 0.3);
+
+  /* ---- shadcn variable mapping (HUD wins over default look) ---- */
+  --card-foreground: var(--foreground);
+  --popover: #0a1120;
+  --popover-foreground: var(--foreground);
 
   /* Primary == P1 cyan, the app's signature accent. */
-  --primary: #22d3ee;
+  --primary: var(--p1);
   --primary-foreground: #04121a;
 
-  --secondary: #18233f;
-  --secondary-foreground: #e6eaf5;
+  --secondary: #0e1626;
+  --secondary-foreground: var(--foreground);
 
-  --muted: #18233f;
-  --muted-foreground: #94a0bd;
+  --muted: #0e1626;
+  --muted-foreground: var(--muted-fg);
 
-  --accent: #1e2c4e;
-  --accent-foreground: #e6eaf5;
+  --accent: #12203a; /* hover surface */
+  --accent-foreground: var(--foreground);
 
-  --destructive: #fb3b5c;
+  --destructive: var(--danger);
   --destructive-foreground: #ffffff;
 
-  --border: #26324f;
-  --input: #232f4b;
-  --ring: #22d3ee;
+  --border: var(--border-tech);
+  --input: rgba(53, 231, 255, 0.22);
+  --ring: var(--p1);
 
-  /* Chart series (Recharts, SPEC §9) — same token system. */
-  --chart-1: #22d3ee;
-  --chart-2: #f0459b;
-  --chart-3: #a78bfa;
-  --chart-4: #fbbf24;
-  --chart-5: #34d399;
+  /* Chart series (Recharts, DESIGN §5): P1, P2, edu, warn, violet. */
+  --chart-1: var(--p1);
+  --chart-2: var(--p2);
+  --chart-3: var(--accent-edu);
+  --chart-4: var(--warn);
+  --chart-5: #a78bfa;
 
-  /* Player accents. */
-  --p1: #22d3ee;
   --p1-foreground: #04121a;
-  --p2: #f0459b;
   --p2-foreground: #22040f;
 }
 
@@ -60,6 +92,7 @@
   --color-foreground: var(--foreground);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
+  --color-card-inset: var(--card-inset);
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
@@ -73,6 +106,7 @@
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
+  --color-border-soft: var(--border-soft);
   --color-input: var(--input);
   --color-ring: var(--ring);
   --color-chart-1: var(--chart-1);
@@ -81,18 +115,25 @@
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
 
+  /* HUD semantic colors as Tailwind utilities (text-dim, text-edu, …). */
+  --color-dim: var(--dim-fg);
+  --color-faint: var(--faint-fg);
+  --color-edu: var(--accent-edu);
+  --color-warn: var(--warn);
+  --color-danger: var(--danger);
   --color-p1: var(--p1);
   --color-p1-foreground: var(--p1-foreground);
   --color-p2: var(--p2);
   --color-p2-foreground: var(--p2-foreground);
 
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  /* Angular: neutralize shadcn's rounded-* scale (corners come from clip-path). */
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
 
-  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, 'SF Mono', Menlo,
-    Consolas, monospace;
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
 }
 
 @layer base {
@@ -107,38 +148,198 @@
   body {
     @apply bg-background text-foreground;
     min-height: 100dvh;
-    font-feature-settings: 'rlig' 1, 'calt' 1;
-    /* Subtle radial glow behind the arena. */
+    font-family: var(--font-sans);
+    font-feature-settings: 'calt' 1;
+    /* Twin radial glows: cyan top-left, magenta top-right (DESIGN §3). */
     background-image:
       radial-gradient(
-        60rem 40rem at 15% -10%,
-        color-mix(in oklab, var(--p1) 10%, transparent),
-        transparent
+        60rem 40rem at 12% -12%,
+        rgba(53, 231, 255, 0.1),
+        transparent 60%
       ),
       radial-gradient(
-        55rem 38rem at 100% 0%,
-        color-mix(in oklab, var(--p2) 9%, transparent),
-        transparent
+        55rem 38rem at 100% -4%,
+        rgba(255, 61, 154, 0.09),
+        transparent 60%
       );
     background-attachment: fixed;
+  }
+
+  /* Global HUD grid overlay — drifts slowly, never intercepts clicks. */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background-image:
+      repeating-linear-gradient(
+        90deg,
+        rgba(53, 231, 255, 0.04) 0 1px,
+        transparent 1px 46px
+      ),
+      repeating-linear-gradient(
+        0deg,
+        rgba(53, 231, 255, 0.04) 0 1px,
+        transparent 1px 46px
+      );
+    animation: gridDrift 9s linear infinite;
+  }
+
+  /* Content sits above the grid overlay. */
+  #root {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Numbers, telemetry and Elo use tabular monospace by default in .font-mono. */
+  .font-mono {
+    font-feature-settings: 'tnum' 1;
+  }
+}
+
+/* ---------------------------------------------------------------- animations */
+@keyframes scanH {
+  0% {
+    top: 4%;
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  88% {
+    opacity: 1;
+  }
+  100% {
+    top: 96%;
+    opacity: 0;
+  }
+}
+@keyframes bracketPulse {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+@keyframes gridDrift {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 46px 46px;
+  }
+}
+@keyframes think {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@layer components {
+  /* Core panel: angular surface + tech frame. Brackets/scanner are opt-in. */
+  .hud-panel {
+    position: relative;
+    background: var(--card);
+    border: 1px solid var(--border-tech);
+  }
+
+  /* Corner brackets (L-shapes) — rendered by <HudPanel brackets>. */
+  .hud-corner {
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    pointer-events: none;
+    animation: bracketPulse 2.6s ease-in-out infinite;
+    color: var(--p1);
+  }
+  .hud-corner-tl {
+    top: -1px;
+    left: -1px;
+    border-top: 2px solid;
+    border-left: 2px solid;
+  }
+  .hud-corner-tr {
+    top: -1px;
+    right: -1px;
+    border-top: 2px solid;
+    border-right: 2px solid;
+  }
+  .hud-corner-bl {
+    bottom: -1px;
+    left: -1px;
+    border-bottom: 2px solid;
+    border-left: 2px solid;
+  }
+  .hud-corner-br {
+    bottom: -1px;
+    right: -1px;
+    border-bottom: 2px solid;
+    border-right: 2px solid;
+  }
+
+  /* Scanner line for "live"/active panels — parent must clip overflow. */
+  .hud-scanner {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 2px;
+    top: 4%;
+    pointer-events: none;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      var(--p1),
+      transparent
+    );
+    box-shadow: 0 0 14px 1px rgba(53, 231, 255, 0.5);
+    opacity: 0.7;
+    animation: scanH 4.8s linear infinite;
+  }
+
+  /* `// SECTION` header prefix — rendered by <SectionLabel>. */
+  .section-label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--dim-fg);
   }
 }
 
 @layer utilities {
+  .clip-cut {
+    clip-path: var(--clip-cut);
+  }
+  .clip-tab {
+    clip-path: var(--clip-tab);
+  }
   .glow-p1 {
     box-shadow:
-      0 0 0 1px color-mix(in oklab, var(--p1) 45%, transparent),
-      0 0 20px -2px color-mix(in oklab, var(--p1) 55%, transparent);
+      0 0 0 1px color-mix(in oklab, var(--p1) 55%, transparent),
+      var(--glow-p1);
   }
   .glow-p2 {
     box-shadow:
-      0 0 0 1px color-mix(in oklab, var(--p2) 45%, transparent),
-      0 0 20px -2px color-mix(in oklab, var(--p2) 55%, transparent);
+      0 0 0 1px color-mix(in oklab, var(--p2) 55%, transparent),
+      var(--glow-p2);
   }
   .text-glow-p1 {
-    text-shadow: 0 0 10px color-mix(in oklab, var(--p1) 70%, transparent);
+    text-shadow: 0 0 12px color-mix(in oklab, var(--p1) 70%, transparent);
   }
   .text-glow-p2 {
-    text-shadow: 0 0 10px color-mix(in oklab, var(--p2) 70%, transparent);
+    text-shadow: 0 0 12px color-mix(in oklab, var(--p2) 70%, transparent);
+  }
+  .text-glow-edu {
+    text-shadow: 0 0 12px color-mix(in oklab, var(--accent-edu) 60%, transparent);
   }
 }

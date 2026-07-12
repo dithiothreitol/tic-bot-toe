@@ -3,6 +3,18 @@
 Jednozdaniowe decyzje podejmowane tam, gdzie SPEC.md nie rozstrzyga (zgodnie z
 regułą 5 promptu startowego). Najnowsze na górze.
 
+## Warstwa wizualna — Cyber-HUD (handoff/DESIGN.md)
+
+- **Źródło prawdy wyglądu = `handoff/DESIGN.md` + `handoff/screens/*.png`** (kierunek „Cyber-HUD / Tactical"). Odwzorowany na istniejącym stacku **shadcn/ui + Tailwind 4** — nie zastąpiono ani jednego komponentu shadcn; przeskórowano je w jednej warstwie tokenów.
+- **Jedna warstwa tokenów w `index.css`** (zasada DESIGN §2 „nie stylizuj per komponent"): kolory HUD (`#05070C` tło, `#080D18` panel, cyjan `#35E7FF`=P1, magenta `#FF3D9A`=P2, limonka `#B6FF3C`=edu, `--danger`/`--warn`), `--radius: 0`, `clip-path`, siatka tła (`body::before`, drift), bliźniacze poświaty radialne, keyframes (`scanH`/`bracketPulse`/`gridDrift`/`think`). Semantyczne kolory wystawione też jako utility Tailwind (`text-dim`, `text-edu`, `bg-card-inset`, …) i zmapowane na zmienne shadcn (`--primary`=cyjan, `--ring`=cyjan).
+- **Prymitywy `HudPanel` + `SectionLabel`** (`components/ui/hud.tsx`): panel = kanciasta powierzchnia + ramka tech; opcje `brackets` (pulsujące naroża L), `scanner` (przelot linii cyjan — tylko panele „na żywo"), `cut` (ścięty róg). `SectionLabel` = nagłówek `// SEKCJA` (mono, uppercase, `.14em`, prefiks `//` + tag numeryczny).
+- **Fonty self-hosted przez `@fontsource`** (Rajdhani = chrome/nagłówki, JetBrains Mono = dane/telemetria), **nie Google Fonts CDN** — bo CSP ma `font-src 'self'` i aplikacja ma działać offline (WebLLM). Importowane tylko podzbiory **latin + latin-ext** (polskie znaki są w latin-ext), Devanagari Rajdhani nie trafia do bundla.
+- **Reskin prymitywów shadcn zamiast nadpisań per-użycie**: `Button` (Rajdhani 700, uppercase, `clip-cut`; `default`=świecący cyjan, dodany wariant `edu`=limonka, `outline`=ramka+inset-glow), `Card`=płaski `hud-panel`, `Tabs` (aktywny = cyjan + `clip-tab`, uppercase), `Badge` (kanciasty, mono). Dzięki temu ekrany modułów 9–12 dostaną wygląd „za darmo".
+- **Reguła brackets/scanner tylko na panelach „hero"/„na żywo"** (plansza w trakcie gry) — Card/panele zwykłe są płaskie, żeby uniknąć szumu (DESIGN §3).
+- **Rekoncyliacja DESIGN §3 (primary = outline) ze screenami (primary = wypełniony cyjan)**: główne CTA są wypełnione i świecące (zgodnie ze screenami 01/03), a `outline` niesie opis „ramka + inset-glow" z §3 dla akcji drugorzędnych.
+- **Uppercase realizowany przez CSS `text-transform`** (nie zmianę treści) — testy `getByText`/`getByRole(name)` pozostają zielone (DOM zachowuje oryginalną wielkość liter).
+- **Ekrany modułowe (karta modelu, wyzwanie dnia, komentator, powtórki, zgadywanka) przyjmą te same prymitywy przy budowie w etapach 9–12** — teraz dostarczony jest wspólny język wizualny + rdzeniowe ekrany (arena/setup, rozgrywka, rankingi).
+
 ## Stage 7 — Ollama
 
 - **Proxy `/api/ollama/*`** (chat+tags) za flagą `ENABLE_OLLAMA`, do `127.0.0.1:11434`. **Kolejka single-flight** (`enqueue`) — maks. 1 równoległa inferencja (jedyny provider zużywający CPU właściciela, §2.3). Kolejka przeżywa błędy pojedynczych zadań.

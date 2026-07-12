@@ -119,7 +119,7 @@ export function BattleshipBoard({
                   aria-label={coord}
                   onClick={canClick ? () => onFire?.(coord) : undefined}
                   className={cn(
-                    'flex aspect-square items-center justify-center rounded-[3px] font-mono text-[10px] font-bold transition-colors',
+                    'flex aspect-square items-center justify-center border border-border/50 font-mono text-[10px] font-bold transition-colors',
                     className,
                     canClick && 'cursor-pointer',
                   )}

@@ -1,4 +1,5 @@
 import { Badge } from '@/components/ui/badge';
+import { SectionLabel } from '@/components/ui/hud';
 import type { MoveLogEntry } from '@/game/orchestrator';
 import { pl } from '@/i18n/pl';
 import { formatCost, formatMove, formatMs, formatTokens } from '@/lib/format';
@@ -12,9 +13,12 @@ interface GameLogProps {
 
 export function GameLog({ moves, names, className }: GameLogProps) {
   return (
-    <div className={cn('flex flex-col gap-1', className)}>
-      <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-        {pl.log.title}
+    <div className={cn('flex flex-col gap-2', className)}>
+      <div className="flex items-center justify-between">
+        <SectionLabel>{pl.log.title}</SectionLabel>
+        <span className="font-mono text-[10px] uppercase tracking-wider text-dim">
+          {pl.log.telemetry}
+        </span>
       </div>
       {moves.length === 0 ? (
         <p className="font-mono text-xs text-muted-foreground">{pl.log.empty}</p>
@@ -24,8 +28,8 @@ export function GameLog({ moves, names, className }: GameLogProps) {
             <li
               key={m.index}
               className={cn(
-                'flex flex-wrap items-center gap-x-3 gap-y-0.5 rounded px-2 py-1 font-mono text-xs',
-                m.player === 'p1' ? 'bg-p1/5' : 'bg-p2/5',
+                'flex flex-wrap items-center gap-x-3 gap-y-0.5 border-l-2 px-2 py-1 font-mono text-xs',
+                m.player === 'p1' ? 'border-p1/60 bg-p1/5' : 'border-p2/60 bg-p2/5',
               )}
             >
               <span
