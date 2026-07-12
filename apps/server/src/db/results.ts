@@ -205,6 +205,10 @@ export async function submitResult(
 
   const hash = await movesHash(payload.game, payload.variant, payload.setup as never, replayMoves);
   const lab = payload.lab ?? false;
+  // Ollama runs through our proxy, so those matches are genuinely server-side
+  // (SPEC §2.3). Computed from ids, not trusted from the client.
+  const serverVerified =
+    payload.p1Id.startsWith('ollama:') || payload.p2Id.startsWith('ollama:');
 
   try {
     return await db.transaction(async (tx) => {
@@ -228,7 +232,7 @@ export async function submitResult(
           priceSnapshot: payload.priceSnapshot ?? null,
           movesHash: hash,
           lab,
-          serverVerified: payload.serverVerified ?? false,
+          serverVerified,
           forfeitMovesP1: s1.forfeits,
           forfeitMovesP2: s2.forfeits,
           durationMs: payload.durationMs ?? null,

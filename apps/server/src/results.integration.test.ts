@@ -15,7 +15,7 @@ import { buildApp } from './app';
 import { newJti, signSession } from './auth/jwt';
 import { loadConfig } from './config';
 import { type DbHandle, createDb } from './db/client';
-import { ratings } from './db/schema';
+import { matches, ratings } from './db/schema';
 import { type ResultMove, type ResultPayload, submitResult } from './db/results';
 import { resetLeaderboardCache } from './routes/leaderboard';
 
@@ -144,6 +144,14 @@ describe('submitResult (real Postgres via testcontainers)', () => {
       expect(res.ratingChanges).toEqual([]);
     }
     expect(await handle.db.select().from(ratings)).toHaveLength(0);
+  });
+
+  it('marks matches with an Ollama subject as server_verified', async () => {
+    const payload = playOut('tictactoe', 'standard', 0, 4000, 'ollama:llama', 'openrouter:b');
+    const res = await submitResult(handle.db, newJti(), payload, null);
+    expect(res.ok).toBe(true);
+    const rows = await handle.db.select({ sv: matches.serverVerified }).from(matches);
+    expect(rows[0]!.sv).toBe(true);
   });
 
   it('validates a battleship match via the recorded setup', async () => {

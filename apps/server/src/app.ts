@@ -7,6 +7,7 @@ import { securityHeaders } from './middleware/security';
 import { healthRoute } from './routes/health';
 import { leaderboardRoute } from './routes/leaderboard';
 import { matchesRoute, replayRoute } from './routes/matches';
+import { ollamaRoute } from './routes/ollama';
 import { resultRoute } from './routes/result';
 import { verifyRoute } from './routes/verify';
 
@@ -26,7 +27,10 @@ export function buildApp(deps: AppDeps): Hono {
   app.use('*', securityHeaders());
 
   const api = new Hono();
-  api.route('/health', healthRoute());
+  api.route('/health', healthRoute({ enableOllama: deps.config.enableOllama }));
+  if (deps.config.enableOllama) {
+    api.route('/ollama', ollamaRoute({ fetch: deps.fetch }));
+  }
   api.use(
     '/verify',
     rateLimit('verify', 30, { trustedProxy: deps.config.trustedProxy, now: deps.now }),

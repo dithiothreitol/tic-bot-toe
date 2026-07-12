@@ -68,6 +68,7 @@ export const pl = {
     onlyFree: 'Tylko darmowe',
     providerOpenRouter: 'OpenRouter',
     providerWebllm: 'WebLLM (w przeglądarce)',
+    providerOllama: 'Ollama (serwer)',
     noModels: 'Brak modeli',
     loadingModels: 'Ładowanie katalogu…',
     modelP1: 'Model — Gracz 1',

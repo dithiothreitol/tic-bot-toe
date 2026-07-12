@@ -3,6 +3,13 @@
 Jednozdaniowe decyzje podejmowane tam, gdzie SPEC.md nie rozstrzyga (zgodnie z
 regułą 5 promptu startowego). Najnowsze na górze.
 
+## Stage 7 — Ollama
+
+- **Proxy `/api/ollama/*`** (chat+tags) za flagą `ENABLE_OLLAMA`, do `127.0.0.1:11434`. **Kolejka single-flight** (`enqueue`) — maks. 1 równoległa inferencja (jedyny provider zużywający CPU właściciela, §2.3). Kolejka przeżywa błędy pojedynczych zadań.
+- **`server_verified` liczone z id** (`ollama:` w p1/p2), nie z flagi klienta — bo inferencja Ollamy faktycznie idzie przez nasz serwer.
+- **Ollama zwolniona z sanity 3 s** (jak WebLLM) i darmowa (bez kosztu, tokeny z `prompt_eval_count`/`eval_count`).
+- **Front**: `OllamaProvider` przez proxy; `/api/health` zwraca flagę `ollama`, `SetupScreen` pobiera modele z `/api/ollama/tags` tylko gdy włączone; grupa „Ollama (serwer)" w pickerze.
+
 ## Stage 6 — Postgres / Drizzle / rankingi
 
 - **Serwer jest źródłem prawdy dla Elo/wyniku** (§15): `replayMatch` odtwarza partię wspólnym `game-core` i sam ustala zwycięzcę; `moves_hash` = SHA-256 (`crypto.subtle`, dostępne w przeglądarce i Node) po **stabilnym stringify** (sortowane klucze) — liczone z otrzymanego payloadu, dedup przez `UNIQUE(moves_hash)`.

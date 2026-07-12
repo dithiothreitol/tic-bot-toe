@@ -69,6 +69,7 @@ export function ModelPicker({
     (m) => m.provider === 'openrouter' && (!onlyFree || m.isFree),
   );
   const webllm = models.filter((m) => m.provider === 'webllm');
+  const ollama = models.filter((m) => m.provider === 'ollama');
 
   const renderItem = (model: SelectableModel) => (
     <CommandItem
@@ -116,6 +117,11 @@ export function ModelPicker({
             {webllm.length > 0 && (
               <CommandGroup heading={pl.setup.providerWebllm}>
                 {webllm.map(renderItem)}
+              </CommandGroup>
+            )}
+            {ollama.length > 0 && (
+              <CommandGroup heading={pl.setup.providerOllama}>
+                {ollama.map(renderItem)}
               </CommandGroup>
             )}
             {openRouter.length > 0 && (

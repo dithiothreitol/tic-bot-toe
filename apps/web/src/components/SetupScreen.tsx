@@ -31,11 +31,14 @@ import type { MatchConfig } from '@/components/GameRunner';
 import type { MatchMode } from '@/game/orchestrator';
 import type { PlayerSpec } from '@/game/players';
 import { pl } from '@/i18n/pl';
+import { apiGet } from '@/api/client';
 import {
   type SelectableModel,
   catalogToSelectable,
+  ollamaSelectable,
   webLlmSelectable,
 } from '@/providers/models';
+import { fetchOllamaModels } from '@/providers/ollama';
 import { fetchCatalog } from '@/providers/openrouter-catalog';
 import { isWebGpuAvailable } from '@/providers/webllm';
 import { useSettings } from '@/store/settings';
@@ -43,6 +46,9 @@ import { useSettings } from '@/store/settings';
 function specFor(model: SelectableModel, apiKey: string | null): PlayerSpec {
   if (model.provider === 'webllm') {
     return { kind: 'webllm', model: model.id, displayName: model.name };
+  }
+  if (model.provider === 'ollama') {
+    return { kind: 'ollama', model: model.id, displayName: model.name };
   }
   return {
     kind: 'openrouter',
@@ -68,6 +74,7 @@ export function SetupScreen({
   const [variantId, setVariantId] = useState('small');
   const [mode, setMode] = useState<MatchMode>('human_vs_model');
   const [catalog, setCatalog] = useState<SelectableModel[]>([]);
+  const [ollama, setOllama] = useState<SelectableModel[]>([]);
   const [loading, setLoading] = useState(true);
   const [p1Model, setP1Model] = useState<SelectableModel | null>(null);
   const [p2Model, setP2Model] = useState<SelectableModel | null>(null);
@@ -91,9 +98,25 @@ export function SetupScreen({
     };
   }, []);
 
+  // Ollama models — only when the server has ENABLE_OLLAMA (from /api/health).
+  useEffect(() => {
+    let alive = true;
+    apiGet<{ ollama?: boolean }>('/api/health')
+      .then((h) => (h.ollama ? fetchOllamaModels() : []))
+      .then((m) => {
+        if (alive) setOllama(ollamaSelectable(m));
+      })
+      .catch(() => {
+        /* server not reachable / no ollama — silently skip */
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   const models = useMemo(
-    () => [...(webGpu ? webLlmSelectable() : []), ...catalog],
-    [catalog, webGpu],
+    () => [...(webGpu ? webLlmSelectable() : []), ...ollama, ...catalog],
+    [catalog, ollama, webGpu],
   );
 
   const variant: Variant = useMemo(

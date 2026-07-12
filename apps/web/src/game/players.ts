@@ -2,6 +2,7 @@ import type { Player } from '@arena/game-core';
 
 import { type HumanPlayerHandle, createHumanPlayer } from '@/providers/human';
 import type { TokenPrice } from '@/providers/llm-runner';
+import { createOllamaPlayer } from '@/providers/ollama';
 import { createOpenRouterPlayer } from '@/providers/openrouter';
 import { createWebLlmPlayer } from '@/providers/webllm';
 
@@ -15,7 +16,8 @@ export type PlayerSpec =
       price?: TokenPrice;
       temperature?: number;
     }
-  | { kind: 'webllm'; model: string; displayName: string; temperature?: number };
+  | { kind: 'webllm'; model: string; displayName: string; temperature?: number }
+  | { kind: 'ollama'; model: string; displayName: string; temperature?: number };
 
 export interface BuiltPlayer {
   player: Player;
@@ -32,6 +34,12 @@ export function makePlayer(spec: PlayerSpec): BuiltPlayer {
     case 'webllm':
       return {
         player: createWebLlmPlayer(spec.model, spec.displayName, {
+          temperature: spec.temperature,
+        }),
+      };
+    case 'ollama':
+      return {
+        player: createOllamaPlayer(spec.model, spec.displayName, {
           temperature: spec.temperature,
         }),
       };
