@@ -3,6 +3,14 @@
 Jednozdaniowe decyzje podejmowane tam, gdzie SPEC.md nie rozstrzyga (zgodnie z
 regułą 5 promptu startowego). Najnowsze na górze.
 
+## Stage 4 — WebLLM
+
+- **`@mlc-ai/web-llm` ładowany dynamicznym `import()`** — trafia do osobnego, leniwego chunku (~6 MB), więc główny bundle zostaje ~428 kB; wagi modelu pobierają się dopiero przy pierwszym użyciu modelu lokalnego.
+- **`SelectableModel`** (`provider: 'openrouter' | 'webllm'`) — jedna abstrakcja modelu w pickerze/setupie; `makePlayer` rozgałęzia po `kind`.
+- **WebLLM = darmowy, bez klucza**: klucz OpenRouter wymagany tylko, gdy wybrany model to `openrouter` (partia wyłącznie WebLLM startuje bez klucza). `costUsd` zawsze `undefined` (free), tokeny z runtime stats.
+- **WebGPU**: `isWebGpuAvailable()` (`navigator.gpu`) bramkuje sekcję WebLLM w pickerze. Silniki cache'owane per model (`engineCache`), z eksmisją przy błędzie ładowania.
+- **Pasek pobierania** przez store `useModelLoad` + `ModelLoadBar`. Abort partii nie przerywa generacji web-llm w locie (timeout runnera nadal działa) — świadome uproszczenie.
+
 ## Stage 3 — statki
 
 - **`GameDefinition<S, M, V extends PlayerView>`** — sparametryzowane typem widoku (domyślnie `PlayerView`), żeby konkretne silniki (`ticTacToe`, `battleship`) zachowały swój widok bez rzutowań; orchestrator/runner używają domyślnego `PlayerView` przez rzut `GameDefinition<unknown, Move>`.

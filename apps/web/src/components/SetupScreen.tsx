@@ -31,19 +31,25 @@ import type { MatchConfig } from '@/components/GameRunner';
 import type { MatchMode } from '@/game/orchestrator';
 import type { PlayerSpec } from '@/game/players';
 import { pl } from '@/i18n/pl';
-import { type CatalogModel, fetchCatalog } from '@/providers/openrouter-catalog';
+import {
+  type SelectableModel,
+  catalogToSelectable,
+  webLlmSelectable,
+} from '@/providers/models';
+import { fetchCatalog } from '@/providers/openrouter-catalog';
+import { isWebGpuAvailable } from '@/providers/webllm';
 import { useSettings } from '@/store/settings';
 
-function specFor(model: CatalogModel, apiKey: string): PlayerSpec {
+function specFor(model: SelectableModel, apiKey: string | null): PlayerSpec {
+  if (model.provider === 'webllm') {
+    return { kind: 'webllm', model: model.id, displayName: model.name };
+  }
   return {
     kind: 'openrouter',
     model: model.id,
     displayName: model.name,
-    apiKey,
-    price: {
-      prompt: model.pricePromptPerToken,
-      completion: model.priceCompletionPerToken,
-    },
+    apiKey: apiKey ?? '',
+    price: model.price,
   };
 }
 
@@ -61,17 +67,18 @@ export function SetupScreen({
   const [game, setGame] = useState<GameId>('tictactoe');
   const [variantId, setVariantId] = useState('small');
   const [mode, setMode] = useState<MatchMode>('human_vs_model');
-  const [models, setModels] = useState<CatalogModel[]>([]);
+  const [catalog, setCatalog] = useState<SelectableModel[]>([]);
   const [loading, setLoading] = useState(true);
-  const [p1Model, setP1Model] = useState<CatalogModel | null>(null);
-  const [p2Model, setP2Model] = useState<CatalogModel | null>(null);
+  const [p1Model, setP1Model] = useState<SelectableModel | null>(null);
+  const [p2Model, setP2Model] = useState<SelectableModel | null>(null);
+  const [webGpu] = useState(() => isWebGpuAvailable());
 
   useEffect(() => {
     let alive = true;
     setLoading(true);
     fetchCatalog()
       .then((m) => {
-        if (alive) setModels(m);
+        if (alive) setCatalog(catalogToSelectable(m));
       })
       .catch(() => {
         if (alive) toast.error(pl.setup.catalogError);
@@ -84,6 +91,11 @@ export function SetupScreen({
     };
   }, []);
 
+  const models = useMemo(
+    () => [...(webGpu ? webLlmSelectable() : []), ...catalog],
+    [catalog, webGpu],
+  );
+
   const variant: Variant = useMemo(
     () =>
       game === 'battleship'
@@ -93,15 +105,18 @@ export function SetupScreen({
   );
 
   const start = () => {
-    const apiKey = useSettings.getState().openRouterKey;
-    if (!apiKey) {
-      toast.error(pl.setup.needKey);
-      onOpenSettings();
-      return;
-    }
     const needP1 = mode === 'model_vs_model';
     if ((needP1 && !p1Model) || !p2Model) {
       toast.error(pl.setup.needModel);
+      return;
+    }
+    const chosen = [needP1 ? p1Model : null, p2Model].filter(
+      (m): m is SelectableModel => m !== null,
+    );
+    const apiKey = useSettings.getState().openRouterKey;
+    if (chosen.some((m) => m.provider === 'openrouter') && !apiKey) {
+      toast.error(pl.setup.needKey);
+      onOpenSettings();
       return;
     }
 
@@ -111,9 +126,9 @@ export function SetupScreen({
         ? {
             ...base,
             mode,
-            p1: specFor(p1Model as CatalogModel, apiKey),
+            p1: specFor(p1Model as SelectableModel, apiKey),
             p2: specFor(p2Model, apiKey),
-            names: { p1: (p1Model as CatalogModel).name, p2: p2Model.name },
+            names: { p1: (p1Model as SelectableModel).name, p2: p2Model.name },
           }
         : {
             ...base,

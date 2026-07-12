@@ -12,24 +12,45 @@ import {
   CommandList,
 } from '@/components/ui/command';
 import { Label } from '@/components/ui/label';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Switch } from '@/components/ui/switch';
 import { pl } from '@/i18n/pl';
 import { formatPricePerMillion } from '@/lib/format';
 import { cn } from '@/lib/utils';
-import type { CatalogModel } from '@/providers/openrouter-catalog';
+import type { SelectableModel } from '@/providers/models';
 
 interface ModelPickerProps {
-  models: CatalogModel[];
+  models: SelectableModel[];
   value: string | null;
-  onSelect: (model: CatalogModel) => void;
+  onSelect: (model: SelectableModel) => void;
   loading?: boolean;
   disabled?: boolean;
   placeholder?: string;
+}
+
+function ModelRow({ model, selected }: { model: SelectableModel; selected: boolean }) {
+  return (
+    <>
+      <Check
+        className={cn('size-4 shrink-0 text-p1', selected ? 'opacity-100' : 'opacity-0')}
+      />
+      <div className="flex min-w-0 flex-col">
+        <span className="truncate">{model.name}</span>
+        <span className="truncate font-mono text-[10px] text-muted-foreground">
+          {model.id}
+        </span>
+      </div>
+      <div className="ml-auto shrink-0">
+        {model.isFree ? (
+          <Badge className="bg-p1/15 text-p1">free</Badge>
+        ) : (
+          <span className="font-mono text-[10px] text-muted-foreground">
+            {formatPricePerMillion(model.price?.prompt ?? 0)}
+          </span>
+        )}
+      </div>
+    </>
+  );
 }
 
 export function ModelPicker({
@@ -44,7 +65,24 @@ export function ModelPicker({
   const [onlyFree, setOnlyFree] = useState(false);
 
   const selected = models.find((m) => m.id === value) ?? null;
-  const list = onlyFree ? models.filter((m) => m.isFree) : models;
+  const openRouter = models.filter(
+    (m) => m.provider === 'openrouter' && (!onlyFree || m.isFree),
+  );
+  const webllm = models.filter((m) => m.provider === 'webllm');
+
+  const renderItem = (model: SelectableModel) => (
+    <CommandItem
+      key={model.id}
+      value={`${model.name} ${model.id}`}
+      onSelect={() => {
+        onSelect(model);
+        setOpen(false);
+      }}
+      className="flex items-center gap-2"
+    >
+      <ModelRow model={model} selected={value === model.id} />
+    </CommandItem>
+  );
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -75,41 +113,16 @@ export function ModelPicker({
             <CommandEmpty>
               {loading ? pl.setup.loadingModels : pl.setup.noModels}
             </CommandEmpty>
-            <CommandGroup heading="OpenRouter">
-              {list.map((m) => (
-                <CommandItem
-                  key={m.id}
-                  value={`${m.name} ${m.id}`}
-                  onSelect={() => {
-                    onSelect(m);
-                    setOpen(false);
-                  }}
-                  className="flex items-center gap-2"
-                >
-                  <Check
-                    className={cn(
-                      'size-4 shrink-0 text-p1',
-                      value === m.id ? 'opacity-100' : 'opacity-0',
-                    )}
-                  />
-                  <div className="flex min-w-0 flex-col">
-                    <span className="truncate">{m.name}</span>
-                    <span className="truncate font-mono text-[10px] text-muted-foreground">
-                      {m.id}
-                    </span>
-                  </div>
-                  <div className="ml-auto shrink-0">
-                    {m.isFree ? (
-                      <Badge className="bg-p1/15 text-p1">free</Badge>
-                    ) : (
-                      <span className="font-mono text-[10px] text-muted-foreground">
-                        {formatPricePerMillion(m.pricePromptPerToken)}
-                      </span>
-                    )}
-                  </div>
-                </CommandItem>
-              ))}
-            </CommandGroup>
+            {webllm.length > 0 && (
+              <CommandGroup heading={pl.setup.providerWebllm}>
+                {webllm.map(renderItem)}
+              </CommandGroup>
+            )}
+            {openRouter.length > 0 && (
+              <CommandGroup heading={pl.setup.providerOpenRouter}>
+                {openRouter.map(renderItem)}
+              </CommandGroup>
+            )}
           </CommandList>
         </Command>
       </PopoverContent>

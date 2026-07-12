@@ -2,6 +2,7 @@ import { Settings } from 'lucide-react';
 import { useState } from 'react';
 
 import { type MatchConfig, GameRunner } from '@/components/GameRunner';
+import { ModelLoadBar } from '@/components/ModelLoadBar';
 import { SettingsDialog } from '@/components/SettingsDialog';
 import { SetupScreen } from '@/components/SetupScreen';
 import { Button } from '@/components/ui/button';
@@ -39,6 +40,8 @@ export default function App() {
 
         <main className="mx-auto flex max-w-3xl flex-col items-center gap-6 px-4 pb-16">
           <p className="text-center text-sm text-muted-foreground">{pl.appTagline}</p>
+
+          <ModelLoadBar />
 
           {screen === 'setup' && (
             <SetupScreen

@@ -1,0 +1,34 @@
+import type { TokenPrice } from './llm-runner';
+import type { CatalogModel } from './openrouter-catalog';
+import { WEBLLM_MODELS } from './webllm';
+
+/** A model the user can pick, unified across providers. */
+export interface SelectableModel {
+  provider: 'openrouter' | 'webllm';
+  /** OpenRouter model id, or WebLLM MLC id. */
+  id: string;
+  name: string;
+  isFree: boolean;
+  contextLength?: number | null;
+  price?: TokenPrice;
+}
+
+export function catalogToSelectable(models: CatalogModel[]): SelectableModel[] {
+  return models.map((m) => ({
+    provider: 'openrouter',
+    id: m.id,
+    name: m.name,
+    isFree: m.isFree,
+    contextLength: m.contextLength,
+    price: { prompt: m.pricePromptPerToken, completion: m.priceCompletionPerToken },
+  }));
+}
+
+export function webLlmSelectable(): SelectableModel[] {
+  return WEBLLM_MODELS.map((m) => ({
+    provider: 'webllm',
+    id: m.mlcId,
+    name: m.name,
+    isFree: true,
+  }));
+}

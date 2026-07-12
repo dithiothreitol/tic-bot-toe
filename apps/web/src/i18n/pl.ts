@@ -66,6 +66,8 @@ export const pl = {
     chooseModel: 'Wybierz model',
     searchModel: 'Szukaj modelu…',
     onlyFree: 'Tylko darmowe',
+    providerOpenRouter: 'OpenRouter',
+    providerWebllm: 'WebLLM (w przeglądarce)',
     noModels: 'Brak modeli',
     loadingModels: 'Ładowanie katalogu…',
     modelP1: 'Model — Gracz 1',
@@ -119,6 +121,10 @@ export const pl = {
     settings: 'Ustawienia',
   },
 
+  modelLoad: {
+    downloading: 'Pobieranie modelu do przeglądarki…',
+  },
+
   stage2Note:
-    'Etap 2: providery OpenRouter/Human + telemetria. Rankingi, zapis wyników i kolejne gry dochodzą w następnych etapach.',
+    'Providery OpenRouter (klucz) / WebLLM (lokalnie, bez klucza) / Human. Rankingi, zapis wyników i moduły edukacyjne dochodzą w kolejnych etapach.',
 } as const;
