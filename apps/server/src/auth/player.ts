@@ -32,8 +32,23 @@ export function isValidPlayerToken(token: string): boolean {
 }
 
 /**
+ * Look up a player WITHOUT creating one. Used by read-only endpoints so a plain
+ * GET never mutates the database (and so a scripted sweep of random tokens
+ * cannot mint rows).
+ */
+export async function findPlayer(db: Database, token: string): Promise<PlayerRecord | null> {
+  const rows = await db
+    .select({ id: players.id, nickname: players.nickname, flaggedAt: players.flaggedAt })
+    .from(players)
+    .where(eq(players.tokenHash, hashPlayerToken(token)));
+  return rows[0] ?? null;
+}
+
+/**
  * Resolve (or lazily create) the player for a raw token. Race-safe: the insert
- * is a no-op if the hash already exists, then we read the row back.
+ * is a no-op if the hash already exists, then we read the row back. Only for
+ * endpoints that legitimately establish identity (saving a result, claiming a
+ * nickname) — never for reads.
  */
 export async function resolvePlayer(db: Database, token: string): Promise<PlayerRecord> {
   const tokenHash = hashPlayerToken(token);

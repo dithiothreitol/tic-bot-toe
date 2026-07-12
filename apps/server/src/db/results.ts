@@ -114,8 +114,7 @@ interface SideAgg {
   optimal: number;
 }
 
-function aggregate(payload: ResultPayload, side: 'p1' | 'p2'): SideAgg {
-  const id = side === 'p1' ? payload.p1Id : payload.p2Id;
+function aggregate(payload: ResultPayload, side: 'p1' | 'p2', id: string): SideAgg {
   const mv = payload.moves.filter((m) => m.player === side);
   return {
     id,
@@ -158,8 +157,18 @@ async function loadElo(tx: Tx, subjectId: string, p: ResultPayload): Promise<num
   return rows[0]?.elo ?? ELO_START;
 }
 
-/** Ranked matches saved today (UTC day), by player identity or by source IP. */
-async function rankedToday(
+/** Start of the current UTC day — the caps reset at 00:00 UTC, not at server-local midnight. */
+const UTC_DAY_START = sql`(date_trunc('day', now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC')`;
+
+/**
+ * Ranked HUMAN matches saved today (UTC), by player identity or by source IP.
+ *
+ * Deliberately scoped to human_vs_model: the caps exist to bound Elo farming and
+ * identity-minting on the human board. Counting model_vs_model here would make
+ * everyone behind one NAT (office, campus, CGNAT) share a 60/day budget for the
+ * app's main flow.
+ */
+async function rankedHumanToday(
   tx: Tx,
   by: { playerId?: string; clientIp?: string },
 ): Promise<number> {
@@ -169,7 +178,14 @@ async function rankedToday(
   const rows = await tx
     .select({ n: sql<number>`count(*)::int` })
     .from(matches)
-    .where(and(who, eq(matches.lab, false), sql`${matches.createdAt} >= date_trunc('day', now())`));
+    .where(
+      and(
+        who,
+        eq(matches.lab, false),
+        eq(matches.mode, 'human_vs_model'),
+        sql`${matches.createdAt} >= ${UTC_DAY_START}`,
+      ),
+    );
   return rows[0]?.n ?? 0;
 }
 
@@ -185,15 +201,20 @@ async function maybeFlagPrecision(
   subjectId: string,
 ): Promise<void> {
   if (p.game !== 'battleship') return;
+  // Summed across ALL battleship variants: a per-variant threshold would let a
+  // solver spread its games over small/medium/large and never reach 100 moves
+  // in any single row.
   const rows = await tx
-    .select({ total: ratings.totalMoves, optimal: ratings.optimalMoves })
+    .select({
+      total: sql<number>`coalesce(sum(${ratings.totalMoves}), 0)::int`,
+      optimal: sql<number>`coalesce(sum(${ratings.optimalMoves}), 0)::int`,
+    })
     .from(ratings)
     .where(
       and(
         eq(ratings.subjectId, subjectId),
         eq(ratings.mode, p.mode),
         eq(ratings.game, p.game),
-        eq(ratings.variant, p.variant),
       ),
     );
   const r = rows[0];
@@ -320,12 +341,16 @@ export async function submitResult(
     return { ok: false, code: 400, reason: 'no moves' };
   }
 
+  const lab = payload.lab ?? false;
+
   // Bind the human side to the identified player so every match by the same
   // person accumulates under one ranking row `human:<players.id>` (SPEC §10).
+  // Resolved into locals rather than mutating the caller's payload — a second
+  // pass over a mutated payload would no longer recognise the human side.
   const humanSide = humanSideOf(payload);
   const playerId = player && humanSide ? player.id : null;
-  if (playerId && humanSide === 'p1') payload.p1Id = `human:${playerId}`;
-  if (playerId && humanSide === 'p2') payload.p2Id = `human:${playerId}`;
+  const subject = { p1: payload.p1Id, p2: payload.p2Id };
+  if (playerId && humanSide) subject[humanSide] = `human:${playerId}`;
 
   // 1. Server replay — the winner is authoritative, never trusted from client.
   const replayMoves: ReplayMove[] = payload.moves.map((m) => ({ player: m.player, move: m.move }));
@@ -344,8 +369,8 @@ export async function submitResult(
     }
   }
 
-  const s1 = aggregate(payload, 'p1');
-  const s2 = aggregate(payload, 'p2');
+  const s1 = aggregate(payload, 'p1', subject.p1);
+  const s2 = aggregate(payload, 'p2', subject.p2);
   s1.optimal = analysis.accuracy.p1.optimal;
   s2.optimal = analysis.accuracy.p2.optimal;
 
@@ -358,7 +383,7 @@ export async function submitResult(
   // carry a server-issued start token, and enough real time must have passed for
   // a person to have actually played those moves. Lab matches never rank, so
   // they are exempt.
-  const ranked = humanSide !== null && !(payload.lab ?? false);
+  const ranked = humanSide !== null && !lab;
   if (ranked) {
     if (!start) return { ok: false, code: 422, reason: 'missing_start_token' };
 
@@ -383,11 +408,10 @@ export async function submitResult(
   }
 
   const hash = await movesHash(payload.game, payload.variant, payload.setup as never, replayMoves);
-  const lab = payload.lab ?? false;
   // Ollama runs through our proxy, so those matches are genuinely server-side
   // (SPEC §2.3). Computed from ids, not trusted from the client.
   const serverVerified =
-    payload.p1Id.startsWith('ollama:') || payload.p2Id.startsWith('ollama:');
+    subject.p1.startsWith('ollama:') || subject.p2.startsWith('ollama:');
 
   try {
     return await db.transaction(async (tx) => {
@@ -405,14 +429,18 @@ export async function submitResult(
         if (startRow.length === 0) throw new Abort(409, 'start_token_used');
       }
 
-      // Daily ranked caps (§15.3) — bound how much one identity, or one machine
-      // minting identities, can push into the ranking in a day.
+      // Daily caps (§15.3) — bound how much one identity, or one machine minting
+      // identities, can push onto the HUMAN board in a day. Model-vs-model saves
+      // are untouched: capping those per IP would punish everyone behind a NAT.
       const ip = sanitizeIp(clientIp);
-      if (!lab) {
-        if (playerId && (await rankedToday(tx, { playerId })) >= MAX_RANKED_MATCHES_PER_PLAYER_DAY) {
+      if (ranked) {
+        if (
+          playerId &&
+          (await rankedHumanToday(tx, { playerId })) >= MAX_RANKED_MATCHES_PER_PLAYER_DAY
+        ) {
           throw new Abort(429, 'daily_limit');
         }
-        if (ip && (await rankedToday(tx, { clientIp: ip })) >= MAX_RANKED_MATCHES_PER_IP_DAY) {
+        if (ip && (await rankedHumanToday(tx, { clientIp: ip })) >= MAX_RANKED_MATCHES_PER_IP_DAY) {
           throw new Abort(429, 'daily_limit_ip');
         }
       }
@@ -424,8 +452,8 @@ export async function submitResult(
           mode: payload.mode,
           game: payload.game,
           variant: payload.variant,
-          p1Id: payload.p1Id,
-          p2Id: payload.p2Id,
+          p1Id: subject.p1,
+          p2Id: subject.p2,
           winner,
           moves: payload.moves,
           setup: payload.setup ?? null,

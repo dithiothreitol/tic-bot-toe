@@ -21,10 +21,11 @@ export function resetLeaderboardCache(): void {
   cache.clear();
 }
 
-/** Shared telemetry projection for a `ratings` row. */
-function project(r: typeof ratings.$inferSelect, label: string) {
+/** Shared telemetry projection. `label` is what the UI shows; `subjectId` stays the real key. */
+function project(r: typeof ratings.$inferSelect, label?: string) {
   return {
-    subjectId: label,
+    subjectId: r.subjectId,
+    label,
     elo: r.elo,
     wins: r.wins,
     losses: r.losses,
@@ -57,17 +58,22 @@ export function leaderboardRoute(deps: { db: Database; now?: () => number }): Ho
     if (subject === 'humans') {
       // Identified people only: subject_id 'human:<uuid>' joined to a named,
       // unflagged player. The anonymous aggregate 'human' never appears.
+      //
+      // The regex guard is load-bearing, not decoration: `::uuid` on a malformed
+      // suffix raises `invalid input syntax for type uuid` and would 500 the whole
+      // board. Filtering on the shape first means one bad row can never do that.
+      const isHumanUuid = sql`${ratings.subjectId} ~ '^human:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'`;
       const rows = await deps.db
         .select({ r: ratings, nickname: players.nickname })
         .from(ratings)
         .innerJoin(
           players,
-          eq(players.id, sql`substring(${ratings.subjectId} from 7)::uuid`),
+          sql`${players.id} = substring(${ratings.subjectId} from 7)::uuid AND ${isHumanUuid}`,
         )
         .where(
           and(
             where,
-            sql`${ratings.subjectId} LIKE 'human:%'`,
+            isHumanUuid,
             sql`${players.nickname} IS NOT NULL`,
             sql`${players.flaggedAt} IS NULL`,
           ),
@@ -80,7 +86,7 @@ export function leaderboardRoute(deps: { db: Database; now?: () => number }): Ho
         .from(ratings)
         .where(and(where, sql`${ratings.subjectId} NOT LIKE 'human%'`))
         .orderBy(desc(ratings.elo));
-      data = rows.map((r) => project(r, r.subjectId));
+      data = rows.map((r) => project(r));
     }
 
     cache.set(key, { at: now, data });

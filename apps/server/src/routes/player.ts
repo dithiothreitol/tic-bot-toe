@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { type Context, Hono } from 'hono';
 
-import { isValidPlayerToken, resolvePlayer } from '../auth/player';
+import { findPlayer, isValidPlayerToken, resolvePlayer } from '../auth/player';
 import type { Database } from '../db/client';
 import { players } from '../db/schema';
 import { validateNickname } from '../lib/nickname';
@@ -31,10 +31,13 @@ function isUniqueViolation(e: unknown): boolean {
 export function playerRoute(deps: { db: Database }): Hono {
   const app = new Hono();
 
+  // Read-only: never creates a player. A profile appears once the person
+  // actually does something (saves a result, claims a nickname).
   app.get('/me', async (c) => {
     const token = playerFromHeader(c);
     if (!token) return c.json({ error: 'bad_player_token' }, 400);
-    const p = await resolvePlayer(deps.db, token);
+    const p = await findPlayer(deps.db, token);
+    if (!p) return c.json({ id: null, nickname: null, flagged: false });
     return c.json({ id: p.id, nickname: p.nickname, flagged: p.flaggedAt !== null });
   });
 

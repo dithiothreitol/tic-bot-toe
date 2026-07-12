@@ -432,12 +432,17 @@ describe('player profile + human leaderboard (HTTP)', () => {
     let board = (await (await app.request(`/api/leaderboard?${q}`)).json()) as unknown[];
     expect(board).toHaveLength(0);
 
-    // Give a nickname → visible, labelled by nickname (not the raw subject id).
+    // Give a nickname → visible, LABELLED by nickname while `subjectId` stays the
+    // real ranking key (the UI needs it to look up this player's Elo history).
     await handle.db.update(players).set({ nickname: 'iris' }).where(eq(players.id, player.id));
     resetLeaderboardCache();
-    board = (await (await app.request(`/api/leaderboard?${q}`)).json()) as Array<{ subjectId: string }>;
+    board = (await (await app.request(`/api/leaderboard?${q}`)).json()) as Array<{
+      subjectId: string;
+      label: string;
+    }>;
     expect(board).toHaveLength(1);
-    expect((board[0] as { subjectId: string }).subjectId).toBe('iris');
+    expect((board[0] as { label: string }).label).toBe('iris');
+    expect((board[0] as { subjectId: string }).subjectId).toBe(`human:${player.id}`);
 
     // Flag as suspicious → hidden again.
     await handle.db
@@ -447,6 +452,130 @@ describe('player profile + human leaderboard (HTTP)', () => {
     resetLeaderboardCache();
     board = (await (await app.request(`/api/leaderboard?${q}`)).json()) as unknown[];
     expect(board).toHaveLength(0);
+  });
+});
+
+/**
+ * Regression tests for the code-review findings. Each one, before the fix, was a
+ * way to write into the ranking without paying for it — or to break the board.
+ */
+describe('hardening of POST /api/result (code review)', () => {
+  const cfg = () => loadConfig({ JWT_SECRET: 'test-secret' });
+  const post = async (body: unknown, extra: Record<string, string> = {}) => {
+    const app = buildApp({ config: cfg(), db: handle.db, now: clock });
+    const { token } = await signSession('test-secret', 1800, newJti());
+    return app.request('/api/result', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${token}`, ...extra },
+      body: JSON.stringify(body),
+    });
+  };
+
+  it('refuses a client-supplied `human:<uuid>` subject id — the namespace is the server’s', async () => {
+    // THE bypass: with `human:<uuid>` in p1Id and no X-Player-Token, the human
+    // side went undetected, so start-token, pacing, timing and the daily cap were
+    // all skipped — while Elo still landed on that player's ranking row.
+    const player = await resolvePlayer(handle.db, 'tok-spoof-1111111111');
+    const payload = { ...playHuman(1), p1Id: `human:${player.id}` };
+
+    const res = await post(payload);
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { error: string }).error).toBe('reserved_subject_id');
+    expect(await handle.db.select().from(ratings)).toHaveLength(0);
+  });
+
+  it('refuses the human marker in a model_vs_model match', async () => {
+    const res = await post({ ...playOut('tictactoe', 'standard', 0, 4000, 'human', 'openrouter:b') });
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { error: string }).error).toBe('reserved_subject_id');
+  });
+
+  it('rejects a malformed payload with 400 instead of crashing with a 500', async () => {
+    // A move with no `telemetry` used to reach `aggregate` and throw a TypeError
+    // outside the try block → unhandled 500.
+    const res = await post({
+      mode: 'model_vs_model',
+      game: 'tictactoe',
+      variant: 'standard',
+      p1Id: 'openrouter:a',
+      p2Id: 'openrouter:b',
+      moves: [{ player: 'p1', move: 0 }],
+    });
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { error: string }).error).toBe('bad_payload');
+  });
+
+  it('rejects non-numeric telemetry (it would poison the ranking aggregates)', async () => {
+    const payload = playOut('tictactoe', 'standard', 0, 4000, 'openrouter:a', 'openrouter:b');
+    const broken = {
+      ...payload,
+      moves: payload.moves.map((m, i) =>
+        i === 0 ? { ...m, telemetry: { ...m.telemetry, latencyMs: 'szybko' } } : m,
+      ),
+    };
+    expect((await post(broken)).status).toBe(400);
+  });
+
+  it('serves the human board even when a malformed human:* row exists', async () => {
+    // Defence in depth: such a row can no longer be created, but if one ever
+    // existed the `::uuid` cast would 500 the entire board.
+    await handle.db.insert(ratings).values({
+      subjectId: 'human:not-a-uuid',
+      mode: 'human_vs_model',
+      game: 'battleship',
+      variant: 'small',
+    });
+    const app = buildApp({ config: cfg(), db: handle.db });
+    resetLeaderboardCache();
+    const res = await app.request(
+      '/api/leaderboard?mode=human_vs_model&game=battleship&variant=small&subject=humans',
+    );
+    expect(res.status).toBe(200);
+    expect((await res.json()) as unknown[]).toHaveLength(0);
+  });
+
+  it('rejects a start token minted for a different identity', async () => {
+    // Start tokens are bound to the identity that asked for them, so they cannot
+    // be minted anonymously (or under a throwaway), aged, then spent by the
+    // identity actually being farmed.
+    const app = buildApp({ config: cfg(), db: handle.db, now: clock });
+    const anon = await app.request('/api/match/start', { method: 'POST' });
+    const { startToken } = (await anon.json()) as { startToken: string };
+
+    const res = await post({ ...playHuman(2), startToken }, { 'x-player-token': 'tok-bind-22222222222222' });
+    expect(res.status).toBe(422);
+    expect(((await res.json()) as { error: string }).error).toBe('start_token_mismatch');
+  });
+
+  it('GET /api/player/me does not create a player row', async () => {
+    const app = buildApp({ config: cfg(), db: handle.db });
+    const res = await app.request('/api/player/me', {
+      headers: { 'x-player-token': 'tok-readonly-99999999' },
+    });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ id: null, nickname: null, flagged: false });
+    expect(await handle.db.select().from(players)).toHaveLength(0);
+  });
+
+  it('does not count model_vs_model matches against the per-IP human cap', async () => {
+    // Everyone behind one NAT used to share a 60/day budget for the app's main flow.
+    await handle.db.insert(matches).values(
+      Array.from({ length: 60 }, (_, i) => ({
+        mode: 'model_vs_model',
+        game: 'tictactoe',
+        variant: 'standard',
+        p1Id: 'openrouter:a',
+        p2Id: 'openrouter:b',
+        winner: 'p1',
+        moves: [],
+        movesHash: `mvm-${i}`,
+        lab: false,
+        clientIp: '5.5.5.5',
+      })),
+    );
+    const player = await resolvePlayer(handle.db, 'tok-nat-33333333333');
+    const res = await submitResult(handle.db, newJti(), playHuman(6), '5.5.5.5', humanOpts(player));
+    expect(res.ok).toBe(true);
   });
 });
 
@@ -669,6 +798,40 @@ describe('daily ranked caps + precision flag (SPEC §15.3)', () => {
       )
     ).json()) as unknown[];
     expect(board).toHaveLength(0);
+  });
+
+  it('flags a solver that spread its games across battleship variants', async () => {
+    // Per-variant thresholds let a solver stay under 100 moves in every single
+    // row; the check now sums across all variants of the game.
+    const player = await resolvePlayer(handle.db, 'tok-flag-7777777777');
+    await handle.db.update(players).set({ nickname: 'spread' }).where(eq(players.id, player.id));
+    await submitResult(handle.db, newJti(), playHuman(13), null, humanOpts(player));
+
+    const subjectId = `human:${player.id}`;
+    // 3 variants × 400 moves, 98% optimal — no single row reaches the old bar
+    // on its own once you imagine it split, but together it is plainly a solver.
+    await handle.db
+      .update(ratings)
+      .set({ totalMoves: 400, optimalMoves: 396 })
+      .where(eq(ratings.subjectId, subjectId));
+    for (const variant of ['medium', 'large']) {
+      await handle.db.insert(ratings).values({
+        subjectId,
+        mode: 'human_vs_model',
+        game: 'battleship',
+        variant,
+        totalMoves: 400,
+        optimalMoves: 396,
+      });
+    }
+
+    await submitResult(handle.db, newJti(), playHuman(14), null, humanOpts(player));
+
+    const [row] = await handle.db
+      .select({ flaggedAt: players.flaggedAt })
+      .from(players)
+      .where(eq(players.id, player.id));
+    expect(row!.flaggedAt).not.toBeNull();
   });
 
   it('never flags precision in tictactoe — perfect play there is human', async () => {

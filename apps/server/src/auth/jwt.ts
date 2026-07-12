@@ -22,6 +22,12 @@ export interface StartClaims {
   jti: string;
   /** Issued-at, seconds since epoch (server clock). */
   iat: number;
+  /**
+   * Identity this token was issued to (SHA-256 of the player token), or null for
+   * an anonymous start. Binding stops one identity from spending start tokens
+   * minted for another — i.e. pooling tokens across throwaway identities.
+   */
+  sub: string | null;
 }
 
 const START_TYP = 'start';
@@ -71,9 +77,10 @@ export async function verifySession(
 export async function signStartToken(
   secret: string,
   ttlSeconds: number,
+  sub: string | null = null,
   jti: string = newJti(),
 ): Promise<{ token: string; jti: string }> {
-  const token = await new SignJWT({ typ: START_TYP })
+  const token = await new SignJWT({ typ: START_TYP, sub: sub ?? undefined })
     .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
     .setJti(jti)
     .setIssuedAt()
@@ -94,7 +101,8 @@ export async function verifyStartToken(
     if (typeof payload.jti !== 'string' || typeof payload.iat !== 'number') {
       return null;
     }
-    return { jti: payload.jti, iat: payload.iat };
+    const sub = typeof payload.sub === 'string' ? payload.sub : null;
+    return { jti: payload.jti, iat: payload.iat, sub };
   } catch {
     return null;
   }

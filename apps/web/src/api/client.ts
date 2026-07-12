@@ -64,7 +64,10 @@ export interface PlayerProfile {
 }
 
 export interface LeaderboardRow {
+  /** Real ranking key (`openrouter:x`, `human:<uuid>`) — use for API lookups. */
   subjectId: string;
+  /** Display name when it differs from the key (human board shows a nickname). */
+  label?: string;
   elo: number;
   wins: number;
   losses: number;

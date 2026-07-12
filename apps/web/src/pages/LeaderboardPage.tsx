@@ -216,7 +216,9 @@ export function LeaderboardPage() {
                         <TableCell className="max-w-52 truncate font-sans">
                           {humans ? (
                             // Humans are people, not models — no model card to link to.
-                            r.subjectId
+                            // The nickname is a label; `subjectId` stays the real key,
+                            // so the Elo chart below can still look this player up.
+                            (r.label ?? r.subjectId)
                           ) : (
                             <Link
                               to={`/model/${r.subjectId}`}
@@ -293,7 +295,7 @@ export function LeaderboardPage() {
           <RadarCard
             subjects={[selectedRow]}
             population={rows}
-            title={`${pl.charts.radar.title} · ${shortSubject(selectedRow.subjectId)}`}
+            title={`${pl.charts.radar.title} · ${selectedRow.label ?? shortSubject(selectedRow.subjectId)}`}
           />
           <EloHistory points={eloPoints} />
         </div>
