@@ -16,6 +16,8 @@
     "dev": "pnpm --filter @arena/web run dev",
     "dev:server": "pnpm --filter @arena/server run dev",
     "assets:prompts": "tsx scripts/gen/preview-prompts.ts",
+    "assets:place": "tsx scripts/gen/place-assets.ts",
+    "assets:check": "tsx scripts/gen/check-assets.ts",
     "assets:typecheck": "tsc -p scripts/tsconfig.json",
     "daily:check": "tsx scripts/check-daily-pool.ts",
     "smoke:live": "tsx --tsconfig scripts/tsconfig.smoke.json scripts/smoke-live.ts"

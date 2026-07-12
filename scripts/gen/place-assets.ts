@@ -7,7 +7,7 @@
  *
  *   pnpm tsx scripts/gen/place-assets.ts
  */
-import { readFileSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import sharp from 'sharp';
 import { GENERATED_DIR, WEB_PUBLIC } from './lib/assets';
@@ -87,4 +87,18 @@ for (const op of OPS) {
   const buf = await pipeline.webp({ quality: 82 }).toBuffer();
   writeFileSync(join(WEB_PUBLIC, op.to), buf);
   console.log(`  ✔ ${op.to.padEnd(22)} ${(buf.length / 1024).toFixed(1)} kB`);
+}
+
+// Match clip (scripts/gen/record-match.ts) — a real recorded game, not artwork,
+// so it is copied as-is; only the poster frame is re-encoded.
+const clip = join(GENERATED_DIR, 'video', 'match.webm');
+const posterSrc = join(GENERATED_DIR, 'video', 'match-poster.png');
+if (existsSync(clip)) {
+  copyFileSync(clip, join(WEB_PUBLIC, 'match.webm'));
+  console.log(`  ✔ ${'match.webm'.padEnd(22)} ${(readFileSync(clip).length / 1024).toFixed(1)} kB`);
+}
+if (existsSync(posterSrc)) {
+  const poster = await sharp(readFileSync(posterSrc)).webp({ quality: 80 }).toBuffer();
+  writeFileSync(join(WEB_PUBLIC, 'match-poster.webp'), poster);
+  console.log(`  ✔ ${'match-poster.webp'.padEnd(22)} ${(poster.length / 1024).toFixed(1)} kB`);
 }

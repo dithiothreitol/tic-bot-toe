@@ -98,7 +98,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                 {pl.settings.remove}
               </Button>
             </div>
-            <OpenRouterKeyHelp className="mt-1" />
+            <OpenRouterKeyHelp withField className="mt-1" />
           </div>
 
           <PlayerProfile />

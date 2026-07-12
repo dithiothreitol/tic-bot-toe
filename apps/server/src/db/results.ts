@@ -70,7 +70,25 @@ export type SubmitResult =
 
 const MAX_TOKENS_PER_MOVE = 5000;
 const MAX_COST_PER_MATCH = 1;
-const MIN_AVG_LATENCY_MS = 3000; // SPEC §15 (openrouter only; not local providers)
+/**
+ * Physical floor for a real OpenRouter round trip (openrouter only; local
+ * providers exempt).
+ *
+ * SPEC §15 says 3000ms. That number is WRONG in practice and was actively
+ * breaking the product: measured live, gpt-4o-mini answers a tic-tac-toe prompt
+ * in ~1.1s and llama-3.1-8b in ~2.9s, so a perfectly honest model-vs-model match
+ * — both sides answering every move, zero forfeits — was rejected as
+ * `suspicious_timing`. At 3s the model ranking only accepts SLOW models.
+ *
+ * The check is also weak by construction: `latencyMs` comes from the client, so
+ * a faker simply reports 5000 and sails through. It therefore punishes only the
+ * honest. What it can still do is catch obviously fabricated telemetry (0ms, 10ms
+ * — no network round trip is that fast), so it is kept as a smoke detector, not
+ * as a cheat gate. The real defenses are elsewhere: server replay, one-time jti,
+ * moves_hash dedup, Turnstile, rate limits, and — for humans — the server-stamped
+ * start token (§15.3), which the client cannot forge.
+ */
+const MIN_AVG_LATENCY_MS = 150;
 
 /**
  * Anti-bot pacing for the human ranking (§15.3). A person needs real time to
@@ -123,16 +141,22 @@ interface SideAgg {
   tokens: number;
   cost: number;
   forfeits: number;
+  /** Moves the model actually answered (not forfeited) — the only ones it "timed". */
+  decidedCount: number;
+  decidedLatencySum: number;
   /** Optimal moves per §12.2, computed server-side (never trusted from client). */
   optimal: number;
 }
 
 function aggregate(payload: ResultPayload, side: 'p1' | 'p2', id: string): SideAgg {
   const mv = payload.moves.filter((m) => m.player === side);
+  const decided = mv.filter((m) => !m.telemetry.forfeit);
   return {
     id,
     moveCount: mv.length,
     latencySum: mv.reduce((s, m) => s + m.telemetry.latencyMs, 0),
+    decidedCount: decided.length,
+    decidedLatencySum: decided.reduce((s, m) => s + m.telemetry.latencyMs, 0),
     tokens: mv.reduce(
       (s, m) => s + (m.telemetry.promptTokens ?? 0) + (m.telemetry.completionTokens ?? 0),
       0,
@@ -187,12 +211,23 @@ function neverDecided(payload: ResultPayload, side: 'p1' | 'p2'): boolean {
   return mine.length > 0 && mine.every((m) => m.telemetry.forfeit);
 }
 
-/** OpenRouter moves faster than 3s avg are suspicious (§15); local providers exempt. */
+/**
+ * OpenRouter answers faster than 3s avg are suspicious (§15); local providers exempt.
+ *
+ * Only ANSWERED moves count. A forfeit is a failed call, and failures are fast —
+ * a 404 (retired model) or a 429 (rate limit) comes back in ~300ms. Averaging
+ * those in accused the *client* of faking LLM latency when in truth the provider
+ * was simply down. Observed live: a match against a dead model id was rejected as
+ * `suspicious_timing` — a cheating accusation for someone who did nothing wrong.
+ *
+ * A side with zero answered moves is not "suspicious", it is a ghost — that case
+ * is handled by `neverDecided`, which saves the match but keeps it out of Elo.
+ */
 function suspiciousTiming(agg: SideAgg): boolean {
   return (
     agg.id.startsWith('openrouter:') &&
-    agg.moveCount > 0 &&
-    agg.latencySum / agg.moveCount < MIN_AVG_LATENCY_MS
+    agg.decidedCount > 0 &&
+    agg.decidedLatencySum / agg.decidedCount < MIN_AVG_LATENCY_MS
   );
 }
 

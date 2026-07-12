@@ -44,6 +44,24 @@ export function QuickStartSection() {
 
       <OpenRouterKeyHelp />
 
+      {/* A real recorded match (scripts/gen/record-match.ts) — muted, looping and
+          inert, so it never competes with the page for attention or bandwidth. */}
+      <HudPanel scanner className="flex flex-col gap-3 p-4">
+        <SectionLabel>{pl.quickStart.watch.title}</SectionLabel>
+        <p className="max-w-prose text-xs text-muted-foreground">{pl.quickStart.watch.lead}</p>
+        <video
+          src="/match.webm"
+          poster="/match-poster.webp"
+          autoPlay
+          loop
+          muted
+          playsInline
+          preload="none"
+          aria-label={pl.quickStart.watch.title}
+          className="clip-tab w-full border border-border-soft bg-card-inset"
+        />
+      </HudPanel>
+
       <HudPanel
         brackets
         accent="edu"

@@ -177,16 +177,48 @@ describe('submitResult (real Postgres via testcontainers)', () => {
     if (!dup.ok) expect(dup.reason).toBe('duplicate');
   });
 
-  it('rejects suspiciously fast OpenRouter timing (<3s avg)', async () => {
-    const payload = playOut('tictactoe', 'standard', 0, 1000, 'openrouter:a', 'openrouter:b');
+  it('rejects fabricated instant telemetry (no network round trip is 10ms)', async () => {
+    const payload = playOut('tictactoe', 'standard', 0, 10, 'openrouter:a', 'openrouter:b');
     const res = await submitResult(handle.db, newJti(), payload, null);
     expect(res.ok).toBe(false);
     if (!res.ok) expect(res.reason).toBe('suspicious_timing');
   });
 
+  it('ACCEPTS a genuinely fast model — real models answer in ~1s (SPEC §15 said 3s)', async () => {
+    // Measured live: gpt-4o-mini ~1.1s/move, llama-3.1-8b ~2.9s/move. The old 3s
+    // floor rejected honest model-vs-model matches outright, which meant the model
+    // ranking silently accepted only SLOW models.
+    const payload = playOut('tictactoe', 'standard', 0, 1100, 'openrouter:a', 'openrouter:b');
+    const res = await submitResult(handle.db, newJti(), payload, null);
+    expect(res.ok).toBe(true);
+    if (res.ok) {
+      expect(res.ranked).toBe(true);
+      expect(res.ratingChanges).toHaveLength(2);
+    }
+  });
+
   // ── Regressions from a REAL run against OpenRouter ────────────────────────
   // llama-3.2-3b:free was rate-limited (429) on every move, forfeited all of
   // them, WON by luck, and scored 100% Precyzja. Both halves of that are bugs.
+
+  it('does not accuse the player of cheating when the PROVIDER failed fast (404/429)', async () => {
+    // A dead model id returns 404 in ~300ms → the runner forfeits. Averaging those
+    // failures in used to trip the <3s "suspicious_timing" cheat check, rejecting
+    // the match and blaming the user for an outage. Observed live.
+    const payload = playOut('tictactoe', 'standard', 0, 4000, 'openrouter:real', 'openrouter:dead');
+    payload.moves = payload.moves.map((m) =>
+      m.player === 'p2'
+        ? { ...m, telemetry: { ...m.telemetry, latencyMs: 300, forfeit: true, retries: 3 } }
+        : m,
+    );
+
+    const res = await submitResult(handle.db, newJti(), payload, null);
+    expect(res.ok).toBe(true); // NOT rejected as cheating…
+    if (res.ok) {
+      expect(res.ranked).toBe(false); // …but honestly excluded from Elo
+      expect(res.unrankedReason).toBe('no_real_moves');
+    }
+  });
 
   it('does not credit forfeited (random) moves as optimal — Precyzja is decisions only', async () => {
     // p2's every move is a forfeit; some random substitutes land on optimal cells.

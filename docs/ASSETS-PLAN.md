@@ -53,14 +53,14 @@ TECHNICAL:    nominalny rozmiar + format
 
 | Faza | Zakres | Koszt API | Status |
 |---|---|---|---|
-| 0 | Fundament: devDeps (`sharp`,`tsx`,`dotenv`,`@types/node`), env, `scripts/gen/lib/*`, `assets/generated/*` | brak | **w toku** |
-| 1 | Prompt‑kit Cyber‑HUD (`prompt-kit.ts`) + `preview-prompts.ts` (`--dry-run`) | brak | **w toku** |
-| 2 | Rdzeń marki: logo (Gemini) → favicon/`.ico`/apple‑touch/PWA 192‑512/maskable + `manifest.webmanifest` + `og.png` + linki w `index.html` | tak | plan |
-| 3 | Grafiki rozgrywek: kafle gier, splash/eksplozja/zatopienie (§7.4), grafika wyniku | tak | plan |
-| 4 | Hero + sekcje (edu, modele AI) + stany puste/ładowania + **QuickStartSection** | tak | plan |
-| 5 | Identikony (deterministyczne) + OG w fontach marki (`@napi-rs/canvas`) | częściowo | plan |
-| 6 | Wideo: Playwright nagrywa realny mecz → `webm`; `<video>` + `media-src` w CSP | brak API | plan |
-| 7 | QA: `check-transparency`, `check-contrast`, `place-assets`, `pnpm build`+`typecheck`, zrzut headless | brak | plan |
+| 0 | Fundament: devDeps (`sharp`,`tsx`,`dotenv`,`@types/node`), env, `scripts/gen/lib/*`, `assets/generated/*` | brak | **gotowe** |
+| 1 | Prompt‑kit Cyber‑HUD (`prompt-kit.ts`) + `preview-prompts.ts` (`--dry-run`) | brak | **gotowe** |
+| 2 | Rdzeń marki: logo (Gemini, wariant v5) → `favicon.ico`/apple‑touch/PWA 192‑512/maskable + `manifest.webmanifest` + linki w `index.html` + znak w headerze | tak | **gotowe** |
+| 3 | Kafle gier + efekty strzałów. **Świadomie BEZ AI** — screen 01 i SPEC §7.4 wymagają ostrej geometrii i *animacji*, nie rastra (komórka planszy = 20–28 px). `GameGlyph.tsx` + keyframes `shotSplash/shotHit/shotSunk` | brak | **gotowe** |
+| 4 | Hero + Quick Start (4 kroki) + callout „dlaczego to działa" + stany puste | tak | **gotowe** |
+| 5 | Identikony (deterministyczne, `identicon.ts`) + OG w fontach marki (`@napi-rs/canvas` + TTF w `src/og/fonts`) | częściowo | **gotowe** |
+| 6 | Wideo: Playwright nagrywa **realną** partię (2 różne darmowe modele OpenRoutera) → ffmpeg przycina → `match.webm` + poster; sekcja „Zobacz partię" | brak (Gemini) | **gotowe** |
+| 7 | QA: `check-assets.ts` (alfa / kontrast WCAG / CSP) + `place-assets.ts` + pełny `typecheck`/`test`/`build` | brak | **gotowe** |
 
 ## Mapa osadzenia (punkty wstawienia)
 

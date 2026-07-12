@@ -51,6 +51,10 @@ export const pl = {
         desc: 'Precyzja ruchów, analiza z trenerem, a jeśli chcesz — zapis do rankingu Elo.',
       },
     ],
+    watch: {
+      title: 'Zobacz partię',
+      lead: 'Nagranie prawdziwej rozgrywki dwóch darmowych modeli — bez montażu. Czerwone znaczniki „retry" i „wymuszony" w logu to nie błędy aplikacji: to modele, które nie utrzymały formatu odpowiedzi i musiały dostać ruch z automatu. Dokładnie takie różnice arena ma pokazywać.',
+    },
     why: {
       title: 'Dlaczego to działa',
       points: [
@@ -140,8 +144,12 @@ export const pl = {
     steps: [
       'Załóż konto na openrouter.ai.',
       'Wejdź na openrouter.ai/keys i kliknij „Create key".',
-      'Skopiuj klucz (zaczyna się od „sk-or-") i wklej go w Ustawieniach → Klucz OpenRouter. Przycisk „Testuj" od razu sprawdzi, czy działa.',
     ],
+    /** Ostatni krok zależy od tego, czy pole na klucz jest tuż obok. */
+    lastStepHere:
+      'Skopiuj klucz (zaczyna się od „sk-or-") i wklej go w polu powyżej. Przycisk „Testuj" od razu sprawdzi, czy działa.',
+    lastStepSettings:
+      'Skopiuj klucz (zaczyna się od „sk-or-") i wklej go w Ustawieniach (koło zębate w prawym górnym rogu). Przycisk „Testuj" od razu sprawdzi, czy działa.',
     cost:
       'Modele z dopiskiem „:free" (filtr „Tylko darmowe") nic nie kosztują — OpenRouter ogranicza za to liczbę zapytań na dobę. Za pozostałe płacisz z salda doładowanego na openrouter.ai/credits; koszt każdego ruchu i całej partii widzisz na bieżąco w telemetrii.',
     cta: 'Utwórz klucz na openrouter.ai',

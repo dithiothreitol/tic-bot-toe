@@ -183,17 +183,25 @@ async function main(): Promise<void> {
     winnerName: outcome.winner === 'p1' ? P1_MODEL : outcome.winner === 'p2' ? P2_MODEL : null,
   };
   const { system, user } = buildCommentaryPrompt(req);
-  const said = await commentTransport(
-    [
-      { role: 'system', content: system },
-      { role: 'user', content: user },
-    ],
-    new AbortController().signal,
-  );
-  const comment = trimToTwoSentences(said.text);
-  console.log(`  o ruchu #${idx + 1} (${req.quality}): „${comment}"`);
-  const polish = /[ąćęłńóśźż]/i.test(comment);
-  console.log(`  po polsku: ${polish ? 'TAK' : 'NIE ← podejrzane'}`);
+  // Free models 429 constantly. In the app this is swallowed by the queue (the
+  // commentator is decoration), so the harness must not die on it either.
+  try {
+    const said = await commentTransport(
+      [
+        { role: 'system', content: system },
+        { role: 'user', content: user },
+      ],
+      new AbortController().signal,
+    );
+    const comment = trimToTwoSentences(said.text);
+    console.log(`  o ruchu #${idx + 1} (${req.quality}): „${comment}"`);
+    const polish = /[ąćęłńóśźż]/i.test(comment);
+    const sentences = (comment.match(/[.!?]/g) ?? []).length;
+    console.log(`  po polsku: ${polish ? 'TAK ✔' : 'NIE ← podejrzane'} | zdań: ${sentences || 1} ${sentences <= 2 ? '✔' : '← za dużo'}`);
+  } catch (e) {
+    console.log(`  komentator padł (${(e as Error).message.slice(0, 60)}…)`);
+    console.log('  → w aplikacji to jest połknięte przez kolejkę: gra idzie dalej bez dymka.');
+  }
 
   // 4. REAL server: replay + eval revalidation + Elo.
   console.log('\n=== SERWER (replay + Elo) ===');

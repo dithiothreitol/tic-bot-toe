@@ -12,6 +12,9 @@ const CSP = [
   "frame-src https://challenges.cloudflare.com",
   "worker-src 'self' blob:",
   "img-src 'self' data: blob:",
+  // The recorded match clip. It would already be allowed via default-src, but
+  // pinning it here keeps media independent of any future default-src change.
+  "media-src 'self'",
   "style-src 'self' 'unsafe-inline'",
   "font-src 'self'",
   "base-uri 'self'",

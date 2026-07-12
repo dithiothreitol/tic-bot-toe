@@ -29,14 +29,27 @@ if (!KEY) throw new Error('OPENROUTER_API_KEY is not set (see .env).');
 rmSync(RAW, { recursive: true, force: true });
 mkdirSync(RAW, { recursive: true });
 
-/** Open a model picker, switch on the free-only filter, take the first hit. */
-async function pickFreeModel(page: import('playwright').Page, index: number): Promise<void> {
-  await page.getByRole('combobox').nth(index).click();
+/**
+ * Open a model picker, switch on the free-only filter and take the Nth option.
+ *
+ * The free-only switch filters ONLY the OpenRouter group — WebLLM models are
+ * always listed, and they come FIRST. Picking option[0] blindly therefore grabs
+ * a WebLLM model and kicks off a multi-hundred-MB weight download instead of
+ * playing. WebGPU is disabled below so that group never renders at all.
+ */
+async function pickFreeModel(
+  page: import('playwright').Page,
+  comboIndex: number,
+  optionIndex: number,
+): Promise<string> {
+  await page.getByRole('combobox').nth(comboIndex).click();
   // Both pickers render id="only-free", but Radix only mounts the open popover.
   await page.locator('#only-free').click();
-  const first = page.getByRole('option').first();
-  await first.waitFor({ timeout: 30_000 });
-  await first.click();
+  const option = page.getByRole('option').nth(optionIndex);
+  await option.waitFor({ timeout: 30_000 });
+  const name = (await option.innerText()).split('\n')[0] ?? '?';
+  await option.click();
+  return name;
 }
 
 const browser = await chromium.launch();
@@ -46,8 +59,11 @@ const context = await browser.newContext({
   colorScheme: 'dark',
 });
 
-// Seed the key exactly where the app keeps it (zustand persist, §16).
+// Seed the key exactly where the app keeps it (zustand persist, §16), and hide
+// WebGPU so the WebLLM group never appears — we want a real API match, not a
+// browser weight download.
 await context.addInitScript((key: string) => {
+  Object.defineProperty(navigator, 'gpu', { value: undefined, configurable: true });
   window.localStorage.setItem(
     'arena-settings',
     JSON.stringify({
@@ -69,9 +85,11 @@ await page.goto(BASE, { waitUntil: 'networkidle' });
 console.log('  · mode → model vs model');
 await page.getByRole('tab', { name: 'Model kontra model' }).click();
 
-console.log('  · picking two free models…');
-await pickFreeModel(page, 0);
-await pickFreeModel(page, 1);
+console.log('  · picking two different free models…');
+const m1 = await pickFreeModel(page, 0, 0);
+const m2 = await pickFreeModel(page, 1, 1);
+console.log(`    P1 = ${m1}`);
+console.log(`    P2 = ${m2}`);
 
 await page.getByRole('button', { name: 'Start', exact: true }).click();
 
@@ -82,11 +100,18 @@ if (await skip.isVisible().catch(() => false)) await skip.click();
 const matchStart = Date.now();
 console.log('  · match running…');
 
+// A failed match also lands on the result card, so wait for a REAL move first —
+// otherwise we would happily record an empty board and call it gameplay.
+await page.getByText('Brak ruchów.').waitFor({ state: 'hidden', timeout: 120_000 });
+
 await page
   .getByRole('button', { name: /Rewanż|Nowa gra/ })
   .first()
   .waitFor({ timeout: MATCH_TIMEOUT });
 const matchEnd = Date.now();
+
+const moveRows = await page.locator('[data-slot="hud-panel"]').filter({ hasText: 'LOG PARTII' }).innerText();
+if (/Brak ruchów/.test(moveRows)) throw new Error('Match produced no moves — refusing to ship an empty clip.');
 
 await page.waitForTimeout(2500); // let the result card settle on screen
 await context.close(); // flushes the video file
@@ -111,9 +136,10 @@ execFileSync(
    clip],
   { stdio: 'inherit' },
 );
+// Late in the match, so the poster shows a filled board rather than an empty one.
 execFileSync(
   'ffmpeg',
-  ['-y', '-ss', String(from + Math.min(3, dur / 2)), '-i', rawPath, '-frames:v', '1',
+  ['-y', '-ss', String(from + dur * 0.8), '-i', rawPath, '-frames:v', '1',
    '-vf', 'scale=1000:-2', poster],
   { stdio: 'inherit' },
 );
