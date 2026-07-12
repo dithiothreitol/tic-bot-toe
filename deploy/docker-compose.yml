@@ -1,0 +1,39 @@
+# `docker compose up` — brings up the app + a Postgres.
+# SPEC §3 assumes an EXTERNAL Postgres: to use one, drop the `postgres` service
+# and point DATABASE_URL at it. Env is read from a `.env` next to this file.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: arena
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-arena}
+      POSTGRES_DB: arena
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U arena']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  app:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    environment:
+      DATABASE_URL: postgres://arena:${POSTGRES_PASSWORD:-arena}@postgres:5432/arena
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in deploy/.env}
+      TURNSTILE_SECRET: ${TURNSTILE_SECRET:-1x0000000000000000000000000000000AA}
+      ENABLE_OLLAMA: ${ENABLE_OLLAMA:-false}
+      TRUSTED_PROXY: ${TRUSTED_PROXY:-true}
+      PORT: 8080
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - '${APP_PORT:-8080}:8080'
+    restart: unless-stopped
+
+volumes:
+  pgdata:

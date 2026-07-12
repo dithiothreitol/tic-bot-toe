@@ -1,0 +1,30 @@
+# systemd unit — Docker-free alternative (SPEC §3).
+#
+# Deploy the self-contained bundle:
+#   pnpm --filter @arena/server build && pnpm --filter @arena/web build
+#   sudo mkdir -p /opt/llm-arena
+#   sudo cp apps/server/dist/index.js /opt/llm-arena/index.js
+#   sudo cp -r apps/server/drizzle    /opt/llm-arena/drizzle
+#   sudo cp -r apps/web/dist          /opt/llm-arena/web
+#   sudo cp .env                      /opt/llm-arena/.env   # DATABASE_URL, JWT_SECRET, …
+#   sudo cp deploy/llm-arena.service /etc/systemd/system/
+#   sudo systemctl enable --now llm-arena
+#
+# Requires Node 22+ on the host and an external PostgreSQL (DATABASE_URL in .env).
+
+[Unit]
+Description=tic-bot-toe — LLM Game Arena
+After=network.target
+
+[Service]
+Type=simple
+User=arena
+WorkingDirectory=/opt/llm-arena
+Environment=STATIC_DIR=/opt/llm-arena/web
+EnvironmentFile=/opt/llm-arena/.env
+ExecStart=/usr/bin/node /opt/llm-arena/index.js
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
