@@ -272,7 +272,7 @@ export function SetupScreen({
             {pl.mode.label}
           </SectionLabel>
           <Tabs value={mode} onValueChange={(v) => setMode(v as MatchMode)}>
-            <TabsList className="grid h-auto w-full grid-cols-2">
+            <TabsList className="grid h-auto w-full grid-cols-2 group-data-[orientation=horizontal]/tabs:h-auto">
               <TabsTrigger value="human_vs_model" className="py-2.5">
                 {pl.mode.humanVsModel}
               </TabsTrigger>
