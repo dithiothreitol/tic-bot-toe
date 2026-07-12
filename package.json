@@ -20,9 +20,11 @@
     "assets:check": "tsx scripts/gen/check-assets.ts",
     "assets:typecheck": "tsc -p scripts/tsconfig.json",
     "daily:check": "tsx scripts/check-daily-pool.ts",
-    "smoke:live": "tsx --tsconfig scripts/tsconfig.smoke.json scripts/smoke-live.ts"
+    "smoke:live": "tsx --tsconfig scripts/tsconfig.smoke.json scripts/smoke-live.ts",
+    "e2e": "playwright test"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "@types/node": "^22.19.0",
     "dotenv": "^17.4.2",
     "playwright": "^1.61.1",

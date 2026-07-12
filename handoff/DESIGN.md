@@ -30,9 +30,9 @@ Zdefiniuj raz w warstwie tokenów, nadpisując zmienne shadcn. Nie stylizuj per 
 
     /* tekst */
     --foreground:   #DCE6F5;
-    --muted-fg:     #8A96B8;
-    --dim-fg:       #6E7B9E;
-    --faint-fg:     #4B587C;
+    --muted-fg:     #A4ADC7;   /* 9.00:1  */
+    --dim-fg:       #8590AD;   /* 6.32:1  */
+    --faint-fg:     #6777A3;   /* 4.55:1 — AA; było #4B587C = 2.87:1 (za słabe na 10px) */
 
     /* akcenty */
     --p1:           #35E7FF;   /* Player_01 · cyjan */

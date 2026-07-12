@@ -9,8 +9,8 @@ export const chartTheme = {
   warn: '#ff8a3c',
   danger: '#ff4d6a',
   grid: 'rgba(53,231,255,0.10)',
-  axis: '#6e7b9e',
-  text: '#8a96b8',
+  axis: '#8590ad',
+  text: '#a4adc7',
   surface: '#080d18',
 } as const;
 

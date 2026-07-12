@@ -28,7 +28,7 @@ export async function previewOnDark(png: Buffer, width = 512, height = width): P
 
 function labelSvg(text: string, w: number, h: number): Buffer {
   return Buffer.from(
-    `<svg width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg"><text x="10" y="${h - 9}" font-family="monospace" font-size="18" fill="#8A96B8">${text}</text></svg>`,
+    `<svg width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg"><text x="10" y="${h - 9}" font-family="monospace" font-size="18" fill="#A4ADC7">${text}</text></svg>`,
   );
 }
 

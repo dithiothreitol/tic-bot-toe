@@ -19,9 +19,13 @@
 
   /* --- text --- */
   --foreground: #dce6f5;
-  --muted-fg: #8a96b8;
-  --dim-fg: #6e7b9e;
-  --faint-fg: #4b587c;
+  /* Text ladder — every tier clears WCAG AA (4.5:1) on --background, because all
+     three carry real 10–12px copy (header subtitle, tile meta, section labels).
+     Ratios vs #05070C: 9.00 / 6.32 / 4.55. Hue and saturation are unchanged from
+     the original ladder; only lightness was raised. Verified by `pnpm assets:check`. */
+  --muted-fg: #a4adc7;
+  --dim-fg: #8590ad;
+  --faint-fg: #6777a3;
 
   /* --- accents --- */
   --p1: #35e7ff; /* Player_01 · cyan */

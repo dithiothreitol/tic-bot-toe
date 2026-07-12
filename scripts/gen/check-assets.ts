@@ -85,9 +85,11 @@ function ratio(fg: string, bg: string): number {
 /** 4.5 = AA body text; 3.0 = AA large text / UI components. */
 const TEXT_COLORS: [string, string, number][] = [
   ['foreground', PALETTE.text, 4.5],
-  ['muted-fg  ', '#8A96B8', 4.5],
+  ['muted-fg  ', '#A4ADC7', 4.5],
   ['dim-fg    ', PALETTE.dim, 4.5],
-  ['faint-fg  ', '#4B587C', 3.0],
+  // 4.5, not 3.0: faint carries 10px copy (header subtitle, game-tile meta), so
+  // the small-text bar applies. The old #4B587C sat at 2.87 and failed both.
+  ['faint-fg  ', '#6777A3', 4.5],
   ['p1 cyan   ', PALETTE.p1, 4.5],
   ['p2 magenta', PALETTE.p2, 4.5],
   ['edu lime  ', PALETTE.edu, 4.5],

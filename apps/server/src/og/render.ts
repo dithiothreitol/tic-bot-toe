@@ -23,7 +23,7 @@ const H = 630;
 const BG = '#05070c';
 const P1 = '#35e7ff';
 const P2 = '#ff3d9a';
-const DIM = '#6e7b9e';
+const DIM = '#8590ad';
 const GRID = 'rgba(53,231,255,0.16)';
 
 /**

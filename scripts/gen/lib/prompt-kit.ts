@@ -17,7 +17,7 @@ export const PALETTE = {
   warn: '#FF8A3C',
   violet: '#A78BFA',
   text: '#DCE6F5',
-  dim: '#6E7B9E',
+  dim: '#8590AD',
 } as const;
 
 /** Prepended to every prompt: fixes the look, the medium and the hard bans. */

@@ -34,7 +34,10 @@ Cel: logo + favicon/ikony + grafiki i wideo ilustrujące rozgrywki, spójne z L&
 
 ## Paleta (mirror `apps/web/src/index.css` — trzymać w synchronie)
 
-`bg #05070C` · `panel #080D18` · `inset #060A14` · **P1 cyan `#35E7FF`** · **P2 magenta `#FF3D9A`** · `edu lime #B6FF3C` · `danger #FF4D6A` · `warn #FF8A3C` · `violet #A78BFA` · `text #DCE6F5` · `dim #6E7B9E`.
+`bg #05070C` · `panel #080D18` · `inset #060A14` · **P1 cyan `#35E7FF`** · **P2 magenta `#FF3D9A`** · `edu lime #B6FF3C` · `danger #FF4D6A` · `warn #FF8A3C` · `violet #A78BFA` · `text #DCE6F5` · `dim #8590AD`.
+
+**Drabina tekstu przeszła na AA** (WCAG 4,5:1 na `#05070C`), bo wszystkie trzy poziomy niosą realny tekst 10–12 px:
+`--muted-fg #A4ADC7` (9,00:1) · `--dim-fg #8590AD` (6,32:1) · `--faint-fg #6777A3` (4,55:1 — wcześniej `#4B587C` = **2,87:1**, poniżej nawet luźniejszego progu 3,0). Odcień i nasycenie bez zmian — podniesiona wyłącznie jasność. Pilnuje tego `pnpm assets:check`.
 
 ## Struktura promptu (jeden STYLE_PREAMBLE — bez dwóch sprzecznych stylów jak w grzybiarzu)
 
@@ -78,14 +81,27 @@ TECHNICAL:    nominalny rozmiar + format
 ## Uruchamianie
 
 ```bash
-# fundament, bez kosztów API:
-pnpm assets:prompts          # zapisuje przykładowe prompty do assets/generated/_prompts/
-pnpm assets:typecheck        # typecheck skryptów generatorów
+# bez kosztów API:
+pnpm assets:prompts     # przykładowe prompty → assets/generated/_prompts/
+pnpm assets:typecheck   # typecheck generatorów
+pnpm assets:place       # dystrybucja assets/generated → apps/web/public (WebP + wideo)
+pnpm assets:check       # QA: alfa / kontrast WCAG / brak zasobów spoza domeny
 
-# generowanie (wymaga GEMINI_API_KEY w .env), np.:
-pnpm tsx scripts/gen/<generator>.ts --dry-run   # najpierw prompty, bez API
-pnpm tsx scripts/gen/<generator>.ts --variants=6 --only=logo-mark
+# generowanie (wymaga GEMINI_API_KEY w .env):
+pnpm tsx scripts/gen/brand.ts    --only=logo-mark --variants=6   # znak marki
+pnpm tsx scripts/gen/brand.ts    --only=logo-mark --rekey        # re-keying BEZ API
+pnpm tsx scripts/gen/icons.ts    --from=logo-mark-v5             # cały zestaw ikon
+pnpm tsx scripts/gen/sections.ts --dry-run                       # prompty sekcji
+pnpm tsx scripts/gen/sections.ts --only=hero-banner --variants=3
+
+# wideo (wymaga OPENROUTER_API_KEY, ffmpeg i działającego `vite preview`):
+pnpm tsx scripts/gen/record-match.ts
 ```
+
+## Znane luki (stan na koniec Fazy 7)
+
+- **Animacje strzałów (§7.4) nie zostały zweryfikowane wizualnie** — nagrano partię w kółko i krzyżyk, nie w statki. Są otestowane jednostkowo i obecne w zbudowanym CSS.
+- **`og.png`** (statyczna karta społecznościowa) nadal pochodzi sprzed rebrandingu; dynamiczne OG per‑mecz są już w fontach marki.
 
 ## Ryzyka
 
