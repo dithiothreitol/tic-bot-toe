@@ -1,0 +1,31 @@
+# deps
+node_modules/
+.pnpm-store/
+
+# builds
+dist/
+build/
+*.tsbuildinfo
+apps/web/dist/
+apps/server/dist/
+packages/*/dist/
+
+# env / secrets
+.env
+.env.local
+.env.*.local
+
+# test / coverage
+coverage/
+.vitest/
+
+# tooling caches
+.vite/
+.turbo/
+.eslintcache
+
+# editor / os
+.DS_Store
+Thumbs.db
+*.log
+npm-debug.log*

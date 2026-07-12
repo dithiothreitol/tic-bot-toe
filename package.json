@@ -1,0 +1,29 @@
+{
+  "name": "tic-bot-toe",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "pnpm -r --if-present run test",
+    "test:core": "pnpm --filter @arena/game-core run test",
+    "coverage": "pnpm -r --if-present run coverage",
+    "typecheck": "pnpm -r --if-present run typecheck",
+    "build": "pnpm -r --if-present run build",
+    "dev": "pnpm --filter @arena/web run dev",
+    "dev:server": "pnpm --filter @arena/server run dev"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "@napi-rs/canvas",
+      "@swc/core"
+    ]
+  }
+}

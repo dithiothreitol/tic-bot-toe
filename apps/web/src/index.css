@@ -1,0 +1,144 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Gaming-educational look & feel (SPEC §4).
+ * Dark-first: deep navy background, neon player accents (P1 cyan, P2 magenta),
+ * monospace for logs/stats, subtle glow on active elements.
+ * This is the single token layer — do NOT redefine colors per component.
+ */
+:root {
+  --radius: 0.625rem;
+
+  --background: #0b1020;
+  --foreground: #e6eaf5;
+
+  --card: #111a2e;
+  --card-foreground: #e6eaf5;
+
+  --popover: #0e1626;
+  --popover-foreground: #e6eaf5;
+
+  /* Primary == P1 cyan, the app's signature accent. */
+  --primary: #22d3ee;
+  --primary-foreground: #04121a;
+
+  --secondary: #18233f;
+  --secondary-foreground: #e6eaf5;
+
+  --muted: #18233f;
+  --muted-foreground: #94a0bd;
+
+  --accent: #1e2c4e;
+  --accent-foreground: #e6eaf5;
+
+  --destructive: #fb3b5c;
+  --destructive-foreground: #ffffff;
+
+  --border: #26324f;
+  --input: #232f4b;
+  --ring: #22d3ee;
+
+  /* Chart series (Recharts, SPEC §9) — same token system. */
+  --chart-1: #22d3ee;
+  --chart-2: #f0459b;
+  --chart-3: #a78bfa;
+  --chart-4: #fbbf24;
+  --chart-5: #34d399;
+
+  /* Player accents. */
+  --p1: #22d3ee;
+  --p1-foreground: #04121a;
+  --p2: #f0459b;
+  --p2-foreground: #22040f;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  --color-p1: var(--p1);
+  --color-p1-foreground: var(--p1-foreground);
+  --color-p2: var(--p2);
+  --color-p2-foreground: var(--p2-foreground);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, 'SF Mono', Menlo,
+    Consolas, monospace;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    min-height: 100dvh;
+    font-feature-settings: 'rlig' 1, 'calt' 1;
+    /* Subtle radial glow behind the arena. */
+    background-image:
+      radial-gradient(
+        60rem 40rem at 15% -10%,
+        color-mix(in oklab, var(--p1) 10%, transparent),
+        transparent
+      ),
+      radial-gradient(
+        55rem 38rem at 100% 0%,
+        color-mix(in oklab, var(--p2) 9%, transparent),
+        transparent
+      );
+    background-attachment: fixed;
+  }
+}
+
+@layer utilities {
+  .glow-p1 {
+    box-shadow:
+      0 0 0 1px color-mix(in oklab, var(--p1) 45%, transparent),
+      0 0 20px -2px color-mix(in oklab, var(--p1) 55%, transparent);
+  }
+  .glow-p2 {
+    box-shadow:
+      0 0 0 1px color-mix(in oklab, var(--p2) 45%, transparent),
+      0 0 20px -2px color-mix(in oklab, var(--p2) 55%, transparent);
+  }
+  .text-glow-p1 {
+    text-shadow: 0 0 10px color-mix(in oklab, var(--p1) 70%, transparent);
+  }
+  .text-glow-p2 {
+    text-shadow: 0 0 10px color-mix(in oklab, var(--p2) 70%, transparent);
+  }
+}
