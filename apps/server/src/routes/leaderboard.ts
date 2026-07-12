@@ -21,8 +21,18 @@ export function resetLeaderboardCache(): void {
   cache.clear();
 }
 
-/** Shared telemetry projection. `label` is what the UI shows; `subjectId` stays the real key. */
-function project(r: typeof ratings.$inferSelect, label?: string) {
+/**
+ * Shared telemetry projection. `label` is what the UI shows; `subjectId` stays the real key.
+ *
+ * Precyzja (`optimalRate`) divides by the moves the model actually DECIDED —
+ * `totalMoves - forfeitMoves` — not by every move. A forfeit is a random legal
+ * move we substitute after the model fails three corrections (§8); it is our
+ * pick, not its. Observed live: a rate-limited (429) model forfeited every move,
+ * won by luck and scored 100% Precyzja. Forfeits are already accounted for on
+ * their own axis (`forfeitRate` → „Dyscyplina"), so they don't belong here.
+ */
+export function project(r: typeof ratings.$inferSelect, label?: string) {
+  const decided = r.totalMoves - r.forfeitMoves;
   return {
     subjectId: r.subjectId,
     label,
@@ -35,7 +45,7 @@ function project(r: typeof ratings.$inferSelect, label?: string) {
     avgLatencyMs: r.totalMoves > 0 ? r.latencyMsSum / r.totalMoves : null,
     avgTokensPerMove: r.totalMoves > 0 ? Number(r.tokensSum) / r.totalMoves : null,
     avgCostPerGame: r.games > 0 ? Number(r.costUsdSum) / r.games : null,
-    optimalRate: r.totalMoves > 0 ? r.optimalMoves / r.totalMoves : null,
+    optimalRate: decided > 0 ? r.optimalMoves / decided : null,
   };
 }
 

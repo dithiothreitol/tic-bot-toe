@@ -17,11 +17,13 @@
     "dev:server": "pnpm --filter @arena/server run dev",
     "assets:prompts": "tsx scripts/gen/preview-prompts.ts",
     "assets:typecheck": "tsc -p scripts/tsconfig.json",
-    "daily:check": "tsx scripts/check-daily-pool.ts"
+    "daily:check": "tsx scripts/check-daily-pool.ts",
+    "smoke:live": "tsx --tsconfig scripts/tsconfig.smoke.json scripts/smoke-live.ts"
   },
   "devDependencies": {
     "@types/node": "^22.19.0",
     "dotenv": "^17.4.2",
+    "playwright": "^1.61.1",
     "sharp": "^0.34.5",
     "tsx": "^4.22.3",
     "typescript": "^5.9.3"

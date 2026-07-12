@@ -2,6 +2,7 @@ import { useState } from 'react';
 
 import { DailyChallengeCard } from '@/components/DailyChallengeCard';
 import { type MatchConfig, GameRunner } from '@/components/GameRunner';
+import { QuickStartSection } from '@/components/QuickStartSection';
 import { SetupScreen } from '@/components/SetupScreen';
 import { SectionLabel } from '@/components/ui/hud';
 import { pl } from '@/i18n/pl';
@@ -19,7 +20,18 @@ export function ArenaPage({ onOpenSettings }: { onOpenSettings: () => void }) {
     <div className="flex flex-col gap-6">
       {screen === 'setup' && (
         <>
-          <header className="flex flex-col gap-2">
+          <header className="relative isolate flex min-h-[220px] flex-col justify-center gap-2 overflow-hidden">
+            {/* Decorative backdrop. The mask keeps the left side clean so the
+                headline never fights the art (the render is briefed with that
+                dark safe zone on the left). */}
+            <img
+              src="/hero.webp"
+              alt=""
+              aria-hidden
+              width={1600}
+              height={900}
+              className="pointer-events-none absolute inset-0 -z-10 size-full object-cover opacity-75 [mask-composite:intersect] [mask-image:linear-gradient(to_right,transparent_5%,black_55%),linear-gradient(to_bottom,transparent,black_22%,black_72%,transparent)]"
+            />
             <SectionLabel>{pl.arena.kicker}</SectionLabel>
             <h1 className="font-sans text-4xl font-bold uppercase tracking-tight sm:text-5xl">
               {pl.arena.heading}
@@ -31,6 +43,8 @@ export function ArenaPage({ onOpenSettings }: { onOpenSettings: () => void }) {
           <DailyChallengeCard onStart={start} onOpenSettings={onOpenSettings} />
 
           <SetupScreen onStart={start} onOpenSettings={onOpenSettings} />
+
+          <QuickStartSection />
 
           <p className="max-w-prose text-xs text-dim">{pl.footerNote}</p>
         </>

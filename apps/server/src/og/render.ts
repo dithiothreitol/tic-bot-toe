@@ -13,7 +13,10 @@ import {
   battleship,
   getGame,
 } from '@arena/game-core';
-import { createCanvas } from '@napi-rs/canvas';
+import { existsSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { GlobalFonts, createCanvas } from '@napi-rs/canvas';
 
 const W = 1200;
 const H = 630;
@@ -22,6 +25,42 @@ const P1 = '#35e7ff';
 const P2 = '#ff3d9a';
 const DIM = '#6e7b9e';
 const GRID = 'rgba(53,231,255,0.16)';
+
+/**
+ * Brand fonts (DESIGN §2: Rajdhani for chrome, JetBrains Mono for data).
+ * Resolved next to the running module, which covers all three layouts:
+ *   dev  → src/og/fonts   ·  built → dist/fonts  ·  docker → /app/fonts
+ * Registration is best-effort: if it fails we keep the generic families and the
+ * card still renders (SPEC §20.7 — the OG endpoint must never fail).
+ */
+const FONTS_DIR = process.env.OG_FONTS_DIR ?? join(dirname(fileURLToPath(import.meta.url)), 'fonts');
+
+let fontsRegistered = false;
+function registerBrandFonts(): void {
+  if (fontsRegistered) return;
+  fontsRegistered = true; // one attempt only — never retry per request
+  const files: [string, string][] = [
+    ['Rajdhani-Bold.ttf', 'Rajdhani'],
+    ['JetBrainsMono-Regular.ttf', 'JetBrains Mono'],
+    ['JetBrainsMono-Bold.ttf', 'JetBrains Mono'],
+  ];
+  for (const [file, family] of files) {
+    const path = join(FONTS_DIR, file);
+    if (!existsSync(path)) continue;
+    try {
+      GlobalFonts.registerFromPath(path, family);
+    } catch {
+      // Missing/unreadable font → fall back to the generic family below.
+    }
+  }
+}
+
+/** Data (model ids, marks, wordmark) — monospace, per DESIGN §2. */
+const mono = (size: number, bold = false): string =>
+  `${bold ? 'bold ' : ''}${size}px "JetBrains Mono", monospace`;
+/** Chrome (labels, subline) — the display face. */
+const display = (size: number, bold = false): string =>
+  `${bold ? 'bold ' : ''}${size}px "Rajdhani", sans-serif`;
 
 type TextAlign = 'left' | 'right' | 'center' | 'start' | 'end';
 
@@ -37,6 +76,14 @@ export interface OgMatch {
 
 function short(id: string): string {
   return id.replace(/^(openrouter|webllm|ollama):/, '');
+}
+
+/** Trim `text` (in the ctx's current font) until it fits, appending an ellipsis. */
+function ellipsize(ctx: Ctx, text: string, maxWidth: number): string {
+  if (ctx.measureText(text).width <= maxWidth) return text;
+  let s = text;
+  while (s.length > 1 && ctx.measureText(`${s}…`).width > maxWidth) s = s.slice(0, -1);
+  return `${s}…`;
 }
 
 function configFromSetup(setup: SetupRecord | null | undefined) {
@@ -95,7 +142,7 @@ function drawTicTacToe(ctx: Ctx, state: TicTacToeState, cx: number, cy: number, 
     ctx.lineTo(cx + size, cy + i * cell);
     ctx.stroke();
   }
-  ctx.font = `bold ${Math.floor(cell * 0.62)}px sans-serif`;
+  ctx.font = mono(Math.floor(cell * 0.62), true);
   ctx.textAlign = 'center';
   for (let i = 0; i < 9; i++) {
     const mark = state.board[i];
@@ -127,6 +174,7 @@ function drawBattleship(ctx: Ctx, state: BattleshipState, cx: number, cy: number
 }
 
 export function renderMatchOg(match: OgMatch): Buffer {
+  registerBrandFonts();
   const canvas = createCanvas(W, H);
   const ctx = canvas.getContext('2d') as unknown as Ctx;
 
@@ -152,20 +200,45 @@ export function renderMatchOg(match: OgMatch): Buffer {
   const p2 = short(match.p2Id);
 
   // Title: "p1  vs  p2" with player colors, laid out by measured widths.
+  // Title: "p1 vs p2". Model ids get long ("anthropic/claude-sonnet-4") and mono
+  // is wide, so shrink to fit first and only then ellipsize — never bleed off card.
   ctx.textAlign = 'left';
   const pad = 64;
-  ctx.font = 'bold 60px sans-serif';
-  const p1w = ctx.measureText(p1).width;
+  const GAP = 24;
+  const maxTitle = W - pad * 2;
+  const vsSize = (s: number): number => Math.round(s * 0.8);
+  const titleWidth = (s: number, a: string, b: string): number => {
+    ctx.font = mono(s, true);
+    const names = ctx.measureText(a).width + ctx.measureText(b).width;
+    ctx.font = display(vsSize(s), true);
+    return names + ctx.measureText('vs').width + GAP * 2;
+  };
+
+  let size = 52;
+  while (size > 28 && titleWidth(size, p1, p2) > maxTitle) size -= 2;
+
+  let n1 = p1;
+  let n2 = p2;
+  if (titleWidth(size, n1, n2) > maxTitle) {
+    ctx.font = display(vsSize(size), true);
+    const room = (maxTitle - ctx.measureText('vs').width - GAP * 2) / 2;
+    ctx.font = mono(size, true);
+    n1 = ellipsize(ctx, n1, room);
+    n2 = ellipsize(ctx, n2, room);
+  }
+
+  ctx.font = mono(size, true);
+  const n1w = ctx.measureText(n1).width;
   ctx.fillStyle = P1;
-  ctx.fillText(p1, pad, 120);
+  ctx.fillText(n1, pad, 120);
   ctx.fillStyle = DIM;
-  ctx.font = '40px sans-serif';
-  const vsX = pad + p1w + 28;
+  ctx.font = display(vsSize(size), true);
+  const vsX = pad + n1w + GAP;
   ctx.fillText('vs', vsX, 116);
   const vsW = ctx.measureText('vs').width;
   ctx.fillStyle = P2;
-  ctx.font = 'bold 60px sans-serif';
-  ctx.fillText(p2, vsX + vsW + 28, 120);
+  ctx.font = mono(size, true);
+  ctx.fillText(n2, vsX + vsW + GAP, 120);
 
   // Subline: game · variant · result.
   const gameLabel = match.game === 'tictactoe' ? 'Kółko i krzyżyk' : 'Statki';
@@ -178,15 +251,16 @@ export function renderMatchOg(match: OgMatch): Buffer {
           ? `${p2} wygrywa`
           : 'partia';
   ctx.fillStyle = DIM;
-  ctx.font = '30px sans-serif';
-  ctx.fillText(`${gameLabel} · ${match.variant} · ${result}`, pad, 175);
+  ctx.font = display(32, true);
+  ctx.fillText(ellipsize(ctx, `${gameLabel} · ${match.variant} · ${result}`, maxTitle), pad, 175);
 
   // Final board, centred lower area.
   try {
     const state = finalState(match);
-    const boardSize = 360;
+    // Sized so the framed board clears the footer wordmark at the bottom.
+    const boardSize = 320;
     const bx = (W - boardSize) / 2;
-    const by = 230;
+    const by = 222;
     ctx.strokeStyle = GRID;
     ctx.lineWidth = 2;
     ctx.strokeRect(bx - 10, by - 10, boardSize + 20, boardSize + 20);
@@ -201,9 +275,9 @@ export function renderMatchOg(match: OgMatch): Buffer {
 
   // Footer wordmark.
   ctx.fillStyle = DIM;
-  ctx.font = 'bold 26px sans-serif';
+  ctx.font = mono(24, true);
   ctx.textAlign = 'right';
-  ctx.fillText('tic-bot-toe · LLM Game Arena', W - pad, H - 40);
+  ctx.fillText('tic-bot-toe · LLM Game Arena', W - pad, H - 28);
 
   return canvas.toBuffer('image/png');
 }

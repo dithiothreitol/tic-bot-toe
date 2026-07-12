@@ -66,9 +66,18 @@ export function ChartFrame({
 
       {empty ? (
         <div
-          className="flex items-center justify-center text-center font-mono text-xs text-dim"
+          className="flex flex-col items-center justify-center gap-3 text-center font-mono text-xs text-dim"
           style={{ minHeight: height }}
         >
+          <img
+            src="/empty-state.webp"
+            alt=""
+            aria-hidden
+            loading="lazy"
+            width={800}
+            height={500}
+            className="h-20 w-auto max-w-full object-contain opacity-70"
+          />
           {emptyText ?? pl.charts.empty}
         </div>
       ) : (

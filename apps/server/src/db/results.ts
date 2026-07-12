@@ -1,5 +1,6 @@
 import {
   ELO_START,
+  type GameAnalysis,
   type GameId,
   type Move,
   type MoveQuality,
@@ -51,8 +52,20 @@ export interface RatingChange {
   before: number;
   after: number;
 }
+/** Why a saved match did not touch the ranking. */
+export type UnrankedReason = 'lab' | 'no_real_moves';
+
 export type SubmitResult =
-  | { ok: true; matchId: string; winner: 'p1' | 'p2' | 'draw'; lab: boolean; ratingChanges: RatingChange[] }
+  | {
+      ok: true;
+      matchId: string;
+      winner: 'p1' | 'p2' | 'draw';
+      lab: boolean;
+      /** False when the match was saved (replayable) but excluded from Elo. */
+      ranked: boolean;
+      unrankedReason?: UnrankedReason;
+      ratingChanges: RatingChange[];
+    }
   | { ok: false; code: 400 | 401 | 409 | 422 | 429; reason: string };
 
 const MAX_TOKENS_PER_MOVE = 5000;
@@ -128,6 +141,50 @@ function aggregate(payload: ResultPayload, side: 'p1' | 'p2', id: string): SideA
     forfeits: mv.filter((m) => m.telemetry.forfeit).length,
     optimal: 0, // filled from server-side analysis in submitResult
   };
+}
+
+/**
+ * Optimal moves the model ACTUALLY CHOSE — forfeits excluded.
+ *
+ * A forfeit is a random legal move we substitute after the model failed three
+ * corrections (§8); it is our choice, not the model's. Counting it in Precyzja
+ * credits the model for a coin flip.
+ *
+ * This is not hypothetical. In a live run, `llama-3.2-3b:free` was rate-limited
+ * (429) on every single move, forfeited all of them, and scored **100% Precyzja**
+ * — beating gpt-4o-mini, which actually played and scored 67%. The ranking was
+ * rewarding luck.
+ *
+ * Forfeits are already punished on their own axis (`forfeitRate` / „Dyscyplina"),
+ * so they are excluded from the Precyzja denominator too — see `optimalRate`,
+ * which divides by `totalMoves - forfeitMoves`. Precyzja = quality of real
+ * decisions; Dyscyplina = how often the model managed to decide at all.
+ */
+function optimalDecidedMoves(
+  payload: ResultPayload,
+  analysis: GameAnalysis,
+  side: 'p1' | 'p2',
+): number {
+  let n = 0;
+  for (let i = 0; i < payload.moves.length; i++) {
+    const m = payload.moves[i]!;
+    if (m.player !== side || m.telemetry.forfeit) continue;
+    if (analysis.moves[i]?.quality === 'optimal') n += 1;
+  }
+  return n;
+}
+
+/**
+ * Did this side never make a single real decision?
+ *
+ * Same live run: every call 429'd, every move was a forfeited random substitute
+ * — and the "model" WON. Awarding Elo for that measures OpenRouter's rate
+ * limiter, not the model. Such a match is still saved (it is replayable and
+ * honest about what happened), but it must not move anyone's rating.
+ */
+function neverDecided(payload: ResultPayload, side: 'p1' | 'p2'): boolean {
+  const mine = payload.moves.filter((m) => m.player === side);
+  return mine.length > 0 && mine.every((m) => m.telemetry.forfeit);
 }
 
 /** OpenRouter moves faster than 3s avg are suspicious (§15); local providers exempt. */
@@ -371,8 +428,13 @@ export async function submitResult(
 
   const s1 = aggregate(payload, 'p1', subject.p1);
   const s2 = aggregate(payload, 'p2', subject.p2);
-  s1.optimal = analysis.accuracy.p1.optimal;
-  s2.optimal = analysis.accuracy.p2.optimal;
+  // Forfeits are OUR random substitutes, not the model's choices (see above).
+  s1.optimal = optimalDecidedMoves(payload, analysis, 'p1');
+  s2.optimal = optimalDecidedMoves(payload, analysis, 'p2');
+
+  // A side that forfeited literally everything never played — the match is saved
+  // for the record, but it cannot move any rating.
+  const ghost = neverDecided(payload, 'p1') || neverDecided(payload, 'p2');
 
   // 2. Sanity: suspicious OpenRouter timing.
   if (suspiciousTiming(s1) || suspiciousTiming(s2)) {
@@ -475,7 +537,23 @@ export async function submitResult(
 
       // lab=true never touches ratings / elo_history (§13).
       if (lab) {
-        return { ok: true, matchId, winner, lab: true, ratingChanges: [] };
+        return { ok: true, matchId, winner, lab: true, ranked: false, unrankedReason: 'lab', ratingChanges: [] };
+      }
+
+      // Neither does a match nobody actually played (rate-limited / dead model).
+      if (ghost) {
+        console.warn(
+          `[result] ${matchId}: a side forfeited every move — saved, but excluded from Elo`,
+        );
+        return {
+          ok: true,
+          matchId,
+          winner,
+          lab: false,
+          ranked: false,
+          unrankedReason: 'no_real_moves',
+          ratingChanges: [],
+        };
       }
 
       const before1 = await loadElo(tx, s1.id, payload);
@@ -505,6 +583,7 @@ export async function submitResult(
         matchId,
         winner,
         lab: false,
+        ranked: true,
         ratingChanges: [
           { subjectId: s1.id, before: before1, after: a },
           { subjectId: s2.id, before: before2, after: b },

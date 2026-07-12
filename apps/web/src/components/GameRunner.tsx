@@ -24,6 +24,7 @@ import { GameLog } from '@/components/GameLog';
 import { ShipPlacement } from '@/components/ShipPlacement';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Identicon } from '@/components/Identicon';
 import { HudPanel, SectionLabel } from '@/components/ui/hud';
 import {
   type MatchMode,
@@ -412,6 +413,11 @@ export function GameRunner({
 
   const slotSymbol = (side: PlayerSide): string =>
     config.game === 'tictactoe' ? (side === 'p1' ? 'X' : 'O') : '⚓';
+  /** Identicon seed: the model id, so the same model always looks the same. */
+  const slotSeed = (side: PlayerSide): string => {
+    const spec = side === 'p1' ? config.p1 : config.p2;
+    return spec.kind === 'human' ? 'human' : spec.model;
+  };
   const activeSide = (side: PlayerSide): boolean =>
     outcome ? outcome.winner === side : status === 'playing' && toMove === side;
 
@@ -422,6 +428,7 @@ export function GameRunner({
           key={side}
           side={side}
           name={side === 'p1' ? config.names.p1 : config.names.p2}
+          seed={slotSeed(side)}
           symbol={slotSymbol(side)}
           active={activeSide(side)}
           totals={sideTotals(log, side)}
@@ -574,6 +581,19 @@ export function GameRunner({
               ✓ {pl.daily.done} · {pl.daily.streak}: {dailyClaim.streak}
             </p>
           )}
+          {/* Saved, but out of the ranking — say WHY, never fail silently. */}
+          {saveResponse && !saveResponse.ranked && (
+            <div className="flex max-w-prose flex-col items-center gap-1 text-center">
+              <span className="font-mono text-xs uppercase tracking-wide text-warn">
+                {pl.result.savedUnranked}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {saveResponse.unrankedReason === 'no_real_moves'
+                  ? pl.result.unrankedNoRealMoves
+                  : pl.result.unrankedLab}
+              </span>
+            </div>
+          )}
           {saveResponse && saveResponse.ratingChanges.length > 0 && (
             <div className="flex flex-col items-center gap-1 font-mono text-xs">
               <span className="text-edu text-glow-edu uppercase tracking-wide">
@@ -660,12 +680,15 @@ function ThinkDots({ side }: { side: PlayerSide }) {
 function PlayerSlot({
   side,
   name,
+  seed,
   symbol,
   active,
   totals,
 }: {
   side: PlayerSide;
   name: string;
+  /** Stable subject id — the identicon pattern is derived from it (SPEC §4). */
+  seed: string;
   symbol: string;
   active: boolean;
   totals: SideTotals;
@@ -680,15 +703,7 @@ function PlayerSlot({
         active && (isP1 ? 'glow-p1' : 'glow-p2'),
       )}
     >
-      <span
-        aria-hidden
-        className={cn(
-          'clip-cut flex size-9 shrink-0 items-center justify-center bg-gradient-to-br font-mono text-lg font-bold',
-          isP1 ? 'from-p1/80 to-p1/20 text-p1-foreground' : 'from-p2/80 to-p2/20 text-p2-foreground',
-        )}
-      >
-        {symbol}
-      </span>
+      <Identicon seed={seed} accent={isP1 ? 'p1' : 'p2'} />
       <div className="min-w-0">
         <div className="truncate font-sans font-bold tracking-wide">{name}</div>
         <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">

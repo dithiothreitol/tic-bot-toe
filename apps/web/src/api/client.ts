@@ -129,5 +129,9 @@ export interface SaveResultResponse {
   matchId: string;
   winner: 'p1' | 'p2' | 'draw';
   lab: boolean;
+  /** False when the match was saved (replayable) but excluded from Elo. */
+  ranked: boolean;
+  /** `no_real_moves`: a side forfeited every move — nobody actually played. */
+  unrankedReason?: 'lab' | 'no_real_moves';
   ratingChanges: RatingChange[];
 }

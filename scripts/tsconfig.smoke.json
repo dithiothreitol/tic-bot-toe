@@ -6,10 +6,12 @@
     "declarationMap": false,
     "sourceMap": false,
     "types": ["node"],
-    // DOM is needed only for the Playwright callbacks that run inside the page
-    // (record-match.ts) — the generators themselves are pure Node.
     "lib": ["ES2023", "DOM"],
-    "allowImportingTsExtensions": true
+    "baseUrl": "..",
+    "paths": {
+      "@/*": ["apps/web/src/*"],
+      "@arena/game-core": ["packages/game-core/src/index.ts"]
+    }
   },
-  "include": ["gen/**/*.ts"]
+  "include": ["smoke-live.ts"]
 }

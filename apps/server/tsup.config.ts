@@ -32,4 +32,10 @@ export default defineConfig({
   banner: {
     js: "import { createRequire as __cr } from 'module'; const require = __cr(import.meta.url);",
   },
+  // The OG renderer loads its brand TTFs from ./fonts next to the running module
+  // (src/og/fonts in dev). Mirror them into dist so `start:prod` works too.
+  onSuccess: async () => {
+    const { cp } = await import('node:fs/promises');
+    await cp('src/og/fonts', 'dist/fonts', { recursive: true });
+  },
 });

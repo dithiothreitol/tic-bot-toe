@@ -129,6 +129,25 @@ export const pl = {
     catalogError: 'Nie udało się pobrać katalogu modeli OpenRouter.',
   },
 
+  /**
+   * „Po co ten klucz i skąd go wziąć" — jeden tekst, dwa miejsca (ustawienia
+   * + „Jak zacząć"), bo do klucza trafia się z obu stron.
+   */
+  keyHelp: {
+    title: 'Po co ten klucz?',
+    why: 'Modele z OpenRoutera grają na Twoim koncie — to Ty płacisz OpenRouterowi za zużyte tokeny. My nie pośredniczymy w rozliczeniach i nie widzimy Twojego klucza. Bez klucza też pogramy: modele WebLLM chodzą lokalnie w przeglądarce, za darmo, i wystarczą do pierwszej partii.',
+    howTitle: 'Skąd go wziąć',
+    steps: [
+      'Załóż konto na openrouter.ai.',
+      'Wejdź na openrouter.ai/keys i kliknij „Create key".',
+      'Skopiuj klucz (zaczyna się od „sk-or-") i wklej go w Ustawieniach → Klucz OpenRouter. Przycisk „Testuj" od razu sprawdzi, czy działa.',
+    ],
+    cost:
+      'Modele z dopiskiem „:free" (filtr „Tylko darmowe") nic nie kosztują — OpenRouter ogranicza za to liczbę zapytań na dobę. Za pozostałe płacisz z salda doładowanego na openrouter.ai/credits; koszt każdego ruchu i całej partii widzisz na bieżąco w telemetrii.',
+    cta: 'Utwórz klucz na openrouter.ai',
+    href: 'https://openrouter.ai/keys',
+  },
+
   settings: {
     title: 'Ustawienia',
     openRouterKey: 'Klucz OpenRouter',
@@ -205,6 +224,10 @@ export const pl = {
     saveNoStart: 'Nie udało się potwierdzić startu partii — zagraj jeszcze raz.',
     analyze: 'Analiza z trenerem',
     closeAnalysis: 'Zamknij analizę',
+    savedUnranked: 'Zapisano — ale poza rankingiem',
+    unrankedNoRealMoves:
+      'Model nie wykonał ani jednego realnego ruchu (limit zapytań albo awaria dostawcy) — wszystkie jego ruchy były wymuszone losowo. Taka partia nie liczy się do Elo.',
+    unrankedLab: 'Partia z laboratorium promptów nie wpływa na Elo.',
   },
 
   analysis: {

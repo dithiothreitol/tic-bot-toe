@@ -3,6 +3,7 @@ import { Hono } from 'hono';
 
 import type { Database } from '../db/client';
 import { matches, ratings } from '../db/schema';
+import { project } from './leaderboard';
 
 /**
  * GET /api/model/:id — model card data (SPEC §12.3/§14): the subject's rating
@@ -34,22 +35,9 @@ export function modelRoute(deps: { db: Database }): Hono {
       )
       .limit(1);
 
+    // Same projection as the leaderboard — one place decides what Precyzja means.
     const r = ratingRows[0];
-    const card = r
-      ? {
-          subjectId: r.subjectId,
-          elo: r.elo,
-          wins: r.wins,
-          losses: r.losses,
-          draws: r.draws,
-          games: r.games,
-          forfeitRate: r.totalMoves > 0 ? r.forfeitMoves / r.totalMoves : 0,
-          avgLatencyMs: r.totalMoves > 0 ? r.latencyMsSum / r.totalMoves : null,
-          avgTokensPerMove: r.totalMoves > 0 ? Number(r.tokensSum) / r.totalMoves : null,
-          avgCostPerGame: r.games > 0 ? Number(r.costUsdSum) / r.games : null,
-          optimalRate: r.totalMoves > 0 ? r.optimalMoves / r.totalMoves : null,
-        }
-      : null;
+    const card = r ? project(r) : null;
 
     // Head-to-head: every non-lab match this subject played, tallied by opponent.
     const played = await deps.db

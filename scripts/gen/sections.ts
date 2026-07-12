@@ -59,7 +59,7 @@ const CATALOG: AssetSpec[] = [
     id: 'quickstart-4',
     asset: 'Quick-start step 4 illustration — the result, precision score and Elo ranking.',
     subject:
-      'A HUD result panel: a stepped ranking ladder rising to the right, a small five-axis radar shape, and a climbing line trace. A lime accent marks the positive, educational outcome.',
+      'A HUD result panel: a stepped ranking ladder rising to the right, a small five-axis radar shape, and a climbing line trace. A violet accent marks the winning climb.',
     composition: 'Ladder and radar balanced side by side, centred, dark margins, top-left corner clear.',
     technical: '800x600.',
     transparent: 'green',
@@ -68,10 +68,13 @@ const CATALOG: AssetSpec[] = [
     id: 'section-edu',
     asset: 'Illustration for the educational section "why this works" — measuring how a model thinks.',
     subject:
-      'An abstract reasoning graph — nodes and edges branching like a decision tree — being measured by HUD calipers and telemetry readouts. Lime accents mark the measured, understood parts.',
+      'An abstract reasoning graph — nodes and edges branching like a decision tree — being measured by HUD calipers and telemetry readouts. Violet accents mark the measured, understood parts.',
     composition: 'Graph occupying the centre-left, measurement overlays to the right, wide format, dark margins.',
     technical: '1200x600.',
     transparent: 'green',
+    no: [
+      `every surface must be fully opaque — the panel interior is solid dark ${'#080D18'} and NO green from the background may show through any panel, glass or glow`,
+    ],
   },
   {
     id: 'empty-state',

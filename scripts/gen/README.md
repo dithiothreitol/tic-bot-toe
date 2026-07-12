@@ -43,8 +43,16 @@ pnpm assets:typecheck   # typecheck the generators
 - The API ignores size/aspect/seed — dimensions are forced by `sharp`, series
   consistency is prose-only.
 - Transparent assets render on a flat **green `#00FF00`** matte (default) and are
-  keyed by `chromaKeyToAlpha`, which measures euclidean distance to the exact
-  matte color. **Not cyan and not magenta** — the brand uses both (P1 cyan, P2
-  magenta), so only green is safely absent from the artwork. magenta is a
-  fallback for the rare green-dominant subject.
+  keyed by `chromaKeyToAlpha` using **color dominance** (`g - max(r,b)`), which is
+  brightness-independent — the model paints the matte anywhere from `#069a06` to
+  `#05c704`, so a distance-to-`#00FF00` test leaves teal residue.
+- **Not cyan and not magenta as a matte** — the brand uses both (P1 cyan, P2 magenta).
+- ⚠️ **Green matte and the brand lime `#B6FF3C` are mutually exclusive.** Lime is
+  green-dominant (`g 255 > max(r,b) 182`), so the keyer cuts it out and the
+  de-spill drags the remains to olive/gold. `buildPrompt` therefore bans lime on
+  any green-keyed asset. Use lime **only on opaque assets** (e.g. the hero).
+  A magenta matte is not an escape hatch — it would eat the brand magenta instead.
+- The model's two recurring failures: painting the matte **white** instead of green,
+  and drifting to **gold/amber**. Both are countered in the prompt kit; always
+  eyeball the `-preview.png` before shipping an asset.
 - Never bake text into an image; the app shell overlays all copy.

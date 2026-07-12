@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
+import { OpenRouterKeyHelp } from '@/components/OpenRouterKeyHelp';
 import { PlayerProfile } from '@/components/PlayerProfile';
 import { Button } from '@/components/ui/button';
 import {
@@ -57,7 +58,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="max-h-[85svh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{pl.settings.title}</DialogTitle>
           <DialogDescription>{pl.settings.keyLocalOnly}</DialogDescription>
@@ -97,6 +98,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                 {pl.settings.remove}
               </Button>
             </div>
+            <OpenRouterKeyHelp className="mt-1" />
           </div>
 
           <PlayerProfile />

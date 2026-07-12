@@ -184,6 +184,63 @@ describe('submitResult (real Postgres via testcontainers)', () => {
     if (!res.ok) expect(res.reason).toBe('suspicious_timing');
   });
 
+  // ── Regressions from a REAL run against OpenRouter ────────────────────────
+  // llama-3.2-3b:free was rate-limited (429) on every move, forfeited all of
+  // them, WON by luck, and scored 100% Precyzja. Both halves of that are bugs.
+
+  it('does not credit forfeited (random) moves as optimal — Precyzja is decisions only', async () => {
+    // p2's every move is a forfeit; some random substitutes land on optimal cells.
+    const payload = playOut('tictactoe', 'standard', 0, 4000, 'openrouter:real', 'openrouter:ghost');
+    payload.moves = payload.moves.map((m) =>
+      m.player === 'p2' ? { ...m, telemetry: { ...m.telemetry, forfeit: true } } : m,
+    );
+    const res = await submitResult(handle.db, newJti(), payload, null);
+    expect(res.ok).toBe(true);
+
+    const ghost = (await handle.db.select().from(ratings)).find(
+      (r) => r.subjectId === 'openrouter:ghost',
+    );
+    // Saved without ratings at all (see next test) — nothing to credit.
+    expect(ghost).toBeUndefined();
+  });
+
+  it('saves a match where a side forfeited EVERY move, but keeps it out of Elo', async () => {
+    const payload = playOut('tictactoe', 'standard', 0, 4000, 'openrouter:real', 'openrouter:ghost');
+    payload.moves = payload.moves.map((m) =>
+      m.player === 'p2' ? { ...m, telemetry: { ...m.telemetry, forfeit: true } } : m,
+    );
+
+    const res = await submitResult(handle.db, newJti(), payload, null);
+    expect(res.ok).toBe(true);
+    if (res.ok) {
+      expect(res.ranked).toBe(false);
+      expect(res.unrankedReason).toBe('no_real_moves');
+      expect(res.ratingChanges).toEqual([]);
+    }
+    // The match is still replayable…
+    expect(await handle.db.select().from(matches)).toHaveLength(1);
+    // …but nobody's rating moved — not even the model that actually played.
+    expect(await handle.db.select().from(ratings)).toHaveLength(0);
+  });
+
+  it('still ranks a match where a model forfeited SOME moves (it did decide sometimes)', async () => {
+    const payload = playOut('tictactoe', 'standard', 0, 4000, 'openrouter:a', 'openrouter:b');
+    payload.moves[1] = {
+      ...payload.moves[1]!,
+      telemetry: { ...payload.moves[1]!.telemetry, forfeit: true },
+    };
+    const res = await submitResult(handle.db, newJti(), payload, null);
+    expect(res.ok).toBe(true);
+    if (res.ok) {
+      expect(res.ranked).toBe(true);
+      expect(res.ratingChanges).toHaveLength(2);
+    }
+    // Precyzja divides by DECIDED moves, so the forfeit is not in the denominator.
+    const b = (await handle.db.select().from(ratings)).find((r) => r.subjectId === 'openrouter:b')!;
+    expect(b.forfeitMoves).toBe(1);
+    expect(b.optimalMoves).toBeLessThanOrEqual(b.totalMoves - b.forfeitMoves);
+  });
+
   it('saves a lab match but never touches ratings', async () => {
     const payload = playOut('tictactoe', 'standard', 0, 4000, 'a', 'b');
     payload.lab = true;

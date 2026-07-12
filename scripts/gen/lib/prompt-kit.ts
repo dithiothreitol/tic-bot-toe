@@ -72,11 +72,29 @@ export interface AssetSpec {
   transparent?: ChromaColor;
 }
 
-const DEFAULT_COLORS = `Use ONLY these hex values, do not invent colors: background ${PALETTE.bg}, panel ${PALETTE.panel}, cyan ${PALETTE.p1}, magenta ${PALETTE.p2}, lime ${PALETTE.edu}, text tone ${PALETTE.text}.`;
+const BASE_COLORS = `background ${PALETTE.bg}, panel ${PALETTE.panel}, cyan ${PALETTE.p1}, magenta ${PALETTE.p2}, violet ${PALETTE.violet}, text tone ${PALETTE.text}`;
+
+/**
+ * HARD CONSTRAINT — the green matte and the brand lime are mutually exclusive.
+ * Lime #B6FF3C is green-dominant (g 255 > max(r,b) 182), so on a green-keyed
+ * asset the keyer would cut it out and the de-spill would drag what survives to
+ * olive/gold. Lime is therefore only allowed on opaque assets. (A magenta matte
+ * is not an escape hatch: it would eat the brand magenta #FF3D9A instead.)
+ */
+function colorsFor(spec: AssetSpec): string {
+  if (spec.colors) return spec.colors;
+  return spec.transparent === 'green'
+    ? `Use ONLY these hex values, do not invent colors: ${BASE_COLORS}. Use NO green and NO lime anywhere in the subject — green is reserved for the background matte.`
+    : `Use ONLY these hex values, do not invent colors: ${BASE_COLORS}, lime ${PALETTE.edu}.`;
+}
 
 /** Assemble the final prompt string from a spec. */
 export function buildPrompt(spec: AssetSpec): string {
-  const negatives = [...NEGATIVES, ...(spec.no ?? [])].join('; ');
+  const extraNegatives =
+    spec.transparent === 'green'
+      ? ['no green, no lime, no yellow-green or olive tones anywhere in the subject']
+      : [];
+  const negatives = [...NEGATIVES, ...extraNegatives, ...(spec.no ?? [])].join('; ');
   const background = spec.transparent
     ? chromaBlock(spec.transparent)
     : `BACKGROUND: solid ${PALETTE.bg} with the faint cyan tech grid barely visible.`;
@@ -85,7 +103,7 @@ export function buildPrompt(spec: AssetSpec): string {
     `ASSET: ${spec.asset}`,
     `SUBJECT: ${spec.subject}`,
     `COMPOSITION: ${spec.composition}`,
-    `COLORS: ${spec.colors ?? DEFAULT_COLORS}`,
+    `COLORS: ${colorsFor(spec)}`,
     background,
     `NO: ${negatives}`,
     `TECHNICAL: ${spec.technical} True color, crisp edges, no compression artifacts.`,

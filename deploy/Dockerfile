@@ -30,6 +30,9 @@ ENV NODE_ENV=production \
 RUN apk add --no-cache font-dejavu
 
 COPY --from=build /app/apps/server/dist/index.js ./index.js
+# Brand TTFs for the OG card (Rajdhani + JetBrains Mono). The renderer looks for
+# ./fonts next to the bundle — i.e. /app/fonts here.
+COPY --from=build /app/apps/server/dist/fonts ./fonts
 COPY --from=build /app/apps/server/drizzle ./drizzle
 COPY --from=build /app/apps/web/dist ./web
 

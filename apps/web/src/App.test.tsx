@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 
 import App from './App';
+import { pl } from '@/i18n/pl';
 
 // No network in tests: the catalog resolves empty.
 vi.mock('@/providers/openrouter-catalog', () => ({
@@ -40,5 +41,23 @@ describe('App', () => {
       within(dialog).getByText(/wyłącznie do openrouter\.ai/i),
     ).toBeInTheDocument();
     expect(within(dialog).getByLabelText('Klucz OpenRouter')).toBeInTheDocument();
+  });
+
+  it('explains why the key is needed and where to get it — in settings and in the quick start', async () => {
+    const user = userEvent.setup();
+    renderApp();
+
+    // Quick-start strip: a first-time player reads it before ever opening settings.
+    expect(await screen.findByText(pl.keyHelp.title)).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: new RegExp(pl.keyHelp.cta, 'i') }),
+    ).toHaveAttribute('href', 'https://openrouter.ai/keys');
+
+    await user.click(screen.getByLabelText('Ustawienia'));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText(pl.keyHelp.title)).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole('link', { name: new RegExp(pl.keyHelp.cta, 'i') }),
+    ).toHaveAttribute('href', 'https://openrouter.ai/keys');
   });
 });

@@ -19,8 +19,10 @@ Cel: logo + favicon/ikony + grafiki i wideo ilustrujące rozgrywki, spójne z L&
 - Model domyślny: `gemini-3-pro-image-preview` (env `GEMINI_IMAGE_MODEL`), klucz `GEMINI_API_KEY` z root `.env`.
 - Dekodowanie: pierwsza część `candidates[0].content.parts` z `inlineData.mimeType = image/*`, `Buffer.from(data,'base64')`.
 - **API ignoruje rozmiar / aspect / seed** → wymiar wymusza `sharp.resize(...,{fit:'cover'})`; spójność serii wyłącznie prozą; rate‑limit ~10 req/min.
-- Przezroczystość: render na płaskim **chroma‑tle**, wycinane po **odległości euklidesowej** do koloru matte (`chromaKeyToAlpha`) + tłumienie spilla.
-  **Uwaga (ważne):** marka używa **jednocześnie** cyanu (P1 `#35E7FF`) i magenty (P2 `#FF3D9A`) — więc ani cyan, ani magenta nie nadają się na matte (wycięłyby połowę znaku). Domyślny matte to **zieleń `#00FF00`** (dystans od zieleni: cyan ≈262, magenta ≈355, lime ≈192 — wszystko zachowane); magenta tylko jako fallback dla grafik zdominowanych zielenią.
+- Przezroczystość: render na płaskim **chroma‑tle**, wycinane po **dominacji koloru** (`g − max(r,b)`), nie po odległości — model maluje matte o zmiennej jasności (zmierzone od `#069a06` do `#05c704`), więc próg odległości zostawia teal.
+  **Uwaga 1:** marka używa **jednocześnie** cyanu (P1) i magenty (P2) — więc ani cyan, ani magenta nie nadają się na matte. Domyślny matte: **zieleń `#00FF00`**.
+  **Uwaga 2 (twarde ograniczenie):** **zielony matte i lime `#B6FF3C` wykluczają się.** Lime jest zielono‑dominująca (`g 255 > max(r,b) 182`) → keyer ją wycina, a de‑spill zamienia resztki w **oliwkę/złoto**. Dlatego `buildPrompt` **zakazuje lime na assetach keyowanych**; lime wolno używać **tylko na nieprzezroczystych** (np. hero). Magenta matte nie jest wyjściem — zjadłaby markową magentę.
+- Dwie nawracające awarie modelu: malowanie matte **na biało** zamiast zielono oraz dryf w **złoto/amber**. Oba kontrowane w prompt‑kicie — mimo to **zawsze obejrzyj `-preview.png`** przed wdrożeniem.
 - Logo z Gemini na chroma‑tle → chroma‑key → z jednego mastera `sharp` wyprowadza cały zestaw ikon; `.ico` pakujemy bajtowo (`buildIco`, PNG‑in‑ICO).
 
 ## Ograniczenia aplikacji docelowej

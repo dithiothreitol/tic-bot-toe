@@ -83,6 +83,8 @@ export function resultRoute(deps: { db: Database; config: Config; now?: () => nu
       matchId: result.matchId,
       winner: result.winner,
       lab: result.lab,
+      ranked: result.ranked,
+      unrankedReason: result.unrankedReason,
       ratingChanges: result.ratingChanges,
     });
   });
