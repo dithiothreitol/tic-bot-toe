@@ -41,6 +41,24 @@ function forfeitingPlayer(id: string, tokensPerMove = 0): Player {
   };
 }
 
+/** Forfeits every other own turn, so its personal forfeit streak never exceeds 1. */
+function flakyPlayer(id: string): Player {
+  let n = 0;
+  return {
+    id,
+    displayName: id,
+    kind: 'llm',
+    getMove(_view: PlayerView, legal: Move[]) {
+      const forfeit = n % 2 === 0;
+      n += 1;
+      return Promise.resolve({
+        move: legal[0],
+        telemetry: { latencyMs: 1, retries: forfeit ? 3 : 0, forfeit },
+      });
+    },
+  };
+}
+
 describe('runMatch', () => {
   it('plays a full game to a winner and logs every move with telemetry', async () => {
     const onMove = vi.fn();
@@ -115,7 +133,7 @@ describe('runMatch', () => {
     expect(outcome.abortReason).toBeNull();
   });
 
-  it('auto-stops (stalled) after N forced moves in a row', async () => {
+  it('auto-stops (stalled) after N forfeits in a row by one player', async () => {
     const outcome = await runMatch({
       mode: 'model_vs_model',
       game: 'tictactoe',
@@ -126,19 +144,37 @@ describe('runMatch', () => {
     expect(outcome.aborted).toBe(true);
     expect(outcome.abortReason).toBe('stalled');
     expect(outcome.winner).toBeNull();
-    // Stopped as soon as the 3rd forced move landed — not the full 9-move game.
-    expect(outcome.moves).toHaveLength(3);
+    // Counted per player: p1 forfeits on moves 0,2,4 → its 3rd forfeit (move 4)
+    // trips the fuse. p2's interleaved forfeits sit on their own counter.
+    expect(outcome.moves).toHaveLength(5);
   });
 
-  it('resets the forfeit streak on a clean move, so scattered forfeits do not trip it', async () => {
+  it('auto-stops (stalled) when ONE model forfeits every turn, even if the opponent plays clean', async () => {
+    // The reported failure: a model that forfeits 100% of its moves burns tokens
+    // forever while a clean opponent keeps resetting a pooled counter. Per-player
+    // counting catches it — p2 forfeits on moves 1 and 3 → trips on the 2nd.
     const outcome = await runMatch({
       mode: 'model_vs_model',
       game: 'tictactoe',
       variant,
-      // p1 always plays clean, p2 always forfeits → never 2 forfeits in a row.
       players: { p1: firstLegalPlayer('A'), p2: forfeitingPlayer('B') },
       maxConsecutiveForfeits: 2,
     });
+    expect(outcome.aborted).toBe(true);
+    expect(outcome.abortReason).toBe('stalled');
+    expect(outcome.moves).toHaveLength(4);
+  });
+
+  it('does NOT trip on scattered forfeits — a clean move resets that player streak', async () => {
+    const outcome = await runMatch({
+      mode: 'model_vs_model',
+      game: 'tictactoe',
+      variant,
+      // p2 forfeits every OTHER own turn, so its personal streak never reaches 2.
+      players: { p1: firstLegalPlayer('A'), p2: flakyPlayer('B') },
+      maxConsecutiveForfeits: 2,
+    });
+    expect(outcome.aborted).toBe(false);
     expect(outcome.abortReason).not.toBe('stalled');
   });
 

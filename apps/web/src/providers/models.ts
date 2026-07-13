@@ -12,6 +12,8 @@ export interface SelectableModel {
   isFree: boolean;
   contextLength?: number | null;
   price?: TokenPrice;
+  /** Model does hidden reasoning; needs a roomier token ceiling (see catalog). */
+  isReasoning?: boolean;
 }
 
 export function catalogToSelectable(models: CatalogModel[]): SelectableModel[] {
@@ -22,6 +24,7 @@ export function catalogToSelectable(models: CatalogModel[]): SelectableModel[] {
     isFree: m.isFree,
     contextLength: m.contextLength,
     price: { prompt: m.pricePromptPerToken, completion: m.priceCompletionPerToken },
+    isReasoning: m.isReasoning,
   }));
 }
 

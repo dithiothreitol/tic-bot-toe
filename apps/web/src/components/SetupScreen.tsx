@@ -74,6 +74,9 @@ function specFor(
     displayName: model.name,
     apiKey: apiKey ?? '',
     price: model.price,
+    // Reasoning models forfeit every move under the terse token cap; give them
+    // room to emit content after their hidden chain-of-thought.
+    reasoningModel: model.isReasoning,
     ...tuning,
   };
 }

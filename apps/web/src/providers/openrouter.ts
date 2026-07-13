@@ -25,6 +25,15 @@ export interface OpenRouterConfig {
   systemAppendix?: string;
   /** Let the model reason before answering; also lifts the default max_tokens. */
   reasoning?: boolean;
+  /**
+   * The MODEL itself does hidden chain-of-thought (o1 / R1 / MiMo …), distinct
+   * from the `reasoning` match toggle. Those hidden tokens count against
+   * `max_tokens`, so the terse 60-token ceiling is spent thinking and the model
+   * returns empty content — every move then forfeits as "bad_output". Lift the
+   * ceiling for these models even when the toggle is off, WITHOUT switching the
+   * prompt to CoT or unranking (the output contract stays terse JSON).
+   */
+  reasoningModel?: boolean;
   /** HTTP-Referer / X-Title for OpenRouter attribution. */
   referer?: string;
   title?: string;
@@ -63,7 +72,9 @@ export function createOpenRouterTransport(config: OpenRouterConfig): ChatTranspo
         model: config.model,
         messages,
         temperature: config.temperature ?? 0.2,
-        max_tokens: config.maxTokens ?? moveMaxTokens(config.reasoning),
+        // A reasoning model needs the roomy ceiling to emit any content at all,
+        // even when the match-level reasoning toggle is off (see reasoningModel).
+        max_tokens: config.maxTokens ?? moveMaxTokens(config.reasoning || config.reasoningModel),
       }),
       signal,
     });

@@ -14,6 +14,15 @@ export interface CatalogModel {
   pricePromptPerToken: number;
   priceCompletionPerToken: number;
   isFree: boolean;
+  /**
+   * Model does hidden chain-of-thought (o1 / R1 / MiMo / QwQ …). OpenRouter
+   * bills those reasoning tokens against `max_tokens`, so the terse 60-token
+   * ceiling gets fully spent on thinking and the model returns EMPTY content —
+   * unparseable, so every move forfeits as "bad_output". We give these models a
+   * roomier ceiling (see the transport) so the answer survives. Detected from
+   * the `reasoning` supported-parameter the /models endpoint advertises.
+   */
+  isReasoning: boolean;
 }
 
 interface RawModel {
@@ -22,6 +31,19 @@ interface RawModel {
   context_length?: number | null;
   pricing?: { prompt?: string | number; completion?: string | number };
   architecture?: { output_modalities?: string[] };
+  supported_parameters?: string[];
+}
+
+/**
+ * Does this model do hidden reasoning that eats the completion budget? A model
+ * that advertises the `reasoning` (or `include_reasoning`) parameter spends
+ * tokens on chain-of-thought before any content. Over-flagging is harmless: a
+ * non-reasoning model simply stops early and never touches the higher ceiling.
+ */
+export function detectsReasoning(m: RawModel): boolean {
+  const params = m.supported_parameters;
+  if (!Array.isArray(params)) return false;
+  return params.includes('reasoning') || params.includes('include_reasoning');
 }
 
 function toNumber(value: string | number | undefined): number {
@@ -65,6 +87,7 @@ export function parseCatalog(raw: unknown): CatalogModel[] {
         priceCompletionPerToken: completion,
         // Free ⇔ zero prompt AND completion price (covers ":free" variants).
         isFree: prompt === 0 && completion === 0,
+        isReasoning: detectsReasoning(m),
       };
     });
 }

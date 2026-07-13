@@ -17,6 +17,8 @@ export type PlayerSpec =
       temperature?: number;
       systemAppendix?: string;
       reasoning?: boolean;
+      /** Model does hidden reasoning → needs a roomier token ceiling (catalog flag). */
+      reasoningModel?: boolean;
     }
   | {
       kind: 'webllm';
@@ -73,6 +75,7 @@ export function makePlayer(spec: PlayerSpec): BuiltPlayer {
             temperature: spec.temperature,
             systemAppendix: spec.systemAppendix,
             reasoning: spec.reasoning,
+            reasoningModel: spec.reasoningModel,
           },
           spec.displayName,
         ),

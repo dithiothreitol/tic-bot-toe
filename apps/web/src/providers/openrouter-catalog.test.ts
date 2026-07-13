@@ -57,6 +57,22 @@ describe('parseCatalog', () => {
     const models = parseCatalog({ data: [{ id: 'vendor/mystery' }] });
     expect(models).toHaveLength(1);
   });
+
+  it('flags reasoning models from supported_parameters (they need a roomier token cap)', () => {
+    const models = parseCatalog({
+      data: [
+        { id: 'xiaomi/mimo-v2.5', supported_parameters: ['temperature', 'reasoning'] },
+        { id: 'deepseek/r1', supported_parameters: ['include_reasoning'] },
+        { id: 'openai/gpt-4o-mini', supported_parameters: ['temperature', 'max_tokens'] },
+        { id: 'vendor/no-params' },
+      ],
+    });
+    const flag = (id: string) => models.find((m) => m.id === id)?.isReasoning;
+    expect(flag('xiaomi/mimo-v2.5')).toBe(true);
+    expect(flag('deepseek/r1')).toBe(true);
+    expect(flag('openai/gpt-4o-mini')).toBe(false);
+    expect(flag('vendor/no-params')).toBe(false);
+  });
 });
 
 describe('priceForModel', () => {

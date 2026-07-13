@@ -1,5 +1,6 @@
 import { TICTACTOE_VARIANTS, ticTacToe } from '@arena/game-core';
 
+import { DEFAULT_MAX_TOKENS, REASONING_MAX_TOKENS } from './llm-runner';
 import {
   OPENROUTER_BASE,
   createOpenRouterPlayer,
@@ -60,6 +61,22 @@ describe('OpenRouter provider — key isolation (SPEC hard constraint)', () => {
     expect(body.max_tokens).toBe(60);
     // The key appears in NO other field of the outgoing request.
     expect(JSON.stringify(body)).not.toContain('sk-or-secret');
+  });
+
+  it('lifts max_tokens for a reasoning model so hidden CoT does not truncate the answer', async () => {
+    const { fetchImpl, calls } = fakeFetch(okJson(chatBody));
+    const transport = createOpenRouterTransport({
+      model: 'xiaomi/mimo-v2.5',
+      apiKey: 'k',
+      fetchImpl,
+      reasoningModel: true, // toggle OFF, but the MODEL reasons → still needs room
+    });
+
+    await transport([{ role: 'user', content: 'hi' }], new AbortController().signal);
+
+    const body = JSON.parse(calls[0].init.body as string);
+    expect(body.max_tokens).toBe(REASONING_MAX_TOKENS);
+    expect(body.max_tokens).toBeGreaterThan(DEFAULT_MAX_TOKENS);
   });
 
   it('extracts text + usage tokens from the completion', async () => {

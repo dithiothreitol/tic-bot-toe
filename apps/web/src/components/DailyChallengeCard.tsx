@@ -25,7 +25,11 @@ function variantFor(game: string, variantId: string): Variant {
   return TICTACTOE_VARIANTS[0];
 }
 
-function specFor(opponent: DailyOpponent, apiKey: string | null): PlayerSpec {
+function specFor(
+  opponent: DailyOpponent,
+  apiKey: string | null,
+  catalog: CatalogModel[] | null,
+): PlayerSpec {
   if (opponent.provider === 'webllm') {
     return { kind: 'webllm', model: opponent.id, displayName: opponent.name };
   }
@@ -36,6 +40,9 @@ function specFor(opponent: DailyOpponent, apiKey: string | null): PlayerSpec {
     apiKey: apiKey ?? '',
     // The pool is free-only (§12.6), so the snapshot is an honest zero.
     price: { prompt: 0, completion: 0 },
+    // Free pools include reasoning models (e.g. deepseek-r1:free) that forfeit
+    // every move under the terse token cap — give them room from the catalog flag.
+    reasoningModel: catalog?.find((m) => m.id === opponent.id)?.isReasoning,
   };
 }
 
@@ -130,7 +137,7 @@ export function DailyChallengeCard({
       variant,
       mode: 'human_vs_model',
       p1: { kind: 'human', displayName: t.player.human },
-      p2: specFor(opp, useSettings.getState().openRouterKey),
+      p2: specFor(opp, useSettings.getState().openRouterKey, catalog),
       names: { p1: t.player.human, p2: opp.name },
       seed: randomSeed(),
       daily: true,

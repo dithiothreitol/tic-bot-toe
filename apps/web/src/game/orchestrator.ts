@@ -22,7 +22,7 @@ export type MatchMode = 'model_vs_model' | 'human_vs_model';
 
 /**
  * Why a match stopped early. `user` = someone hit STOP (or the tab closed);
- * `stalled` = too many forced/invalid moves in a row (the models can't play);
+ * `stalled` = one player forfeited too many turns in a row (it can't play);
  * `budget` = the token budget for the match was spent; `fuse` = the
  * `safetyMaxMoves` cap against a non-terminating game. Null when the match
  * finished on its own.
@@ -73,10 +73,12 @@ export interface RunMatchOptions {
   /** Fuse against non-terminating games (battleship 2·N²). */
   safetyMaxMoves?: number;
   /**
-   * Auto-stop a stalled match after this many FORCED/invalid moves in a row
-   * (`telemetry.forfeit`). When both models can't produce a legal move the match
-   * degenerates into forced random moves that burn tokens for nothing — this
-   * kills it. 0/undefined = never (default).
+   * Auto-stop once EITHER player has forfeited this many of ITS OWN turns in a
+   * row (`telemetry.forfeit`). Counted per player, not pooled: a model that
+   * can't produce a legal move burns tokens on every turn while its opponent
+   * plays on — a pooled counter reset on each clean opponent move and never
+   * fired. Per-player catches the "one side is broken" case too. 0/undefined =
+   * never (default).
    */
   maxConsecutiveForfeits?: number;
   /**
@@ -140,7 +142,9 @@ export async function runMatch(opts: RunMatchOptions): Promise<MatchOutcome> {
 
   let aborted = false;
   let abortReason: AbortReason | null = null;
-  let consecutiveForfeits = 0;
+  // Per-player forfeit streaks — reset when THAT player makes a clean move, so a
+  // single broken model still trips the fuse even while its opponent plays on.
+  const consecutiveForfeits: Record<PlayerSide, number> = { p1: 0, p2: 0 };
   let tokensUsed = 0;
   while (def.status(state) === 'playing') {
     if (opts.signal?.aborted) {
@@ -174,12 +178,12 @@ export async function runMatch(opts: RunMatchOptions): Promise<MatchOutcome> {
     moves.push(entry);
     opts.onMove?.(entry, snapshot());
 
-    // Auto-stop guards (SPEC safety): a run of forced moves means the models
-    // can't play, and a blown token budget means it's not worth continuing.
-    consecutiveForfeits = entry.telemetry.forfeit ? consecutiveForfeits + 1 : 0;
+    // Auto-stop guards (SPEC safety): a run of forced moves by one player means
+    // it can't play, and a blown token budget means it's not worth continuing.
+    consecutiveForfeits[side] = entry.telemetry.forfeit ? consecutiveForfeits[side] + 1 : 0;
     tokensUsed +=
       (entry.telemetry.promptTokens ?? 0) + (entry.telemetry.completionTokens ?? 0);
-    if (opts.maxConsecutiveForfeits && consecutiveForfeits >= opts.maxConsecutiveForfeits) {
+    if (opts.maxConsecutiveForfeits && consecutiveForfeits[side] >= opts.maxConsecutiveForfeits) {
       aborted = true;
       abortReason = 'stalled';
       break;
