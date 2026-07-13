@@ -52,7 +52,7 @@ export function LiveStats() {
     <HudPanel
       scanner={anyLive}
       accent="edu"
-      className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 p-4"
+      className="flex flex-col gap-4 p-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-x-6 sm:gap-y-3"
     >
       <div className="flex items-center gap-3">
         <span className="relative flex size-2.5" aria-hidden>
@@ -86,7 +86,7 @@ export function LiveStats() {
       )}
 
       {hasTokens && (
-        <div className="flex flex-col items-end">
+        <div className="flex flex-col items-start sm:items-end">
           <span className="font-mono text-sm font-semibold text-p1">
             {formatTokens(totals!.tokens)}
           </span>

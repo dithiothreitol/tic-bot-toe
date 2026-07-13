@@ -41,7 +41,7 @@ import { useSettings } from '@/store/settings';
 
 const navClass = ({ isActive }: { isActive: boolean }) =>
   cn(
-    'clip-tab px-3 py-1.5 font-sans text-xs font-semibold uppercase tracking-[0.14em] transition-colors',
+    'clip-tab shrink-0 whitespace-nowrap px-3 py-1.5 font-sans text-xs font-semibold uppercase tracking-[0.14em] transition-colors',
     isActive
       ? 'border border-p1/40 bg-p1/10 text-p1'
       : 'text-dim hover:text-foreground',
@@ -131,11 +131,11 @@ function LocaleGate() {
   return null;
 }
 
-function Nav() {
+function Nav({ className }: { className?: string }) {
   const t = useT();
   const path = useLocalePath();
   return (
-    <nav className="flex items-center gap-2">
+    <nav className={cn('no-scrollbar flex items-center gap-2 overflow-x-auto', className)}>
       <NavLink to={path('arena')} end className={navClass}>
         {t.nav.arena}
       </NavLink>
@@ -157,32 +157,34 @@ function Header({ onOpenSettings }: { onOpenSettings: () => void }) {
   const path = useLocalePath();
   return (
     <header className="sticky top-0 z-20 border-b border-border bg-background/85 backdrop-blur">
-      <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3">
-        <div className="flex items-center gap-6">
-          <Link to={path('arena')} className="flex items-center gap-3">
-            {/* Diamond HUD mark — generated brand asset (scripts/gen). */}
-            <img
-              src="/logo.png"
-              alt=""
-              aria-hidden
-              width={28}
-              height={28}
-              className="size-7 shrink-0"
-            />
-            <span className="leading-none">
-              <span className="block font-mono text-base font-bold tracking-tight">
-                <span className="text-p1 text-glow-p1">tic</span>
-                <span className="text-dim">-bot-</span>
-                <span className="text-p2 text-glow-p2">toe</span>
-              </span>
-              <span className="mt-0.5 block font-sans text-[10px] font-semibold uppercase tracking-[0.2em] text-faint">
-                {t.header.subtitle}
-              </span>
+      {/* Wrapping row: brand + controls stay on the top line; the nav rides
+          alongside on wide screens and drops to its own scrollable row below
+          `lg`, so nothing gets squeezed off-screen on mobile. */}
+      <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
+        <Link to={path('arena')} className="order-1 flex shrink-0 items-center gap-3">
+          {/* Diamond HUD mark — generated brand asset (scripts/gen). */}
+          <img
+            src="/logo.png"
+            alt=""
+            aria-hidden
+            width={28}
+            height={28}
+            className="size-7 shrink-0"
+          />
+          <span className="leading-none">
+            <span className="block whitespace-nowrap font-mono text-base font-bold tracking-tight">
+              <span className="text-p1 text-glow-p1">tic</span>
+              <span className="text-dim">-bot-</span>
+              <span className="text-p2 text-glow-p2">toe</span>
             </span>
-          </Link>
-          <Nav />
-        </div>
-        <div className="flex items-center gap-2">
+            {/* The tagline is the widest bit of the brand; hide it on the
+                narrowest screens so the wordmark keeps to one line. */}
+            <span className="mt-0.5 hidden whitespace-nowrap font-sans text-[10px] font-semibold uppercase tracking-[0.2em] text-faint sm:block">
+              {t.header.subtitle}
+            </span>
+          </span>
+        </Link>
+        <div className="order-2 ml-auto flex items-center gap-2 lg:order-3">
           <LanguageSwitcher />
           <KeyStatus onClick={onOpenSettings} />
           <Button
@@ -194,6 +196,7 @@ function Header({ onOpenSettings }: { onOpenSettings: () => void }) {
             <Settings className="size-5" />
           </Button>
         </div>
+        <Nav className="order-3 w-full lg:order-2 lg:w-auto" />
       </div>
     </header>
   );
