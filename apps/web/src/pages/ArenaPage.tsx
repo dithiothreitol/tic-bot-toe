@@ -1,13 +1,18 @@
 import { useState } from 'react';
 
+import { useShell } from '@/App';
 import { DailyChallengeCard } from '@/components/DailyChallengeCard';
 import { type MatchConfig, GameRunner } from '@/components/GameRunner';
 import { QuickStartSection } from '@/components/QuickStartSection';
 import { SetupScreen } from '@/components/SetupScreen';
 import { SectionLabel } from '@/components/ui/hud';
-import { pl } from '@/i18n/pl';
+import { useT } from '@/i18n';
 
-export function ArenaPage({ onOpenSettings }: { onOpenSettings: () => void }) {
+export function ArenaPage() {
+  const t = useT();
+  // The settings dialog lives in the shell (one per locale), so the page reaches
+  // it through the layout route's context rather than a prop drilled from App.
+  const { openSettings } = useShell();
   const [screen, setScreen] = useState<'setup' | 'game'>('setup');
   const [config, setConfig] = useState<MatchConfig | null>(null);
 
@@ -32,21 +37,21 @@ export function ArenaPage({ onOpenSettings }: { onOpenSettings: () => void }) {
               height={900}
               className="pointer-events-none absolute inset-0 -z-10 size-full object-cover opacity-75 [mask-composite:intersect] [mask-image:linear-gradient(to_right,transparent_5%,black_55%),linear-gradient(to_bottom,transparent,black_22%,black_72%,transparent)]"
             />
-            <SectionLabel>{pl.arena.kicker}</SectionLabel>
+            <SectionLabel>{t.arena.kicker}</SectionLabel>
             <h1 className="font-sans text-4xl font-bold uppercase tracking-tight sm:text-5xl">
-              {pl.arena.heading}
+              {t.arena.heading}
             </h1>
-            <p className="max-w-prose text-sm text-muted-foreground">{pl.arena.lead}</p>
+            <p className="max-w-prose text-sm text-muted-foreground">{t.arena.lead}</p>
           </header>
 
           {/* §12.6 — remounts on return to setup, so the streak refreshes itself. */}
-          <DailyChallengeCard onStart={start} onOpenSettings={onOpenSettings} />
+          <DailyChallengeCard onStart={start} onOpenSettings={openSettings} />
 
-          <SetupScreen onStart={start} onOpenSettings={onOpenSettings} />
+          <SetupScreen onStart={start} onOpenSettings={openSettings} />
 
           <QuickStartSection />
 
-          <p className="max-w-prose text-xs text-dim">{pl.footerNote}</p>
+          <p className="max-w-prose text-xs text-dim">{t.footerNote}</p>
         </>
       )}
 

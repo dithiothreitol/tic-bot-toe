@@ -83,6 +83,15 @@ describe('buildCommentaryPrompt', () => {
     expect(system).toMatch(/no "minimax"/);
   });
 
+  it('demands the commentary in the INTERFACE language — the user reads it', () => {
+    const { system, user } = buildCommentaryPrompt(req(), 'en');
+    expect(system).toContain('Write in ENGLISH.');
+    expect(system).not.toContain('POLISH');
+    expect(user).toContain('Write the ENGLISH commentary now');
+    // The instructions themselves stay English either way (SPEC §5).
+    expect(system).toContain('Maximum 2 sentences');
+  });
+
   it('carries the last move, its solver rating, and the god view', () => {
     const { user } = buildCommentaryPrompt(
       req({ moveIndex: 3, playerName: 'Model B', move: 8, quality: 'blunder' }),

@@ -2,12 +2,12 @@ import { useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { HudPanel, SectionLabel } from '@/components/ui/hud';
-import { pl } from '@/i18n/pl';
+import { useT } from '@/i18n';
 import { cn } from '@/lib/utils';
 
 /**
  * „Jak czytać te liczby?" (SPEC §12.3) — the hand-written educational section,
- * linked from the leaderboard and every model card. Content lives in i18n/pl.ts;
+ * linked from the leaderboard and every model card. Content lives in i18n/t.ts;
  * this is only the shell. Collapsed by default so it never buries the data.
  */
 export function ExplainNumbers({
@@ -17,6 +17,7 @@ export function ExplainNumbers({
   className?: string;
   defaultOpen?: boolean;
 }) {
+  const t = useT();
   const [open, setOpen] = useState(defaultOpen);
 
   return (
@@ -28,8 +29,8 @@ export function ExplainNumbers({
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-col gap-1">
-          <SectionLabel className="text-edu">{pl.explain.title}</SectionLabel>
-          <p className="text-sm text-muted-foreground">{pl.explain.lead}</p>
+          <SectionLabel className="text-edu">{t.explain.title}</SectionLabel>
+          <p className="text-sm text-muted-foreground">{t.explain.lead}</p>
         </div>
         <Button variant="edu" size="sm" onClick={() => setOpen((v) => !v)}>
           {open ? '−' : '+'}
@@ -38,7 +39,7 @@ export function ExplainNumbers({
 
       {open && (
         <dl className="flex flex-col gap-4 pt-2">
-          {pl.explain.entries.map((e) => (
+          {t.explain.entries.map((e) => (
             <div key={e.q} className="flex flex-col gap-1 border-l-2 border-edu/40 pl-3">
               <dt className="font-sans text-sm font-bold uppercase tracking-wide text-edu">
                 {e.q}

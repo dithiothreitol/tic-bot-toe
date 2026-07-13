@@ -11,21 +11,22 @@ import {
 import { ChartFrame } from '@/components/charts/ChartFrame';
 import { chartTheme } from '@/components/charts/theme';
 import type { EloHistoryPoint } from '@/api/client';
-import { pl } from '@/i18n/pl';
+import { useT } from '@/i18n';
 
 const ELO_START = 1000;
 
 /** §9.3.4 — Elo after each saved match; prepends the 1000 start point. */
 export function EloHistory({ points }: { points: EloHistoryPoint[] }) {
+  const t = useT();
   const data = [
-    { i: 0, elo: ELO_START, label: pl.charts.elo.start },
+    { i: 0, elo: ELO_START, label: t.charts.elo.start },
     ...points.map((p, idx) => ({ i: idx + 1, elo: Math.round(p.eloAfter), label: `#${idx + 1}` })),
   ];
 
   return (
     <ChartFrame
-      title={pl.charts.elo.title}
-      takeaway={pl.charts.elo.takeaway}
+      title={t.charts.elo.title}
+      takeaway={t.charts.elo.takeaway}
       empty={points.length === 0}
       exportName="przebieg-elo"
       height={220}

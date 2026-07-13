@@ -12,12 +12,13 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { pl } from '@/i18n/pl';
+import { useT } from '@/i18n';
 import { cn } from '@/lib/utils';
 import { useSettings } from '@/store/settings';
 
 /** „Ranking intuicji" (SPEC §12.5) — best predictors. Points only, zero stakes. */
 export function IntuitionPage() {
+  const t = useT();
   const [rows, setRows] = useState<IntuitionRow[]>([]);
   const [loading, setLoading] = useState(true);
   const hasNickname = useSettings((s) => s.nickname !== null);
@@ -29,7 +30,7 @@ export function IntuitionPage() {
         if (alive) setRows(r);
       })
       .catch(() => {
-        if (alive) toast.error(pl.intuition.loadError);
+        if (alive) toast.error(t.intuition.loadError);
       })
       .finally(() => {
         if (alive) setLoading(false);
@@ -42,15 +43,15 @@ export function IntuitionPage() {
   return (
     <div className="flex flex-col gap-6">
       <header className="flex flex-col gap-2">
-        <SectionLabel>{pl.intuition.title}</SectionLabel>
+        <SectionLabel>{t.intuition.title}</SectionLabel>
         <h1 className="font-sans text-4xl font-bold uppercase tracking-tight sm:text-5xl">
-          {pl.intuition.title}
+          {t.intuition.title}
         </h1>
-        <p className="max-w-prose text-sm text-muted-foreground">{pl.intuition.lead}</p>
+        <p className="max-w-prose text-sm text-muted-foreground">{t.intuition.lead}</p>
       </header>
 
       {!hasNickname && (
-        <p className="font-mono text-xs text-warn">{pl.intuition.needNickname}</p>
+        <p className="font-mono text-xs text-warn">{t.intuition.needNickname}</p>
       )}
 
       <HudPanel className="p-5">
@@ -62,18 +63,18 @@ export function IntuitionPage() {
           </div>
         ) : rows.length === 0 ? (
           <p className="py-8 text-center text-sm text-muted-foreground">
-            {pl.intuition.empty}
+            {t.intuition.empty}
           </p>
         ) : (
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-8">{pl.intuition.col.rank}</TableHead>
-                  <TableHead>{pl.intuition.col.player}</TableHead>
-                  <TableHead className="text-right">{pl.intuition.col.points}</TableHead>
-                  <TableHead className="text-right">{pl.intuition.col.total}</TableHead>
-                  <TableHead className="text-right">{pl.intuition.col.accuracy}</TableHead>
+                  <TableHead className="w-8">{t.intuition.col.rank}</TableHead>
+                  <TableHead>{t.intuition.col.player}</TableHead>
+                  <TableHead className="text-right">{t.intuition.col.points}</TableHead>
+                  <TableHead className="text-right">{t.intuition.col.total}</TableHead>
+                  <TableHead className="text-right">{t.intuition.col.accuracy}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody className="font-mono text-xs">

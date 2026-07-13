@@ -1,3 +1,4 @@
+import { type Locale, isLocale } from '@arena/i18n';
 import { eq } from 'drizzle-orm';
 import { Hono } from 'hono';
 
@@ -28,10 +29,17 @@ export function ogRoute(deps: { db: Database }): Hono {
       .limit(1);
     if (rows.length === 0) return c.json({ error: 'not_found' }, 404);
 
-    const png = renderMatchOg(rows[0] as OgMatch);
+    // The card carries words ("Battleship · draw"), so it follows the language of
+    // the link that embeds it. Unknown/absent → Polish, the canonical language.
+    const lang = c.req.query('lang');
+    const locale: Locale = isLocale(lang) ? lang : 'pl';
+
+    const png = renderMatchOg(rows[0] as OgMatch, locale);
     return new Response(png, {
       headers: {
         'Content-Type': 'image/png',
+        // Immutable per (id, lang) — caches key on the query string, so the two
+        // language cards never collide.
         'Cache-Control': 'public, max-age=86400, immutable',
       },
     });

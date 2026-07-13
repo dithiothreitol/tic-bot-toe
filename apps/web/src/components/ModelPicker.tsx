@@ -14,7 +14,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Switch } from '@/components/ui/switch';
-import { pl } from '@/i18n/pl';
+import { useT } from '@/i18n';
 import { formatPricePerMillion } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import type { SelectableModel } from '@/providers/models';
@@ -61,6 +61,7 @@ export function ModelPicker({
   disabled = false,
   placeholder,
 }: ModelPickerProps) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [onlyFree, setOnlyFree] = useState(false);
 
@@ -96,36 +97,36 @@ export function ModelPicker({
           className="w-full justify-between font-normal"
         >
           <span className="truncate">
-            {selected ? selected.name : (placeholder ?? pl.setup.chooseModel)}
+            {selected ? selected.name : (placeholder ?? t.setup.chooseModel)}
           </span>
           <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[min(26rem,90vw)] p-0" align="start">
         <Command>
-          <CommandInput placeholder={pl.setup.searchModel} />
+          <CommandInput placeholder={t.setup.searchModel} />
           <div className="flex items-center gap-2 border-b px-3 py-2">
             <Switch id="only-free" checked={onlyFree} onCheckedChange={setOnlyFree} />
             <Label htmlFor="only-free" className="text-xs text-muted-foreground">
-              {pl.setup.onlyFree}
+              {t.setup.onlyFree}
             </Label>
           </div>
           <CommandList>
             <CommandEmpty>
-              {loading ? pl.setup.loadingModels : pl.setup.noModels}
+              {loading ? t.setup.loadingModels : t.setup.noModels}
             </CommandEmpty>
             {webllm.length > 0 && (
-              <CommandGroup heading={pl.setup.providerWebllm}>
+              <CommandGroup heading={t.setup.providerWebllm}>
                 {webllm.map(renderItem)}
               </CommandGroup>
             )}
             {ollama.length > 0 && (
-              <CommandGroup heading={pl.setup.providerOllama}>
+              <CommandGroup heading={t.setup.providerOllama}>
                 {ollama.map(renderItem)}
               </CommandGroup>
             )}
             {openRouter.length > 0 && (
-              <CommandGroup heading={pl.setup.providerOpenRouter}>
+              <CommandGroup heading={t.setup.providerOpenRouter}>
                 {openRouter.map(renderItem)}
               </CommandGroup>
             )}

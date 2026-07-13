@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@arena/game-core": "workspace:*",
+    "@arena/i18n": "workspace:*",
     "@fontsource/jetbrains-mono": "^5.2.8",
     "@fontsource/rajdhani": "^5.2.7",
     "@mlc-ai/web-llm": "^0.2.84",

@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { canPlaceShip, generateFleet, shipCellsAt } from '@arena/game-core';
 
 import { Button } from '@/components/ui/button';
-import { pl } from '@/i18n/pl';
+import { useT } from '@/i18n';
 import { cn } from '@/lib/utils';
 
 const COLS = 'ABCDEFGHIJ';
@@ -17,6 +17,7 @@ interface ShipPlacementProps {
 }
 
 export function ShipPlacement({ size, fleet, accent, onConfirm }: ShipPlacementProps) {
+  const t = useT();
   const [placed, setPlaced] = useState<number[][]>([]);
   const [horizontal, setHorizontal] = useState(true);
   const [hover, setHover] = useState<number | null>(null);
@@ -48,13 +49,13 @@ export function ShipPlacement({ size, fleet, accent, onConfirm }: ShipPlacementP
     <div className="flex flex-col items-center gap-3">
       {/* The screen had no heading at all — you landed on a grid with no title. */}
       <h2 className="font-sans text-2xl font-bold uppercase tracking-tight">
-        {pl.placement.title}
+        {t.placement.title}
       </h2>
       <p className="max-w-prose text-center text-sm text-muted-foreground">
-        {pl.placement.instruction}
+        {t.placement.instruction}
       </p>
       <p className="font-mono text-sm">
-        {done ? pl.placement.allPlaced : pl.placement.nextShip(nextLen ?? 0)}
+        {done ? t.placement.allPlaced : t.placement.nextShip(nextLen ?? 0)}
       </p>
 
       <div
@@ -115,10 +116,10 @@ export function ShipPlacement({ size, fleet, accent, onConfirm }: ShipPlacementP
           onClick={() => setHorizontal((h) => !h)}
           disabled={done}
         >
-          <RotateCw className="size-4" /> {pl.placement.rotate}
+          <RotateCw className="size-4" /> {t.placement.rotate}
         </Button>
         <Button size="sm" variant="outline" onClick={() => setPlaced(generateFleet(size, fleet, Math.random))}>
-          <Shuffle className="size-4" /> {pl.placement.random}
+          <Shuffle className="size-4" /> {t.placement.random}
         </Button>
         <Button
           size="sm"
@@ -126,12 +127,12 @@ export function ShipPlacement({ size, fleet, accent, onConfirm }: ShipPlacementP
           onClick={() => setPlaced([])}
           disabled={placed.length === 0}
         >
-          <Eraser className="size-4" /> {pl.placement.clear}
+          <Eraser className="size-4" /> {t.placement.clear}
         </Button>
       </div>
 
       <Button className="w-full max-w-xs" disabled={!done} onClick={() => onConfirm(placed)}>
-        {pl.placement.ready}
+        {t.placement.ready}
       </Button>
     </div>
   );

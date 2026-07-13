@@ -21,7 +21,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { HudPanel, SectionLabel } from '@/components/ui/hud';
 import type { MoveLogEntry } from '@/game/orchestrator';
-import { pl } from '@/i18n/pl';
+import { useLocalePath, useT } from '@/i18n';
 import { formatMove } from '@/lib/format';
 import type { Commentary } from '@/providers/commentator';
 import { reconstructStates } from '@/lib/match-states';
@@ -42,6 +42,8 @@ const QUALITY_RING: Record<MoveQuality, string> = {
 
 /** Public step-by-step replay player (SPEC §11) — no JWT, no API key. */
 export function ReplayPage() {
+  const t = useT();
+  const path = useLocalePath();
   const { id } = useParams<{ id: string }>();
   const [match, setMatch] = useState<ReplayMatch | null>(null);
   const [status, setStatus] = useState<'loading' | 'ok' | 'notfound' | 'error'>('loading');
@@ -66,26 +68,27 @@ export function ReplayPage() {
   }, [id]);
 
   if (status === 'loading') {
-    return <p className="py-16 text-center font-mono text-sm text-dim">{pl.replay.loading}</p>;
+    return <p className="py-16 text-center font-mono text-sm text-dim">{t.replay.loading}</p>;
   }
   if (status === 'notfound' || !match) {
     return (
       <div className="flex flex-col items-center gap-4 py-16">
-        <p className="font-mono text-sm text-dim">{pl.replay.notFound}</p>
-        <Link to="/">
-          <Button variant="outline">{pl.replay.openArena}</Button>
+        <p className="font-mono text-sm text-dim">{t.replay.notFound}</p>
+        <Link to={path('arena')}>
+          <Button variant="outline">{t.replay.openArena}</Button>
         </Link>
       </div>
     );
   }
   if (status === 'error') {
-    return <p className="py-16 text-center font-mono text-sm text-danger">{pl.replay.loadError}</p>;
+    return <p className="py-16 text-center font-mono text-sm text-danger">{t.replay.loadError}</p>;
   }
 
   return <ReplayPlayer match={match} />;
 }
 
 function ReplayPlayer({ match }: { match: ReplayMatch }) {
+  const t = useT();
   const moves: AnalyzedMove[] = useMemo(
     () => match.moves.map((m) => ({ player: m.player, move: m.move })),
     [match.moves],
@@ -133,15 +136,15 @@ function ReplayPlayer({ match }: { match: ReplayMatch }) {
 
   const result =
     match.winner === 'draw'
-      ? pl.replay.draw
+      ? t.replay.draw
       : match.winner === null
         ? '—'
-        : `${nameOf(match.winner)} ${pl.replay.wins}`;
+        : `${nameOf(match.winner)} ${t.replay.wins}`;
 
   const copyLink = async () => {
     try {
       await navigator.clipboard.writeText(window.location.href);
-      toast.success(pl.replay.copied);
+      toast.success(t.replay.copied);
     } catch {
       /* clipboard unavailable — ignore */
     }
@@ -151,7 +154,7 @@ function ReplayPlayer({ match }: { match: ReplayMatch }) {
     <div className="flex flex-col gap-6">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div className="flex flex-col gap-2">
-          <SectionLabel>{pl.replay.kicker}</SectionLabel>
+          <SectionLabel>{t.replay.kicker}</SectionLabel>
           <h1 className="font-sans text-3xl font-bold uppercase tracking-tight sm:text-4xl">
             <span className="text-p1">{p1}</span>
             <span className="text-dim"> vs </span>
@@ -159,16 +162,16 @@ function ReplayPlayer({ match }: { match: ReplayMatch }) {
           </h1>
           <div className="flex flex-wrap items-center gap-2 font-mono text-xs text-muted-foreground">
             <span>
-              {pl.games[match.game]} · {match.variant} · {pl.replay.result}: {result}
+              {t.games[match.game]} · {match.variant} · {t.replay.result}: {result}
             </span>
             {match.serverVerified && (
-              <Badge className="bg-edu/15 text-edu">{pl.replay.serverVerified}</Badge>
+              <Badge className="bg-edu/15 text-edu">{t.replay.serverVerified}</Badge>
             )}
-            {match.lab && <Badge className="bg-warn/15 text-warn">{pl.replay.lab}</Badge>}
+            {match.lab && <Badge className="bg-warn/15 text-warn">{t.replay.lab}</Badge>}
           </div>
         </div>
         <Button variant="outline" onClick={copyLink}>
-          {pl.replay.copyLink}
+          {t.replay.copyLink}
         </Button>
       </header>
 
@@ -189,20 +192,20 @@ function ReplayPlayer({ match }: { match: ReplayMatch }) {
             <span>
               #{step} {nameOf(currentMove.player)} → {formatMove(currentMove.move)} ·{' '}
               <span className={cn('font-bold uppercase', QUALITY_TEXT[currentMove.quality])}>
-                {pl.analysis.quality[currentMove.quality]}
+                {t.analysis.quality[currentMove.quality]}
               </span>
             </span>
           ) : (
-            <span className="text-dim">{pl.analysis.start}</span>
+            <span className="text-dim">{t.analysis.start}</span>
           )}
         </div>
 
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => setStep(0)} disabled={step === 0}>
-            {pl.analysis.first}
+            {t.analysis.first}
           </Button>
           <Button variant="outline" size="sm" onClick={() => setStep(clamp(step - 1))} disabled={step === 0}>
-            {pl.analysis.prev}
+            {t.analysis.prev}
           </Button>
           <Button
             size="sm"
@@ -211,7 +214,7 @@ function ReplayPlayer({ match }: { match: ReplayMatch }) {
               setPlaying((p) => !p);
             }}
           >
-            {playing ? pl.replay.pause : pl.replay.play}
+            {playing ? t.replay.pause : t.replay.play}
           </Button>
           <Button
             variant="outline"
@@ -219,7 +222,7 @@ function ReplayPlayer({ match }: { match: ReplayMatch }) {
             onClick={() => setStep(clamp(step + 1))}
             disabled={step === moves.length}
           >
-            {pl.analysis.next}
+            {t.analysis.next}
           </Button>
           <Button
             variant="outline"
@@ -227,7 +230,7 @@ function ReplayPlayer({ match }: { match: ReplayMatch }) {
             onClick={() => setStep(moves.length)}
             disabled={step === moves.length}
           >
-            {pl.analysis.last}
+            {t.analysis.last}
           </Button>
           <span className="min-w-16 text-center font-mono text-xs text-dim">
             {step}/{moves.length}
@@ -247,7 +250,7 @@ function ReplayPlayer({ match }: { match: ReplayMatch }) {
                 {nameOf(side)}
               </span>
               <span className="font-mono text-sm">
-                {pl.analysis.precision} {Math.round(acc.rate * 100)}% ({acc.optimal}/{acc.moves})
+                {t.analysis.precision} {Math.round(acc.rate * 100)}% ({acc.optimal}/{acc.moves})
               </span>
             </HudPanel>
           );
@@ -255,7 +258,7 @@ function ReplayPlayer({ match }: { match: ReplayMatch }) {
       </div>
 
       <HudPanel className="p-4">
-        <SectionLabel>{pl.analysis.moveList}</SectionLabel>
+        <SectionLabel>{t.analysis.moveList}</SectionLabel>
         <ol className="mt-2 flex flex-wrap gap-1.5">
           {analysis.moves.map((m) => (
             <li key={m.index}>
@@ -269,7 +272,7 @@ function ReplayPlayer({ match }: { match: ReplayMatch }) {
                   'clip-cut border bg-card-inset px-2 py-1 font-mono text-[11px] transition-colors',
                   step === m.index + 1 ? 'border-p1' : 'border-border',
                 )}
-                title={pl.analysis.quality[m.quality]}
+                title={t.analysis.quality[m.quality]}
               >
                 <span className={m.player === 'p1' ? 'text-p1' : 'text-p2'}>#{m.index + 1}</span>{' '}
                 <span className={cn('font-bold', QUALITY_TEXT[m.quality])}>{formatMove(m.move)}</span>
@@ -282,7 +285,7 @@ function ReplayPlayer({ match }: { match: ReplayMatch }) {
       {/* §12.1 — commentary saved with the match is replayed with it. */}
       {commentary.length > 0 && (
         <HudPanel accent="edu" className="p-4">
-          <SectionLabel className="text-edu">{pl.commentator.section}</SectionLabel>
+          <SectionLabel className="text-edu">{t.commentator.section}</SectionLabel>
           <ol className="mt-2 flex flex-col gap-1.5">
             {commentary.map((c) => (
               <li key={c.moveIndex}>

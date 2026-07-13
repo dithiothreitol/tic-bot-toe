@@ -1,6 +1,6 @@
 import type { TicTacToeCell } from '@arena/game-core';
 
-import { pl } from '@/i18n/pl';
+import { useT } from '@/i18n';
 import { cn } from '@/lib/utils';
 
 interface Board3x3Props {
@@ -27,12 +27,13 @@ export function Board3x3({
   lastMoveClass,
   className,
 }: Board3x3Props) {
+  const t = useT();
   const clickable = new Set(interactive);
 
   return (
     <div
       role="grid"
-      aria-label={pl.board.label}
+      aria-label={t.board.label}
       className={cn('mx-auto grid w-full max-w-80 grid-cols-3 gap-2', className)}
     >
       {board.map((mark, i) => {
@@ -44,7 +45,7 @@ export function Board3x3({
             key={i}
             type="button"
             disabled={!canClick}
-            aria-label={pl.board.cell(i, mark)}
+            aria-label={t.board.cell(i, mark)}
             onClick={canClick ? () => onCellClick?.(i) : undefined}
             className={cn(
               'flex aspect-square min-h-11 select-none items-center justify-center',

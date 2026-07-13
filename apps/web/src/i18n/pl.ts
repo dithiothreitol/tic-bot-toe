@@ -1,6 +1,11 @@
 /**
- * Polish UI strings (SPEC hard constraint: interface + educational copy in
- * Polish; model prompts stay English). Grows per stage.
+ * Polish UI strings — and the SOURCE OF TRUTH for every other locale: `Dict`
+ * (i18n/types.ts) is derived from this object, so any key added here is a build
+ * error in `en.ts` until it is translated.
+ *
+ * Model prompts stay English regardless of the UI language (SPEC §5) — the only
+ * exception is the AI commentator, whose OUTPUT is read by the user and so
+ * follows the interface language (providers/commentator.ts).
  */
 export const pl = {
   appName: 'tic-bot-toe',
@@ -11,6 +16,13 @@ export const pl = {
     key: 'klucz OpenRouter',
     keyLocal: '· lokalny',
     keyNone: '· brak',
+  },
+
+  lang: {
+    label: 'Język',
+    pl: 'Polski',
+    en: 'English',
+    switchTo: 'Zmień język',
   },
 
   arena: {
@@ -28,6 +40,18 @@ export const pl = {
   gameMeta: {
     tictactoe: '3×3 · pełna informacja',
     battleship: '6×6 · 8×8 · 10×10 · ukryta info',
+  },
+
+  /**
+   * Keyed by the variant id from @arena/game-core. The engine carries a label of
+   * its own, but it is Polish — a game engine has no business holding UI copy, so
+   * the UI reads variant names from here instead (`variantLabel`).
+   */
+  variants: {
+    standard: 'Klasyczne 3×3',
+    small: 'Małe 6×6',
+    medium: 'Średnie 8×8',
+    classic: 'Klasyczne 10×10',
   },
 
   /** Onboarding strip under the setup card — how to actually use the arena. */

@@ -13,6 +13,7 @@ po stronie serwera.
 | Pakiet | Rola |
 |---|---|
 | [`packages/game-core`](./packages/game-core) | Czysty TS: silniki gier, solvery, Elo, replay, parsery (bez DOM/Node — działa w przeglądarce i na serwerze) |
+| [`packages/i18n`](./packages/i18n) | Czysty TS: języki i **kształt zlokalizowanych URL-i** (`/rankingi` ⇄ `/en/rankings`). Współdzielony, bo front buduje z niego linki, a serwer sitemap, hreflang i tagi OG — jedna tabela, zero szans na rozjazd |
 | [`apps/web`](./apps/web) | Frontend: Vite 8 + React 19 + TS + Tailwind 4 + shadcn/ui + Zustand. Warstwa wizualna „Cyber-HUD" wg [`handoff/DESIGN.md`](./handoff/DESIGN.md) (fonty self-hosted przez `@fontsource`) |
 | [`apps/server`](./apps/server) | Backend: Node 22 + Hono + Drizzle + PostgreSQL |
 
@@ -142,9 +143,29 @@ wydanych tokenów, bo koszt przewyższa zysk dla tabeli wyników gry towarzyskie
 - [x] `docker compose up` + README wystarczają do wdrożenia.
 - [x] Telemetria per ruch; braki tokenów jako „—", nie 0.
 
+## Języki (PL + EN)
+
+Interfejs istnieje po **polsku i angielsku**. Język siedzi **w URL-u**, nie w
+localStorage: polski jest kanoniczny i nieprefiksowany (`/rankingi`), angielski żyje
+pod `/en` (`/en/rankings`). Dzięki temu link wklejony na Slacku otwiera się w tym
+języku, w którym go skopiowano, a obie wersje są indeksowalne (hreflang + sitemap +
+`<html lang>` i tagi OG renderowane przez serwer per ścieżka — także obrazek OG
+powtórki: `/api/og/:id?lang=en`).
+
+- **Nowy odwiedzający** trafia na język przeglądarki (`pl*` → polski, reszta → angielski).
+  Wybór z przełącznika w nagłówku wygrywa z przeglądarką i jest zapamiętywany.
+- **Słownik**: [`apps/web/src/i18n/pl.ts`](./apps/web/src/i18n/pl.ts) jest źródłem prawdy —
+  typ `Dict` jest z niego wyprowadzony, więc **nowy klucz w `pl.ts` nie skompiluje się**,
+  dopóki nie trafi do `en.ts`. Brakującego tłumaczenia nie da się przeoczyć.
+- **Prompty do modeli zostają angielskie** niezależnie od języka UI (SPEC §5). Jedyny
+  wyjątek: **komentator AI**, którego *wypowiedź* czyta użytkownik — więc pisze w języku
+  interfejsu (instrukcje w prompcie nadal po angielsku).
+- Opisy modeli (`model-copy.ts`) są dwujęzyczne, ale **klasyfikacja** (rozmiar/cena/kontekst)
+  jest wspólna — tłumaczenie nie może przesunąć modelu do innego kubełka.
+
 ## Testy
 
-**~270 testów** (game-core 95, server 43 unit + integracyjne testcontainers, web 79).
+**~290 testów** (game-core 95, i18n 11, server 52 unit + integracyjne testcontainers, web 91).
 Priorytet pokrycia: `game-core` (silniki, solvery, Elo, replay, wyzwanie dnia, parsery).
 
 ```bash

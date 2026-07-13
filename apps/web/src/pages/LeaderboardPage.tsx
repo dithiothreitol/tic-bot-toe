@@ -29,7 +29,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { pl } from '@/i18n/pl';
+import { useLocalePath, useT, variantLabel } from '@/i18n';
 import { formatCost, formatMs } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
@@ -42,6 +42,8 @@ function defaultVariant(game: GameId): string {
 type Subject = 'models' | 'humans';
 
 export function LeaderboardPage() {
+  const t = useT();
+  const path = useLocalePath();
   const [game, setGame] = useState<GameId>('tictactoe');
   const [variant, setVariant] = useState('standard');
   const [mode, setMode] = useState<Mode>('model_vs_model');
@@ -65,7 +67,7 @@ export function LeaderboardPage() {
         if (alive) setRows(r);
       })
       .catch(() => {
-        if (alive) toast.error(pl.leaderboard.loadError);
+        if (alive) toast.error(t.leaderboard.loadError);
       })
       .finally(() => {
         if (alive) setLoading(false);
@@ -107,24 +109,24 @@ export function LeaderboardPage() {
     <div className="flex flex-col gap-6">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div className="flex flex-col gap-2">
-          <SectionLabel>{pl.leaderboard.title}</SectionLabel>
+          <SectionLabel>{t.leaderboard.title}</SectionLabel>
           <h1 className="font-sans text-4xl font-bold uppercase tracking-tight sm:text-5xl">
-            {pl.games[game]}
+            {t.games[game]}
           </h1>
         </div>
         <Link
-          to="/porownaj"
+          to={path('compare')}
           className="clip-tab border border-p1/40 bg-p1/10 px-3 py-1.5 font-sans text-xs font-semibold uppercase tracking-[0.14em] text-p1 transition-colors hover:bg-p1/20"
         >
-          {pl.nav.compare} →
+          {t.nav.compare} →
         </Link>
       </header>
 
       <div className="flex flex-wrap items-center gap-3">
         <Tabs value={game} onValueChange={(v) => onGameChange(v as GameId)}>
           <TabsList>
-            <TabsTrigger value="tictactoe">{pl.games.tictactoe}</TabsTrigger>
-            <TabsTrigger value="battleship">{pl.games.battleship}</TabsTrigger>
+            <TabsTrigger value="tictactoe">{t.games.tictactoe}</TabsTrigger>
+            <TabsTrigger value="battleship">{t.games.battleship}</TabsTrigger>
           </TabsList>
         </Tabs>
         {game === 'battleship' && (
@@ -135,7 +137,7 @@ export function LeaderboardPage() {
             <SelectContent>
               {BATTLESHIP_VARIANTS.map((v) => (
                 <SelectItem key={v.id} value={v.id}>
-                  {v.label}
+                  {variantLabel(t, v.id)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -149,15 +151,15 @@ export function LeaderboardPage() {
           }}
         >
           <TabsList>
-            <TabsTrigger value="model_vs_model">{pl.mode.modelVsModel}</TabsTrigger>
-            <TabsTrigger value="human_vs_model">{pl.mode.humanVsModel}</TabsTrigger>
+            <TabsTrigger value="model_vs_model">{t.mode.modelVsModel}</TabsTrigger>
+            <TabsTrigger value="human_vs_model">{t.mode.humanVsModel}</TabsTrigger>
           </TabsList>
         </Tabs>
         {mode === 'human_vs_model' && (
           <Tabs value={subject} onValueChange={(v) => setSubject(v as Subject)}>
             <TabsList>
-              <TabsTrigger value="models">{pl.leaderboard.subjectModels}</TabsTrigger>
-              <TabsTrigger value="humans">{pl.leaderboard.subjectHumans}</TabsTrigger>
+              <TabsTrigger value="models">{t.leaderboard.subjectModels}</TabsTrigger>
+              <TabsTrigger value="humans">{t.leaderboard.subjectHumans}</TabsTrigger>
             </TabsList>
           </Tabs>
         )}
@@ -174,28 +176,28 @@ export function LeaderboardPage() {
               </div>
             ) : rows.length === 0 ? (
               <p className="py-8 text-center text-sm text-muted-foreground">
-                {humans ? pl.leaderboard.humansEmpty : pl.leaderboard.empty}
+                {humans ? t.leaderboard.humansEmpty : t.leaderboard.empty}
               </p>
             ) : (
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-8">{pl.leaderboard.col.rank}</TableHead>
+                      <TableHead className="w-8">{t.leaderboard.col.rank}</TableHead>
                       <TableHead>
-                        {humans ? pl.leaderboard.col.player : pl.leaderboard.col.subject}
+                        {humans ? t.leaderboard.col.player : t.leaderboard.col.subject}
                       </TableHead>
-                      <TableHead className="text-right">{pl.leaderboard.col.elo}</TableHead>
+                      <TableHead className="text-right">{t.leaderboard.col.elo}</TableHead>
                       {game === 'tictactoe' && (
                         <TableHead className="text-right">
-                          {pl.leaderboard.col.precision}
+                          {t.leaderboard.col.precision}
                         </TableHead>
                       )}
-                      <TableHead className="text-right">{pl.leaderboard.col.wld}</TableHead>
-                      <TableHead className="text-right">{pl.leaderboard.col.forfeit}</TableHead>
-                      <TableHead className="text-right">{pl.leaderboard.col.latency}</TableHead>
+                      <TableHead className="text-right">{t.leaderboard.col.wld}</TableHead>
+                      <TableHead className="text-right">{t.leaderboard.col.forfeit}</TableHead>
+                      <TableHead className="text-right">{t.leaderboard.col.latency}</TableHead>
                       {!humans && (
-                        <TableHead className="text-right">{pl.leaderboard.col.cost}</TableHead>
+                        <TableHead className="text-right">{t.leaderboard.col.cost}</TableHead>
                       )}
                     </TableRow>
                   </TableHeader>
@@ -221,7 +223,7 @@ export function LeaderboardPage() {
                             (r.label ?? r.subjectId)
                           ) : (
                             <Link
-                              to={`/model/${r.subjectId}`}
+                              to={path('model', r.subjectId)}
                               onClick={(e) => e.stopPropagation()}
                               className="underline-offset-2 hover:text-p1 hover:underline"
                             >
@@ -268,7 +270,7 @@ export function LeaderboardPage() {
                   </TableBody>
                 </Table>
                 <p className="mt-3 font-mono text-[10px] uppercase tracking-wider text-dim">
-                  {pl.leaderboard.rowHint}
+                  {t.leaderboard.rowHint}
                 </p>
               </div>
             )}
@@ -279,9 +281,9 @@ export function LeaderboardPage() {
         {humans ? (
           <Card className="w-full">
             <CardContent>
-              <SectionLabel>{pl.leaderboard.subjectHumans}</SectionLabel>
+              <SectionLabel>{t.leaderboard.subjectHumans}</SectionLabel>
               <p className="mt-3 font-mono text-xs leading-relaxed text-muted-foreground">
-                {pl.leaderboard.humansNote}
+                {t.leaderboard.humansNote}
               </p>
             </CardContent>
           </Card>
@@ -295,7 +297,7 @@ export function LeaderboardPage() {
           <RadarCard
             subjects={[selectedRow]}
             population={rows}
-            title={`${pl.charts.radar.title} · ${selectedRow.label ?? shortSubject(selectedRow.subjectId)}`}
+            title={`${t.charts.radar.title} · ${selectedRow.label ?? shortSubject(selectedRow.subjectId)}`}
           />
           <EloHistory points={eloPoints} />
         </div>

@@ -3,7 +3,7 @@ import { Fragment } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { SectionLabel } from '@/components/ui/hud';
 import type { MoveLogEntry } from '@/game/orchestrator';
-import { pl } from '@/i18n/pl';
+import { useT } from '@/i18n';
 import { formatCost, formatMove, formatMs, formatTokens } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import type { Commentary } from '@/providers/commentator';
@@ -29,17 +29,18 @@ export function CommentBubble({ text }: { text: string }) {
 }
 
 export function GameLog({ moves, names, commentary = [], className }: GameLogProps) {
+  const t = useT();
   const byMove = new Map(commentary.map((c) => [c.moveIndex, c]));
   return (
     <div className={cn('flex flex-col gap-2', className)}>
       <div className="flex items-center justify-between">
-        <SectionLabel>{pl.log.title}</SectionLabel>
+        <SectionLabel>{t.log.title}</SectionLabel>
         <span className="font-mono text-[10px] uppercase tracking-wider text-dim">
-          {pl.log.telemetry}
+          {t.log.telemetry}
         </span>
       </div>
       {moves.length === 0 ? (
-        <p className="font-mono text-xs text-muted-foreground">{pl.log.empty}</p>
+        <p className="font-mono text-xs text-muted-foreground">{t.log.empty}</p>
       ) : (
         <ol className="flex flex-col gap-1">
           {moves.map((m) => (
@@ -64,12 +65,12 @@ export function GameLog({ moves, names, commentary = [], className }: GameLogPro
               <span className="text-muted-foreground">{formatCost(m.telemetry.costUsd)}</span>
               {m.telemetry.retries > 0 && (
                 <Badge variant="outline" className="h-4 px-1 text-[10px]">
-                  {pl.log.retry} {m.telemetry.retries}
+                  {t.log.retry} {m.telemetry.retries}
                 </Badge>
               )}
               {m.telemetry.forfeit && (
                 <Badge variant="destructive" className="h-4 px-1 text-[10px]">
-                  {pl.log.forfeit}
+                  {t.log.forfeit}
                 </Badge>
               )}
             </li>

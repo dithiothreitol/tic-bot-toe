@@ -5,17 +5,28 @@ import { serveStatic } from '@hono/node-server/serve-static';
 import { desc, eq } from 'drizzle-orm';
 import type { Context } from 'hono';
 
+import { localeFromPath, localePath } from '@arena/i18n';
+
 import { buildApp } from './app';
 import { loadConfig } from './config';
 import { type DbHandle, createDb } from './db/client';
 import { matches } from './db/schema';
-import { injectOgMeta, matchOgTags, matchStructuredData } from './og/meta';
+import {
+  alternatesFor,
+  injectSeo,
+  matchOgTags,
+  matchStructuredData,
+  siteDescription,
+  siteOgTags,
+  siteStructuredData,
+} from './og/meta';
 import {
   STATIC_SITEMAP_URLS,
   buildLlmsTxt,
   buildRobotsTxt,
   buildSitemap,
   originFrom,
+  replaySitemapUrls,
 } from './og/seo';
 
 const config = loadConfig();
@@ -42,9 +53,24 @@ async function indexHtml(): Promise<string> {
   return indexHtmlCache;
 }
 
-/** The SPA shell with `%VITE_SITE_URL%` resolved to the request's absolute origin. */
-async function renderShell(origin: string): Promise<string> {
-  return (await indexHtml()).replaceAll('%VITE_SITE_URL%', origin);
+/**
+ * The SPA shell for one URL: `%VITE_SITE_URL%` resolved to the request's origin,
+ * and the head rewritten for the language of the path (`/en/...` → English).
+ *
+ * The static index.html carries the Polish tags; the server is what makes the
+ * English URLs real to a crawler — `<html lang>`, title, description, canonical,
+ * hreflang and the OG card all follow the path, not the browser.
+ */
+async function renderShell(origin: string, path: string): Promise<string> {
+  const html = (await indexHtml()).replaceAll('%VITE_SITE_URL%', origin);
+  const locale = localeFromPath(path);
+  return injectSeo(html, {
+    locale,
+    tags: siteOgTags(origin, path, locale),
+    description: siteDescription(locale),
+    alternates: alternatesFor(path, origin),
+    structuredData: siteStructuredData(origin, locale),
+  });
 }
 
 // ---- SEO (complete, agent-friendly): robots, sitemap, llms.txt ----
@@ -68,12 +94,7 @@ app.get('/sitemap.xml', async (c) => {
       .orderBy(desc(matches.createdAt))
       .limit(1000);
     for (const r of recent) {
-      urls.push({
-        path: `/replay/${r.id}`,
-        changefreq: 'monthly',
-        priority: 0.5,
-        lastmod: r.createdAt.toISOString().slice(0, 10),
-      });
+      urls.push(...replaySitemapUrls(r.id, r.createdAt.toISOString().slice(0, 10)));
     }
   }
   c.header('Content-Type', 'application/xml; charset=utf-8');
@@ -81,12 +102,17 @@ app.get('/sitemap.xml', async (c) => {
 });
 
 // ---- Replay permalink: serve the SPA shell with per-match OG meta + JSON-LD ----
+// One handler, both languages: the locale comes from the path, so `/replay/:id`
+// previews in Polish and `/en/replay/:id` in English — including the OG image.
 if (dbHandle) {
   const handle = dbHandle;
-  app.get('/replay/:id', async (c) => {
+  const replayHandler = async (c: Context): Promise<Response> => {
     const origin = originOf(c);
-    const html = await renderShell(origin);
-    const id = c.req.param('id');
+    const path = new URL(c.req.url).pathname;
+    const html = await renderShell(origin, path);
+    // A shared handler is typed on plain `Context`, so the param is optional here.
+    const id = c.req.param('id') ?? '';
+    if (!id) return c.html(html);
     const rows = await handle.db
       .select({
         game: matches.game,
@@ -98,11 +124,23 @@ if (dbHandle) {
       .from(matches)
       .where(eq(matches.id, id))
       .limit(1);
-    if (rows.length === 0) return c.html(html); // SPA renders its own 404
-    const tags = matchOgTags({ id, ...rows[0] }, origin);
     c.header('Content-Type', 'text/html; charset=utf-8');
-    return c.html(injectOgMeta(html, tags, matchStructuredData({ id, ...rows[0] }, tags)));
-  });
+    if (rows.length === 0) return c.html(html); // SPA renders its own 404
+    const locale = localeFromPath(path);
+    const match = { id, ...rows[0] };
+    const tags = matchOgTags(match, origin, locale);
+    return c.html(
+      injectSeo(html, {
+        locale,
+        tags,
+        alternates: alternatesFor(path, origin),
+        structuredData: matchStructuredData(match, tags, locale),
+        ogType: 'article',
+      }),
+    );
+  };
+  app.get(localePath('pl', 'replay', ':id'), replayHandler);
+  app.get(localePath('en', 'replay', ':id'), replayHandler);
 }
 
 // Serve the built frontend on the same port (SPEC §3). The root and every SPA
@@ -110,7 +148,7 @@ if (dbHandle) {
 // tags; real static files (assets, og.png, favicon) are served verbatim.
 const shellHandler = async (c: Context): Promise<Response> => {
   c.header('Content-Type', 'text/html; charset=utf-8');
-  return c.html(await renderShell(originOf(c)));
+  return c.html(await renderShell(originOf(c), new URL(c.req.url).pathname));
 };
 app.get('/', shellHandler);
 app.use('/*', serveStatic({ root: config.staticDir }));

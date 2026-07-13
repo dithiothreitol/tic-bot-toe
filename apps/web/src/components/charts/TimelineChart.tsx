@@ -11,7 +11,7 @@ import {
 import { chartTheme } from '@/components/charts/theme';
 import { ChartFrame } from '@/components/charts/ChartFrame';
 import type { MoveLogEntry } from '@/game/orchestrator';
-import { pl } from '@/i18n/pl';
+import { useT } from '@/i18n';
 import { type TimelinePoint, buildTimeline } from '@/lib/telemetry';
 
 /** Bar color: player accent, or warn/danger when the move needed retries / was forfeited. */
@@ -22,32 +22,34 @@ function barColor(p: TimelinePoint): string {
 }
 
 function TimelineTooltip({ active, payload }: { active?: boolean; payload?: { payload: TimelinePoint }[] }) {
+  const t = useT();
   if (!active || !payload?.length) return null;
   const p = payload[0].payload;
   return (
     <div className="clip-cut border border-border bg-popover px-3 py-2 font-mono text-[11px]">
       <div className={p.player === 'p1' ? 'text-p1' : 'text-p2'}>
-        {pl.charts.timeline.move} {p.index} · {p.player === 'p1' ? 'P1' : 'P2'}
+        {t.charts.timeline.move} {p.index} · {p.player === 'p1' ? 'P1' : 'P2'}
       </div>
       <div className="text-foreground">
         {p.seconds}
-        {pl.charts.timeline.seconds}
+        {t.charts.timeline.seconds}
       </div>
       {p.retries > 0 && (
-        <div className="text-warn">⟲ {p.retries} {pl.charts.timeline.retries}</div>
+        <div className="text-warn">⟲ {p.retries} {t.charts.timeline.retries}</div>
       )}
-      {p.forfeit && <div className="text-danger">⚑ {pl.charts.timeline.forfeit}</div>}
+      {p.forfeit && <div className="text-danger">⚑ {t.charts.timeline.forfeit}</div>}
     </div>
   );
 }
 
 /** §9.3.1 — per-move thinking time, live during the game. */
 export function TimelineChart({ log, live = false }: { log: MoveLogEntry[]; live?: boolean }) {
+  const t = useT();
   const data = buildTimeline(log);
   return (
     <ChartFrame
-      title={pl.charts.timeline.title}
-      takeaway={pl.charts.timeline.takeaway}
+      title={t.charts.timeline.title}
+      takeaway={t.charts.timeline.takeaway}
       empty={data.length === 0}
       exportName="os-czasu"
       height={200}
@@ -66,7 +68,7 @@ export function TimelineChart({ log, live = false }: { log: MoveLogEntry[]; live
             tickLine={false}
             axisLine={{ stroke: chartTheme.grid }}
             width={36}
-            unit={pl.charts.timeline.seconds}
+            unit={t.charts.timeline.seconds}
           />
           <Tooltip
             cursor={{ fill: 'rgba(53,231,255,0.06)' }}

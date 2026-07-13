@@ -1,6 +1,6 @@
 import { OpenRouterKeyHelp } from '@/components/OpenRouterKeyHelp';
 import { HudPanel, SectionLabel } from '@/components/ui/hud';
-import { pl } from '@/i18n/pl';
+import { useT } from '@/i18n';
 
 /**
  * Quick-start strip under the setup card: four steps to a first match, plus the
@@ -15,12 +15,13 @@ const STEP_ART = [
 ];
 
 export function QuickStartSection() {
+  const t = useT();
   return (
     <section className="flex flex-col gap-3">
-      <SectionLabel>{pl.quickStart.kicker}</SectionLabel>
+      <SectionLabel>{t.quickStart.kicker}</SectionLabel>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {pl.quickStart.steps.map((step, i) => (
+        {t.quickStart.steps.map((step, i) => (
           <HudPanel key={step.title} className="flex flex-col gap-2 p-3">
             <img
               src={STEP_ART[i]}
@@ -47,8 +48,8 @@ export function QuickStartSection() {
       {/* A real recorded match (scripts/gen/record-match.ts) — muted, looping and
           inert, so it never competes with the page for attention or bandwidth. */}
       <HudPanel scanner className="flex flex-col gap-3 p-4">
-        <SectionLabel>{pl.quickStart.watch.title}</SectionLabel>
-        <p className="max-w-prose text-xs text-muted-foreground">{pl.quickStart.watch.lead}</p>
+        <SectionLabel>{t.quickStart.watch.title}</SectionLabel>
+        <p className="max-w-prose text-xs text-muted-foreground">{t.quickStart.watch.lead}</p>
         <video
           src="/match.webm"
           poster="/match-poster.webp"
@@ -57,7 +58,7 @@ export function QuickStartSection() {
           muted
           playsInline
           preload="none"
-          aria-label={pl.quickStart.watch.title}
+          aria-label={t.quickStart.watch.title}
           className="clip-tab w-full border border-border-soft bg-card-inset"
         />
       </HudPanel>
@@ -77,9 +78,9 @@ export function QuickStartSection() {
           className="h-24 w-full shrink-0 object-contain sm:w-56"
         />
         <div className="flex flex-col gap-2">
-          <SectionLabel>{pl.quickStart.why.title}</SectionLabel>
+          <SectionLabel>{t.quickStart.why.title}</SectionLabel>
           <ul className="flex flex-col gap-1.5">
-            {pl.quickStart.why.points.map((point) => (
+            {t.quickStart.why.points.map((point) => (
               <li key={point} className="flex gap-2 text-xs text-muted-foreground">
                 <span aria-hidden className="mt-1.5 size-1.5 shrink-0 bg-edu" />
                 <span>{point}</span>

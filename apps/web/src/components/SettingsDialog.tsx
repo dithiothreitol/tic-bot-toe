@@ -14,7 +14,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { pl } from '@/i18n/pl';
+import { useT } from '@/i18n';
 import { testOpenRouterKey } from '@/providers/openrouter';
 import { useSettings } from '@/store/settings';
 
@@ -24,6 +24,7 @@ interface SettingsDialogProps {
 }
 
 export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
+  const t = useT();
   const openRouterKey = useSettings((s) => s.openRouterKey);
   const setOpenRouterKey = useSettings((s) => s.setOpenRouterKey);
   const clearOpenRouterKey = useSettings((s) => s.clearOpenRouterKey);
@@ -39,34 +40,34 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
 
   const save = () => {
     setOpenRouterKey(draftKey);
-    toast.success(pl.settings.keySaved);
+    toast.success(t.settings.keySaved);
   };
 
   const remove = () => {
     clearOpenRouterKey();
     setDraftKey('');
-    toast.success(pl.settings.keyRemoved);
+    toast.success(t.settings.keyRemoved);
   };
 
   const test = async () => {
     setTesting(true);
     const ok = await testOpenRouterKey(draftKey.trim());
     setTesting(false);
-    if (ok) toast.success(pl.settings.keyValid);
-    else toast.error(pl.settings.keyInvalid);
+    if (ok) toast.success(t.settings.keyValid);
+    else toast.error(t.settings.keyInvalid);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85svh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{pl.settings.title}</DialogTitle>
-          <DialogDescription>{pl.settings.keyLocalOnly}</DialogDescription>
+          <DialogTitle>{t.settings.title}</DialogTitle>
+          <DialogDescription>{t.settings.keyLocalOnly}</DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col gap-6">
           <div className="flex flex-col gap-2">
-            <Label htmlFor="or-key">{pl.settings.openRouterKey}</Label>
+            <Label htmlFor="or-key">{t.settings.openRouterKey}</Label>
             <Input
               id="or-key"
               type="password"
@@ -74,12 +75,12 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
               spellCheck={false}
               value={draftKey}
               onChange={(e) => setDraftKey(e.target.value)}
-              placeholder={pl.settings.keyPlaceholder}
+              placeholder={t.settings.keyPlaceholder}
               className="font-mono"
             />
             <div className="flex flex-wrap gap-2">
               <Button size="sm" onClick={save} disabled={!draftKey.trim()}>
-                {pl.settings.save}
+                {t.settings.save}
               </Button>
               <Button
                 size="sm"
@@ -87,7 +88,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                 onClick={test}
                 disabled={!draftKey.trim() || testing}
               >
-                {pl.settings.test}
+                {t.settings.test}
               </Button>
               <Button
                 size="sm"
@@ -95,7 +96,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                 onClick={remove}
                 disabled={!openRouterKey}
               >
-                {pl.settings.remove}
+                {t.settings.remove}
               </Button>
             </div>
             <OpenRouterKeyHelp withField className="mt-1" />
@@ -104,7 +105,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
           <PlayerProfile />
 
           <div className="flex items-center justify-between">
-            <Label htmlFor="sound">{pl.settings.sound}</Label>
+            <Label htmlFor="sound">{t.settings.sound}</Label>
             <Switch id="sound" checked={soundEnabled} onCheckedChange={setSoundEnabled} />
           </div>
         </div>

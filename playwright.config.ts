@@ -20,6 +20,11 @@ export default defineConfig({
     baseURL: process.env.BASE_URL ?? 'http://localhost:8093',
     channel: 'chrome',
     headless: true,
+    // These specs drive the POLISH UI (`/`, Polish labels). An unprefixed path
+    // follows the browser's language, and a stock Chrome says en-US — which would
+    // land the test on `/en` and English labels. Pin the browser to Polish, the
+    // way a Polish player's browser actually is.
+    locale: 'pl-PL',
     actionTimeout: 20_000,
     trace: 'off',
   },

@@ -13,13 +13,15 @@ import {
   symbolFor,
 } from '@arena/game-core';
 
+import type { Locale } from '@/i18n';
+
 import type { ChatTransport } from './llm-runner';
 
 /**
  * AI commentator (SPEC §12.1).
  *
- * A THIRD model narrates the match in plain Polish. Two things make it different
- * from a player:
+ * A THIRD model narrates the match in plain language — in whichever language the
+ * interface is in. Two things make it different from a player:
  *
  *  1. It gets the GOD VIEW. It may see both fleets, because it never plays — the
  *     "prompt contains only PlayerView" rule (§5) exists to stop a *player* from
@@ -130,17 +132,25 @@ const QUALITY_EN: Record<MoveQuality, string> = {
   blunder: 'a blunder that changes the outcome of the game',
 };
 
+/** What the commentary must be written IN — the one prompt detail that is not fixed. */
+const OUTPUT_LANGUAGE: Record<Locale, string> = { pl: 'POLISH', en: 'ENGLISH' };
+
 /**
- * Instructions are English (SPEC: model prompts stay English) but the OUTPUT must
- * be Polish, because it is shown to the user (SPEC: UI copy is Polish).
+ * The instructions stay English (SPEC §5: model prompts are English, whatever the
+ * UI language) — but the OUTPUT is read by the user, so it follows the INTERFACE
+ * language. This is the only prompt in the app that does.
  */
-export function buildCommentaryPrompt(req: CommentRequest): { system: string; user: string } {
+export function buildCommentaryPrompt(
+  req: CommentRequest,
+  locale: Locale = 'pl',
+): { system: string; user: string } {
+  const language = OUTPUT_LANGUAGE[locale];
   const system = [
     'You are a witty sports commentator for a board-game match between AI models.',
     'You can see the ENTIRE board, including both fleets — you are a commentator, not a player.',
     '',
     'Rules for your answer:',
-    '- Write in POLISH.',
+    `- Write in ${language}.`,
     '- Maximum 2 sentences. Short ones.',
     '- Light, warm, slightly playful tone. Never sarcastic towards the player.',
     '- Explain WHY the move was good or bad, in words a beginner understands.',
@@ -164,7 +174,7 @@ export function buildCommentaryPrompt(req: CommentRequest): { system: string; us
         : 'This ended the match — it is a draw.',
     );
   }
-  lines.push('', 'Write the Polish commentary now (max 2 sentences).');
+  lines.push('', `Write the ${language} commentary now (max 2 sentences).`);
 
   return { system, user: lines.join('\n') };
 }
@@ -214,6 +224,8 @@ export interface CommentatorOptions {
   transport: ChatTransport;
   modelId: string;
   onComment: (c: Commentary) => void;
+  /** The language the commentary is written in — the user reads it. */
+  locale?: Locale;
   /** Cap on in-flight + queued work, so a slow model can't pile up cost. */
   maxPending?: number;
   timeoutMs?: number;
@@ -240,7 +252,7 @@ export function createCommentator(opts: CommentatorOptions): Commentator {
     running = true;
     while (queue.length > 0 && !stopped) {
       const req = queue.shift()!;
-      const { system, user } = buildCommentaryPrompt(req);
+      const { system, user } = buildCommentaryPrompt(req, opts.locale);
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), timeoutMs);
       try {

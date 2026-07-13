@@ -22,7 +22,7 @@ interface Pending {
 
 export function createHumanPlayer(
   id = 'human',
-  displayName = 'Człowiek',
+  displayName = 'Human',
   now: () => number = Date.now,
 ): HumanPlayerHandle {
   let pending: Pending | null = null;

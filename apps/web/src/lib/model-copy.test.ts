@@ -91,4 +91,37 @@ describe('describeModel', () => {
     expect(copy.tags).toContain('w przeglądarce');
     expect(copy.sentences.join(' ')).toContain('WebGPU');
   });
+
+  describe('English', () => {
+    it('says the same things in English', () => {
+      const copy = describeModel(
+        meta({ id: 'qwen/qwen2.5-3b-instruct:free', isFree: true, price: undefined }),
+        'en',
+      );
+      expect(copy.headline).toContain('fast');
+      expect(copy.tags).toEqual(expect.arrayContaining(['small', 'free']));
+      expect(copy.sentences.join(' ')).toContain('undisciplined about the answer format');
+    });
+
+    it('classifies identically in both languages — only the words change', () => {
+      const m = meta({ id: 'anthropic/claude-opus', price: { prompt: 0, completion: 0.00006 } });
+      const plCopy = describeModel(m, 'pl');
+      const enCopy = describeModel(m, 'en');
+
+      expect(enCopy.size).toBe(plCopy.size);
+      expect(enCopy.priceClass).toBe(plCopy.priceClass);
+      expect(enCopy.contextClass).toBe(plCopy.contextClass);
+      expect(enCopy.sentences).toHaveLength(plCopy.sentences.length);
+      expect(enCopy.headline).not.toBe(plCopy.headline);
+    });
+
+    it('abbreviates the context window the English way (1M, not 1 mln)', () => {
+      expect(describeModel(meta({ contextLength: 1_000_000 }), 'en').sentences.join(' ')).toContain(
+        '1M tokens',
+      );
+      expect(describeModel(meta({ contextLength: 32_000 }), 'en').sentences.join(' ')).toContain(
+        '32k-token',
+      );
+    });
+  });
 });

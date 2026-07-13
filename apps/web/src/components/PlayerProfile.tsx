@@ -7,17 +7,17 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { SectionLabel } from '@/components/ui/hud';
-import { pl } from '@/i18n/pl';
+import { type Dict, useT } from '@/i18n';
 import { isValidPlayerToken } from '@/lib/id';
 import { useSettings } from '@/store/settings';
 
-/** Map a server rejection to a Polish message. */
-function nicknameError(e: unknown): string {
+/** Map a server rejection onto a message the player can act on. */
+function nicknameError(e: unknown, t: Dict): string {
   const code = e instanceof ApiError ? e.message : '';
-  if (code === 'nickname_taken') return pl.profile.nicknameTaken;
-  if (code === 'invalid_format') return pl.profile.nicknameInvalid;
-  if (code === 'profanity') return pl.profile.nicknameProfanity;
-  return pl.profile.saveError;
+  if (code === 'nickname_taken') return t.profile.nicknameTaken;
+  if (code === 'invalid_format') return t.profile.nicknameInvalid;
+  if (code === 'profanity') return t.profile.nicknameProfanity;
+  return t.profile.saveError;
 }
 
 /**
@@ -27,6 +27,7 @@ function nicknameError(e: unknown): string {
  * ranking row across devices.
  */
 export function PlayerProfile() {
+  const t = useT();
   const playerToken = useSettings((s) => s.playerToken);
   const setPlayerToken = useSettings((s) => s.setPlayerToken);
   const nickname = useSettings((s) => s.nickname);
@@ -61,9 +62,9 @@ export function PlayerProfile() {
       const p = await saveNickname(draft);
       setNickname(p.nickname);
       setDraft(p.nickname ?? '');
-      toast.success(pl.profile.nicknameSaved);
+      toast.success(t.profile.nicknameSaved);
     } catch (e) {
-      toast.error(nicknameError(e));
+      toast.error(nicknameError(e, t));
     } finally {
       setBusy(false);
     }
@@ -75,9 +76,9 @@ export function PlayerProfile() {
       await removeNickname();
       setNickname(null);
       setDraft('');
-      toast.success(pl.profile.nicknameRemoved);
+      toast.success(t.profile.nicknameRemoved);
     } catch {
-      toast.error(pl.profile.saveError);
+      toast.error(t.profile.saveError);
     } finally {
       setBusy(false);
     }
@@ -86,68 +87,68 @@ export function PlayerProfile() {
   const copyIdentity = async () => {
     try {
       await navigator.clipboard.writeText(playerToken);
-      toast.success(pl.profile.identityCopied);
+      toast.success(t.profile.identityCopied);
     } catch {
-      toast.error(pl.profile.copyFailed);
+      toast.error(t.profile.copyFailed);
     }
   };
 
   const importIdentity = () => {
     const code = importCode.trim();
     if (!isValidPlayerToken(code)) {
-      toast.error(pl.profile.importInvalid);
+      toast.error(t.profile.importInvalid);
       return;
     }
     if (code === playerToken) return;
-    if (!window.confirm(pl.profile.importConfirm)) return;
+    if (!window.confirm(t.profile.importConfirm)) return;
     setPlayerToken(code);
     setImportCode('');
-    toast.success(pl.profile.imported);
+    toast.success(t.profile.imported);
   };
 
   return (
     <div className="flex flex-col gap-4">
-      <SectionLabel>{pl.profile.title}</SectionLabel>
+      <SectionLabel>{t.profile.title}</SectionLabel>
 
       {flagged && (
         <p className="border-l-2 border-warn bg-warn/5 px-2 py-1 font-mono text-xs text-warn">
-          {pl.profile.flagged}
+          {t.profile.flagged}
         </p>
       )}
 
       <div className="flex flex-col gap-2">
-        <Label htmlFor="nick">{pl.settings.nickname}</Label>
+        <Label htmlFor="nick">{t.settings.nickname}</Label>
         <Input
           id="nick"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          placeholder={pl.settings.nicknamePlaceholder}
+          placeholder={t.settings.nicknamePlaceholder}
           maxLength={20}
         />
         <div className="flex flex-wrap gap-2">
           <Button size="sm" onClick={save} disabled={busy || !draft.trim()}>
-            {pl.settings.save}
+            {t.settings.save}
           </Button>
           <Button size="sm" variant="ghost" onClick={clear} disabled={busy || !nickname}>
-            {pl.settings.remove}
+            {t.settings.remove}
           </Button>
         </div>
         <p className="font-mono text-[11px] leading-relaxed text-muted-foreground">
-          {nickname ? pl.profile.nicknameHint : `${pl.profile.anonymous}. ${pl.profile.nicknameHint}`}
+          {nickname ? t.profile.nicknameHint : `${t.profile.anonymous}. ${t.profile.nicknameHint}`}
         </p>
       </div>
 
       <div className="flex flex-col gap-2">
-        <Label>{pl.profile.identity}</Label>
+        <Label>{t.profile.identity}</Label>
         <div className="flex flex-wrap gap-2">
           <Button size="sm" variant="outline" onClick={copyIdentity}>
-            {pl.profile.copyIdentity}
+            {t.profile.copyIdentity}
           </Button>
         </div>
         <Input
           value={importCode}
           onChange={(e) => setImportCode(e.target.value)}
-          placeholder={pl.profile.importPlaceholder}
+          placeholder={t.profile.importPlaceholder}
           className="font-mono"
           spellCheck={false}
           autoComplete="off"
@@ -159,15 +160,15 @@ export function PlayerProfile() {
             onClick={importIdentity}
             disabled={!importCode.trim()}
           >
-            {pl.profile.import}
+            {t.profile.import}
           </Button>
         </div>
         <p className="font-mono text-[11px] leading-relaxed text-muted-foreground">
-          {pl.profile.identityHint}
+          {t.profile.identityHint}
         </p>
       </div>
 
-      <p className="font-mono text-[11px] leading-relaxed text-dim">{pl.profile.privacy}</p>
+      <p className="font-mono text-[11px] leading-relaxed text-dim">{t.profile.privacy}</p>
     </div>
   );
 }

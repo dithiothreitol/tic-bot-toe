@@ -58,7 +58,7 @@ import { createOllamaTransport } from '@/providers/ollama';
 import { createOpenRouterTransport } from '@/providers/openrouter';
 import { createWebLlmTransport } from '@/providers/webllm';
 import { getOpenRouterKey } from '@/store/settings';
-import { pl } from '@/i18n/pl';
+import { type Dict, useLocale, useLocalePath, useT } from '@/i18n';
 import { formatCost, formatMs, formatTokens } from '@/lib/format';
 import { type SideTotals, sideTotals } from '@/lib/telemetry';
 import { cn } from '@/lib/utils';
@@ -82,11 +82,12 @@ function fmtDelta(d: number): string {
   return r >= 0 ? `+${r}` : `${r}`;
 }
 
-async function copyReplayLink(matchId: string): Promise<void> {
-  const url = `${window.location.origin}/replay/${matchId}`;
+/** The path is locale-dependent (`/replay/:id` vs `/en/replay/:id`), so the caller
+ *  builds it and the copy comes with it. */
+async function copyReplayLink(path: string, copied: string): Promise<void> {
   try {
-    await navigator.clipboard.writeText(url);
-    toast.success(pl.replay.copied);
+    await navigator.clipboard.writeText(`${window.location.origin}${path}`);
+    toast.success(copied);
   } catch {
     /* clipboard unavailable — ignore */
   }
@@ -138,12 +139,12 @@ function statusToWinnerSide(status: GameStatus): PlayerSide | null {
 }
 
 /** Turn an anti-bot rejection (§15.3) into something a person can act on. */
-function saveErrorMessage(e: unknown): string {
+function saveErrorMessage(e: unknown, t: Dict): string {
   const reason = e instanceof ApiError ? e.message : '';
-  if (reason === 'too_fast_for_human') return pl.result.saveTooFast;
-  if (reason === 'daily_limit' || reason === 'daily_limit_ip') return pl.result.saveDailyLimit;
-  if (reason === 'missing_start_token') return pl.result.saveNoStart;
-  return pl.result.saveError;
+  if (reason === 'too_fast_for_human') return t.result.saveTooFast;
+  if (reason === 'daily_limit' || reason === 'daily_limit_ip') return t.result.saveDailyLimit;
+  if (reason === 'missing_start_token') return t.result.saveNoStart;
+  return t.result.saveError;
 }
 
 export function GameRunner({
@@ -153,6 +154,9 @@ export function GameRunner({
   config: MatchConfig;
   onExit: () => void;
 }) {
+  const t = useT();
+  const path = useLocalePath();
+  const locale = useLocale();
   const [state, setState] = useState<unknown>(null);
   const [log, setLog] = useState<MoveLogEntry[]>([]);
   const [status, setStatus] = useState<GameStatus>('playing');
@@ -218,6 +222,8 @@ export function GameRunner({
       commentator = createCommentator({
         transport: commentatorTransport(spec, getOpenRouterKey()),
         modelId: `${spec.provider}:${spec.id}`,
+        // The user reads the commentary, so it is written in the UI language.
+        locale,
         onComment: (c) =>
           setCommentary((prev) =>
             prev.some((x) => x.moveIndex === c.moveIndex) ? prev : [...prev, c],
@@ -229,8 +235,8 @@ export function GameRunner({
     // non-blocking: the game runs regardless, only the ranking save needs it.
     startTokenRef.current = null;
     if (humanSide !== null) {
-      void fetchStartToken().then((t) => {
-        startTokenRef.current = t;
+      void fetchStartToken().then((token) => {
+        startTokenRef.current = token;
       });
     }
 
@@ -350,44 +356,44 @@ export function GameRunner({
         try {
           const claim = await claimDaily(resp.matchId);
           setDailyClaim(claim);
-          toast.success(`${pl.daily.claimed}${claim.streak}`);
+          toast.success(`${t.daily.claimed}${claim.streak}`);
         } catch {
-          toast.error(pl.daily.claimError);
+          toast.error(t.daily.claimError);
         }
       }
     } catch (e) {
       setSaveState('idle');
-      if ((e as Error).message !== 'anulowano') toast.error(saveErrorMessage(e));
+      if ((e as Error).message !== 'anulowano') toast.error(saveErrorMessage(e, t));
     }
   };
 
   const statusLine = (() => {
     if (outcome) {
-      if (outcome.winner === null) return pl.status.aborted;
-      if (outcome.winner === 'draw') return pl.status.draw;
-      if (humanSide) return outcome.winner === humanSide ? pl.result.youWon : pl.result.youLost;
+      if (outcome.winner === null) return t.status.aborted;
+      if (outcome.winner === 'draw') return t.status.draw;
+      if (humanSide) return outcome.winner === humanSide ? t.result.youWon : t.result.youLost;
       const name = outcome.winner === 'p1' ? config.names.p1 : config.names.p2;
-      return `${pl.status.wins}: ${name}`;
+      return `${t.status.wins}: ${name}`;
     }
-    if (thinking) return `${activeName} ${pl.status.thinking}`;
-    if (isHumanTurn) return pl.status.yourTurn;
-    return `${pl.status.turn}: ${activeName}`;
+    if (thinking) return `${activeName} ${t.status.thinking}`;
+    if (isHumanTurn) return t.status.yourTurn;
+    return `${t.status.turn}: ${activeName}`;
   })();
 
   const header = (
     <div className="flex items-center justify-between">
       <Button variant="ghost" size="sm" onClick={onExit}>
-        ← {pl.result.backToSetup}
+        ← {t.result.backToSetup}
       </Button>
       <span className="flex items-center gap-2">
         {config.lab && (
           <span className="clip-cut border border-edu/50 bg-edu/10 px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-widest text-edu">
-            {pl.lab.badge}
+            {t.lab.badge}
           </span>
         )}
         {prediction !== 'pending' && prediction !== 'skipped' && (
           <span className="clip-cut border border-border bg-card-inset px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest text-dim">
-            {pl.prediction.locked}:{' '}
+            {t.prediction.locked}:{' '}
             <span
               className={cn(
                 'font-bold',
@@ -396,7 +402,7 @@ export function GameRunner({
               )}
             >
               {prediction === 'draw'
-                ? pl.prediction.draw
+                ? t.prediction.draw
                 : prediction === 'p1'
                   ? config.names.p1
                   : config.names.p2}
@@ -404,8 +410,8 @@ export function GameRunner({
           </span>
         )}
         <span className="section-label">
-          {pl.games[config.game]} ·{' '}
-          {config.mode === 'model_vs_model' ? pl.mode.modelVsModel : pl.mode.humanVsModel}
+          {t.games[config.game]} ·{' '}
+          {config.mode === 'model_vs_model' ? t.mode.modelVsModel : t.mode.humanVsModel}
         </span>
       </span>
     </div>
@@ -444,12 +450,12 @@ export function GameRunner({
         {header}
         {playerSlots}
         <HudPanel brackets accent="edu" className="flex flex-col items-center gap-4 p-6">
-          <SectionLabel className="text-edu">{pl.prediction.kicker}</SectionLabel>
+          <SectionLabel className="text-edu">{t.prediction.kicker}</SectionLabel>
           <p className="font-sans text-xl font-bold uppercase tracking-tight">
-            {pl.prediction.question}
+            {t.prediction.question}
           </p>
           <p className="max-w-prose text-center text-sm text-muted-foreground">
-            {pl.prediction.lead}
+            {t.prediction.lead}
           </p>
           <div className="flex flex-wrap items-center justify-center gap-3">
             <Button
@@ -459,7 +465,7 @@ export function GameRunner({
               {config.names.p1}
             </Button>
             <Button variant="outline" onClick={() => setPrediction('draw')}>
-              {pl.prediction.draw}
+              {t.prediction.draw}
             </Button>
             <Button
               className="border-p2 bg-p2/15 text-p2 hover:bg-p2/25"
@@ -469,7 +475,7 @@ export function GameRunner({
             </Button>
           </div>
           <Button variant="ghost" size="sm" onClick={() => setPrediction('skipped')}>
-            {pl.prediction.skip}
+            {t.prediction.skip}
           </Button>
         </HudPanel>
       </div>
@@ -541,7 +547,7 @@ export function GameRunner({
 
           {hasCost && (
             <p className="font-mono text-xs text-muted-foreground">
-              {pl.result.cost}: {formatCost(totalCost)}
+              {t.result.cost}: {formatCost(totalCost)}
             </p>
           )}
         </HudPanel>
@@ -557,13 +563,13 @@ export function GameRunner({
         <div className="flex flex-col items-center gap-3">
           {savable && saveState !== 'saved' && (
             <Button onClick={handleSave} disabled={saveState === 'saving'}>
-              {saveState === 'saving' ? pl.result.saving : pl.result.save}
+              {saveState === 'saving' ? t.result.saving : t.result.save}
             </Button>
           )}
           {/* §12.5 — a bet only scores once the match is saved and replayed. */}
           {savable && saveState !== 'saved' && prediction !== 'skipped' && (
             <p className="font-mono text-[10px] uppercase tracking-wider text-dim">
-              {pl.prediction.saveHint}
+              {t.prediction.saveHint}
             </p>
           )}
           {predictionResult && (
@@ -573,31 +579,31 @@ export function GameRunner({
                 predictionResult.correct ? 'text-edu text-glow-edu' : 'text-danger',
               )}
             >
-              {predictionResult.correct ? pl.prediction.hit : pl.prediction.miss}
+              {predictionResult.correct ? t.prediction.hit : t.prediction.miss}
             </p>
           )}
           {dailyClaim && (
             <p className="font-sans text-sm font-bold uppercase tracking-wide text-edu text-glow-edu">
-              ✓ {pl.daily.done} · {pl.daily.streak}: {dailyClaim.streak}
+              ✓ {t.daily.done} · {t.daily.streak}: {dailyClaim.streak}
             </p>
           )}
           {/* Saved, but out of the ranking — say WHY, never fail silently. */}
           {saveResponse && !saveResponse.ranked && (
             <div className="flex max-w-prose flex-col items-center gap-1 text-center">
               <span className="font-mono text-xs uppercase tracking-wide text-warn">
-                {pl.result.savedUnranked}
+                {t.result.savedUnranked}
               </span>
               <span className="text-xs text-muted-foreground">
                 {saveResponse.unrankedReason === 'no_real_moves'
-                  ? pl.result.unrankedNoRealMoves
-                  : pl.result.unrankedLab}
+                  ? t.result.unrankedNoRealMoves
+                  : t.result.unrankedLab}
               </span>
             </div>
           )}
           {saveResponse && saveResponse.ratingChanges.length > 0 && (
             <div className="flex flex-col items-center gap-1 font-mono text-xs">
               <span className="text-edu text-glow-edu uppercase tracking-wide">
-                {pl.result.saved}
+                {t.result.saved}
               </span>
               {saveResponse.ratingChanges.map((rc) => {
                 const delta = rc.after - rc.before;
@@ -615,31 +621,37 @@ export function GameRunner({
           )}
           {saveResponse && (
             <div className="flex flex-wrap items-center justify-center gap-3">
-              <Button variant="outline" size="sm" onClick={() => void copyReplayLink(saveResponse.matchId)}>
-                🔗 {pl.replay.copyLink}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  void copyReplayLink(path('replay', saveResponse.matchId), t.replay.copied)
+                }
+              >
+                🔗 {t.replay.copyLink}
               </Button>
               <a
-                href={`/replay/${saveResponse.matchId}`}
+                href={path('replay', saveResponse.matchId)}
                 target="_blank"
                 rel="noreferrer"
                 className="font-mono text-xs text-p1 underline-offset-2 hover:underline"
               >
-                /replay/{saveResponse.matchId.slice(0, 8)}…
+                {path('replay', saveResponse.matchId.slice(0, 8))}…
               </a>
             </div>
           )}
           <div className="flex flex-wrap justify-center gap-3">
-            <Button onClick={rematch}>{pl.result.rematch}</Button>
+            <Button onClick={rematch}>{t.result.rematch}</Button>
             {log.length > 0 && (
               <Button
                 variant="outline"
                 onClick={() => setShowAnalysis((v) => !v)}
               >
-                {showAnalysis ? pl.result.closeAnalysis : pl.result.analyze}
+                {showAnalysis ? t.result.closeAnalysis : t.result.analyze}
               </Button>
             )}
             <Button variant="outline" onClick={onExit}>
-              {pl.result.backToSetup}
+              {t.result.backToSetup}
             </Button>
           </div>
         </div>
@@ -757,6 +769,7 @@ function BattleshipArena({
   names: { p1: string; p2: string };
   onFire: (coord: string) => void;
 }) {
+  const t = useT();
   if (!state) {
     return <p className="font-mono text-xs text-muted-foreground">…</p>;
   }
@@ -781,14 +794,14 @@ function BattleshipArena({
         size={state.size}
         variant="own"
         accent={humanSide}
-        title={pl.battleship.yourFleet}
+        title={t.battleship.yourFleet}
         cells={view.ownBoard}
       />
       <BattleshipBoard
         size={state.size}
         variant="tracking"
         accent={humanSide}
-        title={pl.battleship.yourShots}
+        title={t.battleship.yourShots}
         cells={view.trackingBoard}
         interactive={legal}
         onFire={onFire}

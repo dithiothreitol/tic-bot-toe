@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { HudPanel, SectionLabel } from '@/components/ui/hud';
 import type { MatchConfig } from '@/components/GameRunner';
 import type { MoveLogEntry } from '@/game/orchestrator';
-import { pl } from '@/i18n/pl';
+import { useT } from '@/i18n';
 import { formatMove } from '@/lib/format';
 import { reconstructStates } from '@/lib/match-states';
 import { cn } from '@/lib/utils';
@@ -43,6 +43,7 @@ export function AnalysisView({
   /** Battleship needs the fleet layout to replay; tic-tac-toe passes null. */
   setup: SetupRecord | null;
 }) {
+  const t = useT();
   const moves: AnalyzedMove[] = useMemo(
     () => log.map((e) => ({ player: e.player, move: e.move })),
     [log],
@@ -68,8 +69,8 @@ export function AnalysisView({
   return (
     <div className="flex flex-col gap-4">
       <header className="flex flex-col gap-1">
-        <SectionLabel>{pl.analysis.title}</SectionLabel>
-        <p className="text-sm text-muted-foreground">{pl.analysis.intro}</p>
+        <SectionLabel>{t.analysis.title}</SectionLabel>
+        <p className="text-sm text-muted-foreground">{t.analysis.intro}</p>
       </header>
 
       {/* Per-player precision + turning point */}
@@ -87,22 +88,22 @@ export function AnalysisView({
                 {Math.round(acc.rate * 100)}%
               </div>
               <div className="font-mono text-[10px] uppercase tracking-wider text-dim">
-                {pl.analysis.precision} · {acc.optimal}/{acc.moves}
+                {t.analysis.precision} · {acc.optimal}/{acc.moves}
               </div>
             </HudPanel>
           );
         })}
         <HudPanel accent="edu" className="flex flex-col justify-center gap-1 px-4 py-3">
-          <div className="section-label">{pl.analysis.turningPoint}</div>
+          <div className="section-label">{t.analysis.turningPoint}</div>
           {analysis.turningPoint === null ? (
-            <div className="font-mono text-xs text-edu">{pl.analysis.noBlunder}</div>
+            <div className="font-mono text-xs text-edu">{t.analysis.noBlunder}</div>
           ) : (
             <button
               type="button"
               onClick={() => setStep(analysis.turningPoint! + 1)}
               className="text-left font-mono text-xs text-danger underline-offset-2 hover:underline"
             >
-              #{analysis.turningPoint + 1} · {pl.analysis.goToTurningPoint}
+              #{analysis.turningPoint + 1} · {t.analysis.goToTurningPoint}
             </button>
           )}
         </HudPanel>
@@ -118,7 +119,7 @@ export function AnalysisView({
           />
         ) : (
           <p className="max-w-prose text-center font-mono text-xs text-muted-foreground">
-            {pl.games.battleship} — {pl.analysis.moveList} ↓
+            {t.games.battleship} — {t.analysis.moveList} ↓
           </p>
         )}
 
@@ -127,23 +128,23 @@ export function AnalysisView({
             <span>
               #{step} {nameOf(currentMove.player)} → {formatMove(currentMove.move)} ·{' '}
               <span className={cn('font-bold uppercase', QUALITY_TEXT[currentMove.quality])}>
-                {pl.analysis.quality[currentMove.quality]}
+                {t.analysis.quality[currentMove.quality]}
               </span>
             </span>
           ) : (
-            <span className="text-dim">{pl.analysis.start}</span>
+            <span className="text-dim">{t.analysis.start}</span>
           )}
         </div>
 
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => setStep(0)} disabled={step === 0}>
-            {pl.analysis.first}
+            {t.analysis.first}
           </Button>
           <Button variant="outline" size="sm" onClick={() => setStep(clamp(step - 1))} disabled={step === 0}>
-            {pl.analysis.prev}
+            {t.analysis.prev}
           </Button>
           <span className="min-w-20 text-center font-mono text-xs text-dim">
-            {pl.analysis.step} {step}/{moves.length}
+            {t.analysis.step} {step}/{moves.length}
           </span>
           <Button
             variant="outline"
@@ -151,7 +152,7 @@ export function AnalysisView({
             onClick={() => setStep(clamp(step + 1))}
             disabled={step === moves.length}
           >
-            {pl.analysis.next}
+            {t.analysis.next}
           </Button>
           <Button
             variant="outline"
@@ -159,14 +160,14 @@ export function AnalysisView({
             onClick={() => setStep(moves.length)}
             disabled={step === moves.length}
           >
-            {pl.analysis.last}
+            {t.analysis.last}
           </Button>
         </div>
       </HudPanel>
 
       {/* Annotated move list (both games) */}
       <HudPanel className="p-4">
-        <SectionLabel>{pl.analysis.moveList}</SectionLabel>
+        <SectionLabel>{t.analysis.moveList}</SectionLabel>
         <ol className="mt-2 flex flex-wrap gap-1.5">
           {analysis.moves.map((m) => (
             <li key={m.index}>
@@ -177,7 +178,7 @@ export function AnalysisView({
                   'clip-cut border bg-card-inset px-2 py-1 font-mono text-[11px] transition-colors',
                   step === m.index + 1 ? 'border-p1' : 'border-border',
                 )}
-                title={pl.analysis.quality[m.quality]}
+                title={t.analysis.quality[m.quality]}
               >
                 <span className={m.player === 'p1' ? 'text-p1' : 'text-p2'}>
                   #{m.index + 1}

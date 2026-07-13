@@ -1,6 +1,15 @@
 import { Settings } from 'lucide-react';
-import { useState } from 'react';
-import { Link, NavLink, Route, Routes } from 'react-router';
+import { type ReactNode, useEffect, useState } from 'react';
+import {
+  Link,
+  NavLink,
+  Outlet,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+  useOutletContext,
+} from 'react-router';
 
 import { ModelLoadBar } from '@/components/ModelLoadBar';
 import { SettingsDialog } from '@/components/SettingsDialog';
@@ -8,7 +17,19 @@ import { TurnstileDialog } from '@/components/TurnstileDialog';
 import { Button } from '@/components/ui/button';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { pl } from '@/i18n/pl';
+import {
+  type Locale,
+  LOCALES,
+  LOCALE_PREFIX,
+  LocaleProvider,
+  browserLanguages,
+  detectLocale,
+  routeSegment,
+  translatePath,
+  useI18n,
+  useLocalePath,
+  useT,
+} from '@/i18n';
 import { cn } from '@/lib/utils';
 import { ArenaPage } from '@/pages/ArenaPage';
 import { ComparePage } from '@/pages/ComparePage';
@@ -28,6 +49,7 @@ const navClass = ({ isActive }: { isActive: boolean }) =>
 
 /** Header status chip: reflects whether a local OpenRouter key is present. */
 function KeyStatus({ onClick }: { onClick: () => void }) {
+  const t = useT();
   const hasKey = useSettings((s) => s.openRouterKey !== null);
   return (
     <button
@@ -42,93 +64,202 @@ function KeyStatus({ onClick }: { onClick: () => void }) {
         )}
       />
       <span className="font-mono text-[11px] leading-tight">
-        <span className="text-muted-foreground">{pl.header.key}</span>
+        <span className="text-muted-foreground">{t.header.key}</span>
         <br />
         <span className={hasKey ? 'text-edu' : 'text-dim'}>
-          {hasKey ? pl.header.keyLocal : pl.header.keyNone}
+          {hasKey ? t.header.keyLocal : t.header.keyNone}
         </span>
       </span>
     </button>
   );
 }
 
-export default function App() {
+/**
+ * Language switcher. Real `<Link>`s, not buttons: the other language IS another
+ * URL (`/rankingi` ⇄ `/en/rankings`), so it has to be middle-clickable, copyable
+ * and crawlable. Clicking one also records the choice — from then on it beats the
+ * browser's own language (see `LocaleGate`).
+ */
+function LanguageSwitcher() {
+  const { locale } = useI18n();
+  const t = useT();
+  const { pathname } = useLocation();
+  const setLocalePref = useSettings((s) => s.setLocalePref);
+
+  return (
+    <div className="flex items-center" role="group" aria-label={t.lang.switchTo}>
+      {LOCALES.map((l) => (
+        <Link
+          key={l}
+          to={translatePath(pathname, l)}
+          hrefLang={l}
+          lang={l}
+          onClick={() => setLocalePref(l)}
+          aria-current={l === locale ? 'true' : undefined}
+          className={cn(
+            'px-2 py-1 font-mono text-[11px] font-semibold uppercase tracking-[0.12em] transition-colors',
+            l === locale ? 'text-p1' : 'text-faint hover:text-foreground',
+          )}
+        >
+          {l}
+        </Link>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * First-visit language routing. Polish paths are unprefixed — they are the
+ * canonical URLs and predate the second locale — so a visitor whose browser is
+ * not Polish would otherwise land on Polish copy. Rendered only inside the Polish
+ * shell: an `/en` link is already an explicit choice and must never bounce.
+ *
+ * A stored preference always beats the browser; that is what makes the switcher
+ * stick. Deliberately client-side: crawlers keep indexing the Polish URLs, and
+ * both languages are declared to them via hreflang + sitemap (server `og/seo.ts`).
+ */
+function LocaleGate() {
+  const { pathname } = useLocation();
+  const navigate = useNavigate();
+  const localePref = useSettings((s) => s.localePref);
+
+  useEffect(() => {
+    const wanted: Locale = localePref ?? detectLocale(browserLanguages());
+    if (wanted === 'en') navigate(translatePath(pathname, 'en'), { replace: true });
+  }, [pathname, localePref, navigate]);
+
+  return null;
+}
+
+function Nav() {
+  const t = useT();
+  const path = useLocalePath();
+  return (
+    <nav className="flex items-center gap-2">
+      <NavLink to={path('arena')} end className={navClass}>
+        {t.nav.arena}
+      </NavLink>
+      <NavLink to={path('rankings')} className={navClass}>
+        {t.nav.rankings}
+      </NavLink>
+      <NavLink to={path('compare')} className={navClass}>
+        {t.nav.compare}
+      </NavLink>
+      <NavLink to={path('intuition')} className={navClass}>
+        {t.nav.intuition}
+      </NavLink>
+    </nav>
+  );
+}
+
+function Header({ onOpenSettings }: { onOpenSettings: () => void }) {
+  const t = useT();
+  const path = useLocalePath();
+  return (
+    <header className="sticky top-0 z-20 border-b border-border bg-background/85 backdrop-blur">
+      <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3">
+        <div className="flex items-center gap-6">
+          <Link to={path('arena')} className="flex items-center gap-3">
+            {/* Diamond HUD mark — generated brand asset (scripts/gen). */}
+            <img
+              src="/logo.png"
+              alt=""
+              aria-hidden
+              width={28}
+              height={28}
+              className="size-7 shrink-0"
+            />
+            <span className="leading-none">
+              <span className="block font-mono text-base font-bold tracking-tight">
+                <span className="text-p1 text-glow-p1">tic</span>
+                <span className="text-dim">-bot-</span>
+                <span className="text-p2 text-glow-p2">toe</span>
+              </span>
+              <span className="mt-0.5 block font-sans text-[10px] font-semibold uppercase tracking-[0.2em] text-faint">
+                {t.header.subtitle}
+              </span>
+            </span>
+          </Link>
+          <Nav />
+        </div>
+        <div className="flex items-center gap-2">
+          <LanguageSwitcher />
+          <KeyStatus onClick={onOpenSettings} />
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label={t.actions.settings}
+            onClick={onOpenSettings}
+          >
+            <Settings className="size-5" />
+          </Button>
+        </div>
+      </div>
+    </header>
+  );
+}
+
+/** What the shell hands down to its pages (the settings dialog lives up here). */
+export interface ShellContext {
+  openSettings: () => void;
+}
+
+export const useShell = (): ShellContext => useOutletContext<ShellContext>();
+
+/**
+ * One shell per locale. The locale comes from the ROUTE, so the URL and the
+ * rendered language cannot drift apart — no store lookup, no effect, no flash of
+ * the wrong language on load.
+ */
+function Shell({ locale }: { locale: Locale }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const openSettings = () => setSettingsOpen(true);
 
   return (
-    <TooltipProvider delayDuration={200}>
-      <div className="min-h-dvh">
-        <header className="sticky top-0 z-20 border-b border-border bg-background/85 backdrop-blur">
-          <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3">
-            <div className="flex items-center gap-6">
-              <Link to="/" className="flex items-center gap-3">
-                {/* Diamond HUD mark — generated brand asset (scripts/gen). */}
-                <img
-                  src="/logo.png"
-                  alt=""
-                  aria-hidden
-                  width={28}
-                  height={28}
-                  className="size-7 shrink-0"
-                />
-                <span className="leading-none">
-                  <span className="block font-mono text-base font-bold tracking-tight">
-                    <span className="text-p1 text-glow-p1">tic</span>
-                    <span className="text-dim">-bot-</span>
-                    <span className="text-p2 text-glow-p2">toe</span>
-                  </span>
-                  <span className="mt-0.5 block font-sans text-[10px] font-semibold uppercase tracking-[0.2em] text-faint">
-                    {pl.header.subtitle}
-                  </span>
-                </span>
-              </Link>
-              <nav className="flex items-center gap-2">
-                <NavLink to="/" end className={navClass}>
-                  {pl.nav.arena}
-                </NavLink>
-                <NavLink to="/rankingi" className={navClass}>
-                  {pl.nav.rankings}
-                </NavLink>
-                <NavLink to="/porownaj" className={navClass}>
-                  {pl.nav.compare}
-                </NavLink>
-                <NavLink to="/intuicja" className={navClass}>
-                  {pl.nav.intuition}
-                </NavLink>
-              </nav>
-            </div>
-            <div className="flex items-center gap-2">
-              <KeyStatus onClick={openSettings} />
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label={pl.actions.settings}
-                onClick={openSettings}
-              >
-                <Settings className="size-5" />
-              </Button>
-            </div>
-          </div>
-        </header>
+    <LocaleProvider locale={locale}>
+      <TooltipProvider delayDuration={200}>
+        {locale === 'pl' && <LocaleGate />}
+        <div className="min-h-dvh">
+          <Header onOpenSettings={openSettings} />
 
-        <main className="mx-auto flex max-w-5xl flex-col items-stretch gap-6 px-4 py-8 pb-16">
-          <ModelLoadBar />
-          <Routes>
-            <Route path="/" element={<ArenaPage onOpenSettings={openSettings} />} />
-            <Route path="/rankingi" element={<LeaderboardPage />} />
-            <Route path="/porownaj" element={<ComparePage />} />
-            <Route path="/intuicja" element={<IntuitionPage />} />
-            {/* Splat: subject ids carry slashes (openrouter:meta-llama/llama-3). */}
-            <Route path="/model/*" element={<ModelCardPage />} />
-            <Route path="/replay/:id" element={<ReplayPage />} />
-          </Routes>
-        </main>
+          <main className="mx-auto flex max-w-5xl flex-col items-stretch gap-6 px-4 py-8 pb-16">
+            <ModelLoadBar />
+            <Outlet context={{ openSettings } satisfies ShellContext} />
+          </main>
 
-        <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
-        <TurnstileDialog />
-        <Toaster position="top-center" richColors />
-      </div>
-    </TooltipProvider>
+          <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+          <TurnstileDialog />
+          <Toaster position="top-center" richColors />
+        </div>
+      </TooltipProvider>
+    </LocaleProvider>
+  );
+}
+
+/** The same pages in every locale — only the path segments differ. */
+function localeRoutes(locale: Locale): ReactNode {
+  return (
+    <>
+      <Route index element={<ArenaPage />} />
+      <Route path={routeSegment(locale, 'rankings')} element={<LeaderboardPage />} />
+      <Route path={routeSegment(locale, 'compare')} element={<ComparePage />} />
+      <Route path={routeSegment(locale, 'intuition')} element={<IntuitionPage />} />
+      {/* Splat: subject ids carry slashes (openrouter:meta-llama/llama-3). */}
+      <Route path={`${routeSegment(locale, 'model')}/*`} element={<ModelCardPage />} />
+      <Route path={`${routeSegment(locale, 'replay')}/:id`} element={<ReplayPage />} />
+    </>
+  );
+}
+
+export default function App() {
+  return (
+    <Routes>
+      <Route path={LOCALE_PREFIX.en} element={<Shell locale="en" />}>
+        {localeRoutes('en')}
+      </Route>
+      <Route path="/" element={<Shell locale="pl" />}>
+        {localeRoutes('pl')}
+      </Route>
+    </Routes>
   );
 }

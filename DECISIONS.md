@@ -201,3 +201,24 @@ Pytanie użytkownika („i człowiek będzie mógł grać? ustawiać krzyżyki, 
 Zweryfikowane realnym przebiegiem: kółko i krzyżyk — człowiek klika pole, X ląduje, gpt-4o-mini odpowiada O, partia kończy się wygraną („Wygrywasz!", koszt $0,0001). Statki — rozstawienie floty, strzały, **pudła (M), trafienia (H) i zatopienie (S)** na planszy, 25 ruchów w logu z telemetrią modelu.
 
 **Znana luka:** e2e nie klika „Zapisz do rankingu" (dialog Turnstile). Ścieżka zapisu jest pokryta testami integracyjnymi i `smoke:live`, ale nie z poziomu przeglądarki.
+
+## Druga wersja językowa (EN) — język jest w URL-u, nie w localStorage
+
+SPEC miał twarde ograniczenie „interfejs po polsku". Angielski dokłada drugą publiczność, ale zderza się z tym, co ten projekt już ma: **udostępnialne linki** (powtórki), **karty OG** i **SEO pod agentów** (`llms.txt`, sitemap, JSON-LD). Dlatego decyzja nie brzmi „dodaj przełącznik", tylko **„zrób z języka część adresu"**.
+
+- **Polski zostaje kanoniczny i nieprefiksowany** (`/rankingi`), angielski żyje pod `/en` (`/en/rankings`). Żaden link, który ktoś kiedykolwiek udostępnił, nie przestaje działać — to był warunek wstępny, nie preferencja.
+- **Przełącznik trzymany w localStorage byłby ślepy na to, co robią ludzie z tym produktem: wklejają linki.** Gdyby język siedział tylko w pamięci przeglądarki, Anglik wysyłający powtórkę koledze wysyłałby polską stronę z polską kartą OG. Skoro język jest w ścieżce, serwer renderuje `<html lang>`, `<title>`, opis, canonical, hreflang **i obrazek OG** (`/api/og/:id?lang=en`) dla języka linku, a nie dla nagłówka `Accept-Language`.
+- **Tabela tras poszła do `packages/i18n`** (nie do kopii po obu stronach). Front buduje z niej `<Link>`, serwer sitemap, alternatywy hreflang i tagi OG. Kopia oznaczałaby, że `/en/rankings` może się rozjechać z `/en/rankings` — i wyszłoby to dopiero w Search Console.
+- **Locale bierze się z ROUTE'a, nie ze store'a** (`<Route path="/en" element={<Shell locale="en"/>}>`). URL i renderowany język nie mogą się rozminąć: nie ma stanu do zsynchronizowania, nie ma mignięcia złym językiem przy starcie.
+- **`pl.ts` jest źródłem prawdy typu.** `Dict` jest z niego wyprowadzony (`Widen<typeof pl>`), więc nowy klucz w polskim słowniku **wywala build**, dopóki nie ma go w `en.ts`. Półprzetłumaczony słownik jest gorszy od żadnego, bo dziurę widzi dopiero użytkownik.
+- **Prompty do modeli zostają angielskie** (SPEC §5) — zmiana języka UI nie może zmienić tego, co dostaje model, bo wtedy ranking porównywałby modele grające *innymi promptami*. **Jedyny wyjątek: komentator AI** — jego wypowiedź czyta człowiek, więc idzie za językiem interfejsu (instrukcje w systemie nadal po angielsku).
+- **Opisy modeli są dwujęzyczne, ale klasyfikacja jest wspólna.** `sizeClassOf`/`priceClassOf`/`contextClassOf` są bezjęzykowe; tłumaczy się wyłącznie zdania. Inaczej tłumacz mógłby — nie zauważając — przesunąć model do innego kubełka cenowego.
+- **Etykiety wariantów wyprowadzone z `game-core`** do słownika. Silnik gry nie ma powodu trzymać polskiego stringa `'Małe 6×6'`; `variantLabel(t, id)` mapuje id → nazwa w bieżącym języku (z fallbackiem na id).
+
+**Kompromisy przyjęte świadomie:**
+
+- **Przekierowanie po języku przeglądarki działa po stronie klienta** i tylko na ścieżkach bez prefiksu. Crawler bez JS indeksuje polskie URL-e normalnie, a obie wersje i tak deklarujemy przez hreflang + sitemap. Wariant serwerowy (302 po `Accept-Language`) dałby to samo użytkownikowi, ale mieszałby cache'e i potrafi zapętlić boty — nie warte tego.
+- **`manifest.webmanifest` zostaje polski.** Jeden statyczny manifest nie jest dwujęzyczny; robienie go dynamicznym dla PWA to koszt bez odbiorcy na tym etapie.
+- **Testy e2e dostały `locale: 'pl-PL'`.** Stock Chrome mówi `en-US`, więc od tej zmiany `/` przekierowywałoby testy na `/en` i polskie selektory padłyby — co jest poprawnym zachowaniem produktu, nie regresją. Test ma udawać polskiego gracza, a nie wyłączać funkcję.
+
+Zweryfikowane w prawdziwym Chrome na zbudowanej aplikacji (serwer + `web/dist`): polska przeglądarka zostaje na `/`, angielska ląduje na `/en`, przełącznik przenosi na **tę samą stronę** w drugim języku (`/en/rankings` → `/rankingi`), wybór wygrywa z przeglądarką po powrocie na `/`, a udostępniony link `/en/compare` nie odbija się polskiej przeglądarce. Serwer oddaje `<html lang="en">`, angielski opis, `og:locale=en_US`, komplet hreflang i `inLanguage: "en"` w JSON-LD.

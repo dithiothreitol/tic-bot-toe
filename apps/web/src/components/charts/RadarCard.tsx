@@ -11,7 +11,7 @@ import {
 import { ChartFrame } from '@/components/charts/ChartFrame';
 import { chartTheme, shortSubject } from '@/components/charts/theme';
 import type { LeaderboardRow } from '@/api/client';
-import { pl } from '@/i18n/pl';
+import { useT } from '@/i18n';
 import { RADAR_AXES, type RadarAxisKey, radarForSubjects } from '@/lib/telemetry';
 
 const SERIES_COLORS = [chartTheme.p1, chartTheme.p2] as const;
@@ -24,16 +24,19 @@ const SERIES_COLORS = [chartTheme.p1, chartTheme.p2] as const;
 export function RadarCard({
   subjects,
   population,
-  title = pl.charts.radar.title,
+  title,
 }: {
   subjects: LeaderboardRow[];
   population: LeaderboardRow[];
+  /** Defaults to the dictionary title — a param default cannot call a hook. */
   title?: string;
 }) {
+  const t = useT();
+  const heading = title ?? t.charts.radar.title;
   const radar = radarForSubjects(subjects, population);
   const empty = radar.length === 0;
 
-  const axisLabel: Record<RadarAxisKey, string> = pl.charts.radar.axes;
+  const axisLabel: Record<RadarAxisKey, string> = t.charts.radar.axes;
   const data = RADAR_AXES.map((axis) => {
     const point: Record<string, string | number> = { axis: axisLabel[axis] };
     radar.forEach((d) => {
@@ -44,8 +47,8 @@ export function RadarCard({
 
   return (
     <ChartFrame
-      title={title}
-      takeaway={pl.charts.radar.takeaway}
+      title={heading}
+      takeaway={t.charts.radar.takeaway}
       empty={empty}
       exportName="radar-modelu"
       height={280}

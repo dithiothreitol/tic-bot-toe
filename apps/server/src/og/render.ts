@@ -4,6 +4,8 @@
  * title-only card, never a 500. Native module (can't be bundled) — see tsup
  * `external` + the runtime install in deploy/Dockerfile.
  */
+import type { Locale } from '@arena/i18n';
+
 import {
   type BattleshipState,
   type GameId,
@@ -173,7 +175,23 @@ function drawBattleship(ctx: Ctx, state: BattleshipState, cx: number, cy: number
   }
 }
 
-export function renderMatchOg(match: OgMatch): Buffer {
+/** The only words on the card — the rest is the board and the model ids. */
+const CARD_COPY: Record<Locale, { game: (g: GameId) => string; draw: string; wins: (w: string) => string; fallback: string }> = {
+  pl: {
+    game: (g) => (g === 'tictactoe' ? 'Kółko i krzyżyk' : 'Statki'),
+    draw: 'remis',
+    wins: (w) => `${w} wygrywa`,
+    fallback: 'partia',
+  },
+  en: {
+    game: (g) => (g === 'tictactoe' ? 'Tic-tac-toe' : 'Battleship'),
+    draw: 'draw',
+    wins: (w) => `${w} wins`,
+    fallback: 'match',
+  },
+};
+
+export function renderMatchOg(match: OgMatch, locale: Locale = 'pl'): Buffer {
   registerBrandFonts();
   const canvas = createCanvas(W, H);
   const ctx = canvas.getContext('2d') as unknown as Ctx;
@@ -241,15 +259,16 @@ export function renderMatchOg(match: OgMatch): Buffer {
   ctx.fillText(n2, vsX + vsW + GAP, 120);
 
   // Subline: game · variant · result.
-  const gameLabel = match.game === 'tictactoe' ? 'Kółko i krzyżyk' : 'Statki';
+  const copy = CARD_COPY[locale];
+  const gameLabel = copy.game(match.game);
   const result =
     match.winner === 'draw'
-      ? 'remis'
+      ? copy.draw
       : match.winner === 'p1'
-        ? `${p1} wygrywa`
+        ? copy.wins(p1)
         : match.winner === 'p2'
-          ? `${p2} wygrywa`
-          : 'partia';
+          ? copy.wins(p2)
+          : copy.fallback;
   ctx.fillStyle = DIM;
   ctx.font = display(32, true);
   ctx.fillText(ellipsize(ctx, `${gameLabel} · ${match.variant} · ${result}`, maxTitle), pad, 175);

@@ -15,7 +15,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { pl } from '@/i18n/pl';
+import { useT, variantLabel } from '@/i18n';
 import { cn } from '@/lib/utils';
 
 type Mode = 'model_vs_model' | 'human_vs_model';
@@ -26,6 +26,7 @@ function defaultVariant(game: GameId): string {
 
 /** §9.3.5 — overlaid radar of two subjects + head-to-head tally. */
 export function ComparePage() {
+  const t = useT();
   const [game, setGame] = useState<GameId>('tictactoe');
   const [variant, setVariant] = useState('standard');
   const [mode, setMode] = useState<Mode>('model_vs_model');
@@ -43,7 +44,7 @@ export function ComparePage() {
         if (alive) setRows(r);
       })
       .catch(() => {
-        if (alive) toast.error(pl.leaderboard.loadError);
+        if (alive) toast.error(t.leaderboard.loadError);
       });
     return () => {
       alive = false;
@@ -89,7 +90,7 @@ export function ComparePage() {
       <label className="section-label">{label}</label>
       <Select value={value ?? undefined} onValueChange={onChange}>
         <SelectTrigger>
-          <SelectValue placeholder={pl.charts.compare.pickPrompt} />
+          <SelectValue placeholder={t.charts.compare.pickPrompt} />
         </SelectTrigger>
         <SelectContent>
           {rows.map((r) => (
@@ -105,18 +106,18 @@ export function ComparePage() {
   return (
     <div className="flex flex-col gap-6">
       <header className="flex flex-col gap-2">
-        <SectionLabel>{pl.nav.compare}</SectionLabel>
+        <SectionLabel>{t.nav.compare}</SectionLabel>
         <h1 className="font-sans text-4xl font-bold uppercase tracking-tight sm:text-5xl">
-          {pl.charts.compare.title}
+          {t.charts.compare.title}
         </h1>
-        <p className="max-w-prose text-sm text-muted-foreground">{pl.charts.compare.lead}</p>
+        <p className="max-w-prose text-sm text-muted-foreground">{t.charts.compare.lead}</p>
       </header>
 
       <div className="flex flex-wrap items-center gap-3">
         <Tabs value={game} onValueChange={(v) => onGameChange(v as GameId)}>
           <TabsList>
-            <TabsTrigger value="tictactoe">{pl.games.tictactoe}</TabsTrigger>
-            <TabsTrigger value="battleship">{pl.games.battleship}</TabsTrigger>
+            <TabsTrigger value="tictactoe">{t.games.tictactoe}</TabsTrigger>
+            <TabsTrigger value="battleship">{t.games.battleship}</TabsTrigger>
           </TabsList>
         </Tabs>
         {game === 'battleship' && (
@@ -127,7 +128,7 @@ export function ComparePage() {
             <SelectContent>
               {BATTLESHIP_VARIANTS.map((v) => (
                 <SelectItem key={v.id} value={v.id}>
-                  {v.label}
+                  {variantLabel(t, v.id)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -135,35 +136,35 @@ export function ComparePage() {
         )}
         <Tabs value={mode} onValueChange={(v) => setMode(v as Mode)}>
           <TabsList>
-            <TabsTrigger value="model_vs_model">{pl.mode.modelVsModel}</TabsTrigger>
-            <TabsTrigger value="human_vs_model">{pl.mode.humanVsModel}</TabsTrigger>
+            <TabsTrigger value="model_vs_model">{t.mode.modelVsModel}</TabsTrigger>
+            <TabsTrigger value="human_vs_model">{t.mode.humanVsModel}</TabsTrigger>
           </TabsList>
         </Tabs>
       </div>
 
       <div className="flex flex-wrap gap-4">
-        {picker(aId, setAId, pl.charts.compare.pickA)}
-        {picker(bId, setBId, pl.charts.compare.pickB)}
+        {picker(aId, setAId, t.charts.compare.pickA)}
+        {picker(bId, setBId, t.charts.compare.pickB)}
       </div>
 
       {sameModel && (
-        <p className="font-mono text-xs text-warn">{pl.charts.compare.sameModel}</p>
+        <p className="font-mono text-xs text-warn">{t.charts.compare.sameModel}</p>
       )}
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <RadarCard subjects={subjects} population={rows} title={pl.charts.compare.title} />
+        <RadarCard subjects={subjects} population={rows} title={t.charts.compare.title} />
 
         <HudPanel className="flex flex-col gap-3 p-4">
-          <SectionLabel>{pl.charts.compare.h2h}</SectionLabel>
+          <SectionLabel>{t.charts.compare.h2h}</SectionLabel>
           {h2h && h2h.games > 0 ? (
             <div className="flex flex-col gap-3">
               <div className="grid grid-cols-3 gap-2 text-center font-mono">
                 <HeadToHeadCell value={h2h.aWins} label={shortSubject(h2h.a)} color="text-p1" />
-                <HeadToHeadCell value={h2h.draws} label={pl.charts.compare.draws} color="text-dim" />
+                <HeadToHeadCell value={h2h.draws} label={t.charts.compare.draws} color="text-dim" />
                 <HeadToHeadCell value={h2h.bWins} label={shortSubject(h2h.b)} color="text-p2" />
               </div>
               <p className="text-center font-mono text-[11px] uppercase tracking-wider text-dim">
-                {pl.charts.compare.games}: {h2h.games}
+                {t.charts.compare.games}: {h2h.games}
               </p>
             </div>
           ) : (
@@ -171,7 +172,7 @@ export function ComparePage() {
               className="flex items-center justify-center text-center font-mono text-xs text-dim"
               style={{ minHeight: 120 }}
             >
-              {sameModel || !aId || !bId ? pl.charts.compare.lead : pl.charts.compare.noShared}
+              {sameModel || !aId || !bId ? t.charts.compare.lead : t.charts.compare.noShared}
             </p>
           )}
         </HudPanel>

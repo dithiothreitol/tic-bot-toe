@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { HudPanel, SectionLabel } from '@/components/ui/hud';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { PlayerSpec } from '@/game/players';
-import { pl } from '@/i18n/pl';
+import { useT, variantLabel } from '@/i18n';
 import { type CatalogModel, fetchCatalog } from '@/providers/openrouter-catalog';
 import { isWebGpuAvailable } from '@/providers/webllm';
 import { useSettings } from '@/store/settings';
@@ -54,6 +54,7 @@ export function DailyChallengeCard({
   onStart: (config: MatchConfig) => void;
   onOpenSettings: () => void;
 }) {
+  const t = useT();
   const [state, setState] = useState<DailyState | null>(null);
   const [loading, setLoading] = useState(true);
   const [webGpu] = useState(() => isWebGpuAvailable());
@@ -98,10 +99,10 @@ export function DailyChallengeCard({
 
   const { challenge, streak, todayCompleted } = state;
   const opp = challenge.opponent;
-  const gameLabel = pl.games[challenge.game];
+  const gameLabel = t.games[challenge.game];
   const variant = variantFor(challenge.game, challenge.variant);
   const label =
-    challenge.game === 'battleship' ? `${gameLabel} · ${variant.label}` : gameLabel;
+    challenge.game === 'battleship' ? `${gameLabel} · ${variantLabel(t, variant.id)}` : gameLabel;
 
   // A retired `:free` id would otherwise let the player "win" against a model
   // that only ever forfeits random moves. Refuse the challenge instead of
@@ -112,11 +113,11 @@ export function DailyChallengeCard({
     !catalog.some((m) => m.id === opp.id);
 
   const blocked = retired
-    ? pl.daily.opponentRetired
+    ? t.daily.opponentRetired
     : opp.provider === 'webllm' && !webGpu
-      ? pl.daily.needWebGpu
+      ? t.daily.needWebGpu
       : opp.provider === 'openrouter' && !hasKey
-        ? pl.daily.needKey
+        ? t.daily.needKey
         : null;
 
   const start = () => {
@@ -128,9 +129,9 @@ export function DailyChallengeCard({
       game: challenge.game,
       variant,
       mode: 'human_vs_model',
-      p1: { kind: 'human' },
+      p1: { kind: 'human', displayName: t.player.human },
       p2: specFor(opp, useSettings.getState().openRouterKey),
-      names: { p1: pl.player.human, p2: opp.name },
+      names: { p1: t.player.human, p2: opp.name },
       seed: randomSeed(),
       daily: true,
     });
@@ -144,19 +145,19 @@ export function DailyChallengeCard({
       className="flex flex-wrap items-center justify-between gap-4 p-5"
     >
       <div className="flex min-w-0 flex-col gap-1.5">
-        <SectionLabel className="text-edu">{pl.daily.kicker}</SectionLabel>
+        <SectionLabel className="text-edu">{t.daily.kicker}</SectionLabel>
         <p className="font-sans text-lg font-bold uppercase tracking-tight sm:text-xl">
-          {pl.daily.headline(opp.name, label)}
+          {t.daily.headline(opp.name, label)}
         </p>
         <p className="font-mono text-[10px] uppercase tracking-wider text-dim">
-          {pl.daily.free} · {challenge.day}
+          {t.daily.free} · {challenge.day}
         </p>
       </div>
 
       <div className="flex items-center gap-5">
         <div className="flex flex-col items-center">
           <span className="font-mono text-[10px] uppercase tracking-wider text-dim">
-            {pl.daily.streak}
+            {t.daily.streak}
           </span>
           <span className="font-mono text-2xl font-bold text-edu text-glow-edu">
             {streak}
@@ -166,10 +167,10 @@ export function DailyChallengeCard({
         {todayCompleted ? (
           <div className="flex flex-col gap-1">
             <span className="font-sans text-sm font-bold uppercase text-edu">
-              ✓ {pl.daily.done}
+              ✓ {t.daily.done}
             </span>
             <span className="max-w-48 text-xs text-muted-foreground">
-              {pl.daily.doneToday}
+              {t.daily.doneToday}
             </span>
           </div>
         ) : blocked ? (
@@ -177,13 +178,13 @@ export function DailyChallengeCard({
             <p className="text-xs text-warn">{blocked}</p>
             {opp.provider === 'openrouter' && !retired && (
               <Button variant="outline" size="sm" onClick={onOpenSettings}>
-                {pl.actions.settings}
+                {t.actions.settings}
               </Button>
             )}
           </div>
         ) : (
           <Button variant="edu" onClick={start}>
-            {pl.daily.play}
+            {t.daily.play}
           </Button>
         )}
       </div>

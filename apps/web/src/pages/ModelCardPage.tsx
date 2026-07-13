@@ -28,7 +28,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { pl } from '@/i18n/pl';
+import { useLocale, useLocalePath, useT, variantLabel } from '@/i18n';
 import { formatCost, formatMs } from '@/lib/format';
 import { type ModelMeta, describeModel } from '@/lib/model-copy';
 import { type CatalogModel, fetchCatalog } from '@/providers/openrouter-catalog';
@@ -81,6 +81,9 @@ function defaultVariant(game: GameId): string {
 }
 
 export function ModelCardPage() {
+  const t = useT();
+  const path = useLocalePath();
+  const locale = useLocale();
   // Splat route: subject ids carry slashes (openrouter:meta-llama/llama-3).
   const params = useParams();
   const subjectId = params['*'] ?? '';
@@ -119,7 +122,7 @@ export function ModelCardPage() {
         setEloPoints(elo);
       })
       .catch(() => {
-        if (alive) toast.error(pl.modelCard.loadError);
+        if (alive) toast.error(t.modelCard.loadError);
       })
       .finally(() => {
         if (alive) setLoading(false);
@@ -130,7 +133,7 @@ export function ModelCardPage() {
   }, [subjectId, mode, game, variant]);
 
   const meta = useMemo(() => metaForSubject(subjectId, catalog), [subjectId, catalog]);
-  const copy = useMemo(() => (meta ? describeModel(meta) : null), [meta]);
+  const copy = useMemo(() => (meta ? describeModel(meta, locale) : null), [meta, locale]);
 
   const card = data?.card ?? null;
   const onGameChange = (g: GameId) => {
@@ -141,18 +144,18 @@ export function ModelCardPage() {
   return (
     <div className="flex flex-col gap-6">
       <header className="flex flex-col gap-2">
-        <Link to="/rankingi" className="font-mono text-xs text-dim hover:text-p1">
-          {pl.modelCard.back}
+        <Link to={path('rankings')} className="font-mono text-xs text-dim hover:text-p1">
+          {t.modelCard.back}
         </Link>
-        <SectionLabel>{pl.modelCard.kicker}</SectionLabel>
+        <SectionLabel>{t.modelCard.kicker}</SectionLabel>
         <h1 className="font-sans text-3xl font-bold uppercase tracking-tight break-all sm:text-4xl">
           {shortSubject(subjectId)}
         </h1>
         {copy && (
           <div className="flex flex-wrap gap-2">
-            {copy.tags.map((t) => (
-              <Badge key={t} variant="outline">
-                {t}
+            {copy.tags.map((tag) => (
+              <Badge key={tag} variant="outline">
+                {tag}
               </Badge>
             ))}
           </div>
@@ -161,7 +164,7 @@ export function ModelCardPage() {
 
       {/* Layman description — rule template, deterministic, not an LLM (§12.3). */}
       <HudPanel brackets accent="edu" className="flex flex-col gap-3 p-5">
-        <SectionLabel className="text-edu">{pl.modelCard.whoIsIt}</SectionLabel>
+        <SectionLabel className="text-edu">{t.modelCard.whoIsIt}</SectionLabel>
         {copy ? (
           <>
             <p className="font-sans text-lg font-bold text-edu text-glow-edu">
@@ -175,19 +178,19 @@ export function ModelCardPage() {
               ))}
             </div>
             <p className="font-mono text-[10px] uppercase tracking-wider text-dim">
-              {pl.modelCard.generatedNote}
+              {t.modelCard.generatedNote}
             </p>
           </>
         ) : (
-          <p className="text-sm text-muted-foreground">{pl.modelCard.noMeta}</p>
+          <p className="text-sm text-muted-foreground">{t.modelCard.noMeta}</p>
         )}
       </HudPanel>
 
       <div className="flex flex-wrap items-center gap-3">
         <Tabs value={game} onValueChange={(v) => onGameChange(v as GameId)}>
           <TabsList>
-            <TabsTrigger value="tictactoe">{pl.games.tictactoe}</TabsTrigger>
-            <TabsTrigger value="battleship">{pl.games.battleship}</TabsTrigger>
+            <TabsTrigger value="tictactoe">{t.games.tictactoe}</TabsTrigger>
+            <TabsTrigger value="battleship">{t.games.battleship}</TabsTrigger>
           </TabsList>
         </Tabs>
         {game === 'battleship' && (
@@ -198,7 +201,7 @@ export function ModelCardPage() {
             <SelectContent>
               {BATTLESHIP_VARIANTS.map((v) => (
                 <SelectItem key={v.id} value={v.id}>
-                  {v.label}
+                  {variantLabel(t, v.id)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -206,8 +209,8 @@ export function ModelCardPage() {
         )}
         <Tabs value={mode} onValueChange={(v) => setMode(v as Mode)}>
           <TabsList>
-            <TabsTrigger value="model_vs_model">{pl.mode.modelVsModel}</TabsTrigger>
-            <TabsTrigger value="human_vs_model">{pl.mode.humanVsModel}</TabsTrigger>
+            <TabsTrigger value="model_vs_model">{t.mode.modelVsModel}</TabsTrigger>
+            <TabsTrigger value="human_vs_model">{t.mode.humanVsModel}</TabsTrigger>
           </TabsList>
         </Tabs>
       </div>
@@ -217,37 +220,37 @@ export function ModelCardPage() {
       ) : card === null ? (
         <HudPanel className="p-6">
           <p className="text-center text-sm text-muted-foreground">
-            {pl.modelCard.notRanked}
+            {t.modelCard.notRanked}
           </p>
         </HudPanel>
       ) : (
         <>
           <HudPanel className="flex flex-col gap-3 p-5">
-            <SectionLabel>{pl.modelCard.stats}</SectionLabel>
+            <SectionLabel>{t.modelCard.stats}</SectionLabel>
             <dl className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
-              <Stat label={pl.leaderboard.col.elo} value={String(Math.round(card.elo))} accent />
-              <Stat label={pl.leaderboard.col.games} value={String(card.games)} />
+              <Stat label={t.leaderboard.col.elo} value={String(Math.round(card.elo))} accent />
+              <Stat label={t.leaderboard.col.games} value={String(card.games)} />
               <Stat
-                label={pl.leaderboard.col.wld}
+                label={t.leaderboard.col.wld}
                 value={`${card.wins}/${card.losses}/${card.draws}`}
               />
               <Stat
-                label={pl.leaderboard.col.precision}
+                label={t.leaderboard.col.precision}
                 value={
                   card.optimalRate === null ? '—' : `${Math.round(card.optimalRate * 100)}%`
                 }
               />
               <Stat
-                label={pl.leaderboard.col.forfeit}
+                label={t.leaderboard.col.forfeit}
                 value={`${Math.round(card.forfeitRate * 100)}%`}
               />
               <Stat
-                label={pl.leaderboard.col.cost}
+                label={t.leaderboard.col.cost}
                 value={card.avgCostPerGame === null ? '—' : formatCost(card.avgCostPerGame)}
               />
             </dl>
             <p className="font-mono text-[10px] text-dim">
-              {pl.leaderboard.col.latency}:{' '}
+              {t.leaderboard.col.latency}:{' '}
               {card.avgLatencyMs === null ? '—' : formatMs(card.avgLatencyMs)}
             </p>
           </HudPanel>
@@ -256,28 +259,28 @@ export function ModelCardPage() {
             <RadarCard
               subjects={[card]}
               population={population}
-              title={`${pl.charts.radar.title} · ${shortSubject(subjectId)}`}
+              title={`${t.charts.radar.title} · ${shortSubject(subjectId)}`}
             />
             <EloHistory points={eloPoints} />
           </div>
 
           <HudPanel className="flex flex-col gap-3 p-5">
-            <SectionLabel>{pl.modelCard.opponents}</SectionLabel>
+            <SectionLabel>{t.modelCard.opponents}</SectionLabel>
             {data && data.opponents.length > 0 ? (
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>{pl.modelCard.col.opponent}</TableHead>
-                      <TableHead className="text-right">{pl.modelCard.col.games}</TableHead>
-                      <TableHead className="text-right">{pl.modelCard.col.wld}</TableHead>
+                      <TableHead>{t.modelCard.col.opponent}</TableHead>
+                      <TableHead className="text-right">{t.modelCard.col.games}</TableHead>
+                      <TableHead className="text-right">{t.modelCard.col.wld}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody className="font-mono text-xs">
                     {data.opponents.map((o) => (
                       <TableRow key={o.id}>
                         <TableCell className="max-w-52 truncate font-sans">
-                          <Link to={`/model/${o.id}`} className="hover:text-p1">
+                          <Link to={path('model', o.id)} className="hover:text-p1">
                             {shortSubject(o.id)}
                           </Link>
                         </TableCell>
@@ -292,7 +295,7 @@ export function ModelCardPage() {
                 </Table>
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">{pl.modelCard.opponentsEmpty}</p>
+              <p className="text-sm text-muted-foreground">{t.modelCard.opponentsEmpty}</p>
             )}
           </HudPanel>
         </>

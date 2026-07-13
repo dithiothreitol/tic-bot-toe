@@ -10,10 +10,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { pl } from '@/i18n/pl';
+import { useT } from '@/i18n';
 import { cancelSession, resolveSession, useSession } from '@/store/session';
 
 export function TurnstileDialog() {
+  const t = useT();
   const open = useSession((s) => s.promptOpen);
   const containerRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<string | null>(null);
@@ -24,25 +25,25 @@ export function TurnstileDialog() {
     let api: Awaited<ReturnType<typeof loadTurnstile>> | null = null;
 
     loadTurnstile()
-      .then((t) => {
+      .then((turnstile) => {
         if (cancelled || !containerRef.current) return;
-        api = t;
-        widgetIdRef.current = t.render(containerRef.current, {
+        api = turnstile;
+        widgetIdRef.current = turnstile.render(containerRef.current, {
           sitekey: TURNSTILE_SITE_KEY,
           theme: 'dark',
           callback: (token) => {
             apiPost<{ token: string; expiresIn: number }>('/api/verify', { token })
               .then(({ token: jwt, expiresIn }) => resolveSession(jwt, expiresIn))
               .catch(() => {
-                toast.error(pl.session.verifyFailed);
+                toast.error(t.session.verifyFailed);
                 cancelSession();
               });
           },
-          'error-callback': () => toast.error(pl.session.verifyFailed),
+          'error-callback': () => toast.error(t.session.verifyFailed),
         });
       })
       .catch(() => {
-        toast.error(pl.session.turnstileLoadFailed);
+        toast.error(t.session.turnstileLoadFailed);
         cancelSession();
       });
 
@@ -57,7 +58,7 @@ export function TurnstileDialog() {
         widgetIdRef.current = null;
       }
     };
-  }, [open]);
+  }, [open, t]);
 
   return (
     <Dialog
@@ -68,8 +69,8 @@ export function TurnstileDialog() {
     >
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>{pl.session.verifyTitle}</DialogTitle>
-          <DialogDescription>{pl.session.verifyDesc}</DialogDescription>
+          <DialogTitle>{t.session.verifyTitle}</DialogTitle>
+          <DialogDescription>{t.session.verifyDesc}</DialogDescription>
         </DialogHeader>
         <div ref={containerRef} className="flex min-h-[70px] justify-center py-2" />
       </DialogContent>

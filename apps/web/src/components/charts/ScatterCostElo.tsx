@@ -12,30 +12,32 @@ import {
 import { ChartFrame } from '@/components/charts/ChartFrame';
 import { chartTheme, shortSubject, subjectColor } from '@/components/charts/theme';
 import type { LeaderboardRow } from '@/api/client';
-import { pl } from '@/i18n/pl';
+import { useT } from '@/i18n';
 import { formatCost } from '@/lib/format';
 import { type ScatterPoint, buildScatter } from '@/lib/telemetry';
 
 function ScatterTooltip({ active, payload }: { active?: boolean; payload?: { payload: ScatterPoint }[] }) {
+  const t = useT();
   if (!active || !payload?.length) return null;
   const p = payload[0].payload;
   return (
     <div className="clip-cut border border-border bg-popover px-3 py-2 font-mono text-[11px]">
       <div className="text-foreground">{shortSubject(p.subjectId)}</div>
-      <div className="text-dim">{pl.charts.tooltip.elo}: {Math.round(p.elo)}</div>
-      <div className="text-dim">{pl.charts.tooltip.cost}: {formatCost(p.cost)}</div>
-      <div className="text-dim">{pl.charts.tooltip.games}: {p.games}</div>
+      <div className="text-dim">{t.charts.tooltip.elo}: {Math.round(p.elo)}</div>
+      <div className="text-dim">{t.charts.tooltip.cost}: {formatCost(p.cost)}</div>
+      <div className="text-dim">{t.charts.tooltip.games}: {p.games}</div>
     </div>
   );
 }
 
 /** §9.3.3 — cost (log X) vs Elo (Y), bubble size = games played. */
 export function ScatterCostElo({ rows }: { rows: LeaderboardRow[] }) {
+  const t = useT();
   const data = buildScatter(rows);
   return (
     <ChartFrame
-      title={pl.charts.scatter.title}
-      takeaway={pl.charts.scatter.takeaway}
+      title={t.charts.scatter.title}
+      takeaway={t.charts.scatter.takeaway}
       empty={data.length === 0}
       exportName="koszt-vs-elo"
       height={260}
@@ -46,7 +48,7 @@ export function ScatterCostElo({ rows }: { rows: LeaderboardRow[] }) {
           <XAxis
             type="number"
             dataKey="cost"
-            name={pl.charts.scatter.x}
+            name={t.charts.scatter.x}
             scale="log"
             domain={['auto', 'auto']}
             tickFormatter={(v: number) => formatCost(v)}
@@ -54,7 +56,7 @@ export function ScatterCostElo({ rows }: { rows: LeaderboardRow[] }) {
             tickLine={false}
             axisLine={{ stroke: chartTheme.grid }}
             label={{
-              value: pl.charts.scatter.x,
+              value: t.charts.scatter.x,
               position: 'bottom',
               fill: chartTheme.axis,
               fontSize: 10,
@@ -63,7 +65,7 @@ export function ScatterCostElo({ rows }: { rows: LeaderboardRow[] }) {
           <YAxis
             type="number"
             dataKey="elo"
-            name={pl.charts.scatter.y}
+            name={t.charts.scatter.y}
             domain={['auto', 'auto']}
             tick={{ fill: chartTheme.axis, fontSize: 10, fontFamily: 'JetBrains Mono' }}
             tickLine={false}

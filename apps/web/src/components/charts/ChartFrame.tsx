@@ -2,7 +2,7 @@ import { Download } from 'lucide-react';
 import * as React from 'react';
 
 import { HudPanel, SectionLabel } from '@/components/ui/hud';
-import { pl } from '@/i18n/pl';
+import { useT } from '@/i18n';
 import { exportChartPng } from '@/lib/chart-export';
 import { cn } from '@/lib/utils';
 
@@ -41,6 +41,7 @@ export function ChartFrame({
   className,
   children,
 }: ChartFrameProps) {
+  const t = useT();
   const bodyRef = React.useRef<HTMLDivElement>(null);
 
   return (
@@ -53,8 +54,8 @@ export function ChartFrame({
             <button
               type="button"
               onClick={() => void exportChartPng(bodyRef.current, exportName)}
-              aria-label={pl.charts.exportPng}
-              title={pl.charts.exportPng}
+              aria-label={t.charts.exportPng}
+              title={t.charts.exportPng}
               className="clip-cut flex items-center gap-1 border border-border bg-card/60 px-2 py-1 font-mono text-[10px] uppercase tracking-wider text-dim transition-colors hover:text-p1"
             >
               <Download className="size-3" />
@@ -78,7 +79,7 @@ export function ChartFrame({
             height={500}
             className="h-20 w-auto max-w-full object-contain opacity-70"
           />
-          {emptyText ?? pl.charts.empty}
+          {emptyText ?? t.charts.empty}
         </div>
       ) : (
         <div ref={bodyRef} style={{ width: '100%', height }}>

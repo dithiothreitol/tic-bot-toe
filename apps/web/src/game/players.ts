@@ -41,7 +41,7 @@ export interface BuiltPlayer {
 export function makePlayer(spec: PlayerSpec): BuiltPlayer {
   switch (spec.kind) {
     case 'human': {
-      const handle = createHumanPlayer('human', spec.displayName ?? 'Człowiek');
+      const handle = createHumanPlayer('human', spec.displayName ?? 'Human');
       return { player: handle.player, human: handle };
     }
     case 'webllm':

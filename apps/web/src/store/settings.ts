@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+import type { Locale } from '@/i18n';
 import { randomSecret } from '@/lib/id';
 
 /**
@@ -21,6 +22,13 @@ export interface SettingsState {
   soundEnabled: boolean;
   nickname: string | null;
   playerToken: string;
+  /**
+   * The language the user PICKED, not the one they are currently reading — that
+   * one lives in the URL (`/en/...`). Only set by the language switcher, and
+   * only used to decide whether a first-time visitor landing on an unprefixed
+   * path should be sent to their browser's language. `null` = never chose.
+   */
+  localePref: Locale | null;
 
   setOpenRouterKey: (key: string | null) => void;
   clearOpenRouterKey: () => void;
@@ -28,6 +36,7 @@ export interface SettingsState {
   setNickname: (nickname: string | null) => void;
   /** Adopt an identity exported from another browser (§10). */
   setPlayerToken: (token: string) => void;
+  setLocalePref: (locale: Locale) => void;
 }
 
 function clean(value: string | null): string | null {
@@ -42,6 +51,7 @@ export const useSettings = create<SettingsState>()(
       soundEnabled: false,
       nickname: null,
       playerToken: randomSecret(),
+      localePref: null,
 
       setOpenRouterKey: (key) => set({ openRouterKey: clean(key) }),
       clearOpenRouterKey: () => set({ openRouterKey: null }),
@@ -50,6 +60,7 @@ export const useSettings = create<SettingsState>()(
       // Switching identity drops the local nickname mirror; it is re-read from
       // the server for the adopted token.
       setPlayerToken: (playerToken) => set({ playerToken, nickname: null }),
+      setLocalePref: (localePref) => set({ localePref }),
     }),
     {
       name: 'arena-settings',

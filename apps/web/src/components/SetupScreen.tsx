@@ -28,7 +28,7 @@ import { Textarea } from '@/components/ui/textarea';
 import type { MatchConfig } from '@/components/GameRunner';
 import type { MatchMode } from '@/game/orchestrator';
 import type { PlayerSpec } from '@/game/players';
-import { pl } from '@/i18n/pl';
+import { useT, variantLabel } from '@/i18n';
 import { apiGet } from '@/api/client';
 import {
   type SelectableModel,
@@ -89,6 +89,7 @@ export function SetupScreen({
   onStart: (config: MatchConfig) => void;
   onOpenSettings: () => void;
 }) {
+  const t = useT();
   const [game, setGame] = useState<GameId>('tictactoe');
   const [variantId, setVariantId] = useState('small');
   const [mode, setMode] = useState<MatchMode>('human_vs_model');
@@ -113,7 +114,7 @@ export function SetupScreen({
         if (alive) setCatalog(catalogToSelectable(m));
       })
       .catch(() => {
-        if (alive) toast.error(pl.setup.catalogError);
+        if (alive) toast.error(t.setup.catalogError);
       })
       .finally(() => {
         if (alive) setLoading(false);
@@ -155,7 +156,7 @@ export function SetupScreen({
   const start = () => {
     const needP1 = mode === 'model_vs_model';
     if ((needP1 && !p1Model) || !p2Model) {
-      toast.error(pl.setup.needModel);
+      toast.error(t.setup.needModel);
       return;
     }
     const chosen = [needP1 ? p1Model : null, p2Model].filter(
@@ -163,14 +164,14 @@ export function SetupScreen({
     );
     const apiKey = useSettings.getState().openRouterKey;
     if (chosen.some((m) => m.provider === 'openrouter') && !apiKey) {
-      toast.error(pl.setup.needKey);
+      toast.error(t.setup.needKey);
       onOpenSettings();
       return;
     }
 
     // The commentator runs on the user's key too — refuse to start without one.
     if (commentatorOn && commentatorModel?.provider === 'openrouter' && !apiKey) {
-      toast.error(pl.setup.needKey);
+      toast.error(t.setup.needKey);
       onOpenSettings();
       return;
     }
@@ -199,9 +200,9 @@ export function SetupScreen({
         : {
             ...base,
             mode: 'human_vs_model',
-            p1: { kind: 'human' },
+            p1: { kind: 'human', displayName: t.player.human },
             p2: specFor(p2Model, apiKey, lab),
-            names: { p1: pl.player.human, p2: p2Model.name },
+            names: { p1: t.player.human, p2: p2Model.name },
           };
     onStart(config);
   };
@@ -210,38 +211,38 @@ export function SetupScreen({
     <Card className="w-full">
       <CardContent className="flex flex-col gap-6">
         <section className="flex flex-col gap-2">
-          <SectionLabel tag="01">{pl.setup.game}</SectionLabel>
+          <SectionLabel tag="01">{t.setup.game}</SectionLabel>
           <Tabs value={game} onValueChange={(v) => setGame(v as GameId)}>
             {/* h-9 comes from the Tabs cva variant — override it with the same
                 selector, otherwise the taller tiles overflow the list. */}
             <TabsList className="grid h-auto w-full grid-cols-2 gap-2 group-data-[orientation=horizontal]/tabs:h-auto">
               <TabsTrigger
                 value="tictactoe"
-                aria-label={pl.games.tictactoe}
+                aria-label={t.games.tictactoe}
                 className={gameTileClass}
               >
                 <TicTacToeGlyph />
                 <span className="flex flex-col items-start gap-0.5 text-left">
                   <span className="text-sm font-semibold text-foreground">
-                    {pl.games.tictactoe}
+                    {t.games.tictactoe}
                   </span>
                   <span className="font-mono text-[10px] normal-case tracking-normal text-faint">
-                    {pl.gameMeta.tictactoe}
+                    {t.gameMeta.tictactoe}
                   </span>
                 </span>
               </TabsTrigger>
               <TabsTrigger
                 value="battleship"
-                aria-label={pl.games.battleship}
+                aria-label={t.games.battleship}
                 className={gameTileClass}
               >
                 <BattleshipGlyph />
                 <span className="flex flex-col items-start gap-0.5 text-left">
                   <span className="text-sm font-semibold text-foreground">
-                    {pl.games.battleship}
+                    {t.games.battleship}
                   </span>
                   <span className="font-mono text-[10px] normal-case tracking-normal text-faint">
-                    {pl.gameMeta.battleship}
+                    {t.gameMeta.battleship}
                   </span>
                 </span>
               </TabsTrigger>
@@ -251,7 +252,7 @@ export function SetupScreen({
 
         {game === 'battleship' && (
           <section className="flex flex-col gap-2">
-            <SectionLabel tag="02">{pl.setup.variant}</SectionLabel>
+            <SectionLabel tag="02">{t.setup.variant}</SectionLabel>
             <Select value={variantId} onValueChange={setVariantId}>
               <SelectTrigger>
                 <SelectValue />
@@ -259,7 +260,7 @@ export function SetupScreen({
               <SelectContent>
                 {BATTLESHIP_VARIANTS.map((v) => (
                   <SelectItem key={v.id} value={v.id}>
-                    {v.label}
+                    {variantLabel(t, v.id)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -269,15 +270,15 @@ export function SetupScreen({
 
         <section className="flex flex-col gap-2">
           <SectionLabel tag={game === 'battleship' ? '03' : '02'}>
-            {pl.mode.label}
+            {t.mode.label}
           </SectionLabel>
           <Tabs value={mode} onValueChange={(v) => setMode(v as MatchMode)}>
             <TabsList className="grid h-auto w-full grid-cols-2 group-data-[orientation=horizontal]/tabs:h-auto">
               <TabsTrigger value="human_vs_model" className="py-2.5">
-                {pl.mode.humanVsModel}
+                {t.mode.humanVsModel}
               </TabsTrigger>
               <TabsTrigger value="model_vs_model" className="py-2.5">
-                {pl.mode.modelVsModel}
+                {t.mode.modelVsModel}
               </TabsTrigger>
             </TabsList>
           </Tabs>
@@ -286,7 +287,7 @@ export function SetupScreen({
         <section className="grid gap-4 sm:grid-cols-2">
           {mode === 'model_vs_model' ? (
             <div className="flex flex-col gap-2">
-              <Label className="text-p1">{pl.setup.modelP1}</Label>
+              <Label className="text-p1">{t.setup.modelP1}</Label>
               <ModelPicker
                 models={models}
                 loading={loading}
@@ -296,19 +297,19 @@ export function SetupScreen({
             </div>
           ) : (
             <div className="flex flex-col gap-2">
-              <Label className="text-p1">{pl.player.p1}</Label>
+              <Label className="text-p1">{t.player.p1}</Label>
               <div className="clip-cut flex items-center gap-2 border border-p1/30 bg-card-inset px-3 py-2 text-sm">
                 <span className="font-mono text-lg font-bold text-p1 text-glow-p1">
                   {game === 'tictactoe' ? 'X' : '⚓'}
                 </span>
-                <span>{pl.player.human}</span>
+                <span>{t.player.human}</span>
               </div>
             </div>
           )}
 
           <div className="flex flex-col gap-2">
             <Label className="text-p2">
-              {mode === 'model_vs_model' ? pl.setup.modelP2 : pl.setup.chooseModel}
+              {mode === 'model_vs_model' ? t.setup.modelP2 : t.setup.chooseModel}
             </Label>
             <ModelPicker
               models={models}
@@ -322,28 +323,28 @@ export function SetupScreen({
         <section className="flex flex-col gap-3 border-t border-border/60 pt-5">
           <div className="flex items-center justify-between gap-3">
             <div className="flex flex-col gap-1">
-              <SectionLabel>{pl.commentator.section}</SectionLabel>
+              <SectionLabel>{t.commentator.section}</SectionLabel>
               <p className="max-w-prose text-xs text-muted-foreground">
-                {pl.commentator.lead}
+                {t.commentator.lead}
               </p>
             </div>
             <Switch
               checked={commentatorOn}
               onCheckedChange={setCommentatorOn}
-              aria-label={pl.commentator.toggle}
+              aria-label={t.commentator.toggle}
             />
           </div>
 
           {commentatorOn && (
             <div className="flex flex-col gap-1.5">
-              <Label className="text-edu">{pl.commentator.model}</Label>
+              <Label className="text-edu">{t.commentator.model}</Label>
               <ModelPicker
                 models={models}
                 loading={loading}
                 value={commentatorModel?.id ?? null}
                 onSelect={setCommentatorModel}
               />
-              <p className="font-mono text-[10px] text-dim">{pl.commentator.costHint}</p>
+              <p className="font-mono text-[10px] text-dim">{t.commentator.costHint}</p>
             </div>
           )}
         </section>
@@ -351,13 +352,13 @@ export function SetupScreen({
         <section className="flex flex-col gap-3 border-t border-border/60 pt-5">
           <div className="flex items-center justify-between gap-3">
             <div className="flex flex-col gap-1">
-              <SectionLabel>{pl.lab.section}</SectionLabel>
-              <p className="max-w-prose text-xs text-muted-foreground">{pl.lab.lead}</p>
+              <SectionLabel>{t.lab.section}</SectionLabel>
+              <p className="max-w-prose text-xs text-muted-foreground">{t.lab.lead}</p>
             </div>
             <Switch
               checked={labOpen}
               onCheckedChange={setLabOpen}
-              aria-label={pl.lab.toggle}
+              aria-label={t.lab.toggle}
             />
           </div>
 
@@ -365,21 +366,21 @@ export function SetupScreen({
             <div className="flex flex-col gap-4 clip-cut border border-edu/30 bg-edu/5 p-4">
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="lab-appendix" className="text-edu">
-                  {pl.lab.appendix}
+                  {t.lab.appendix}
                 </Label>
                 <Textarea
                   id="lab-appendix"
                   value={appendix}
                   onChange={(e) => setAppendix(e.target.value)}
-                  placeholder={pl.lab.appendixPlaceholder}
+                  placeholder={t.lab.appendixPlaceholder}
                   rows={3}
                 />
-                <p className="font-mono text-[10px] text-dim">{pl.lab.appendixHint}</p>
+                <p className="font-mono text-[10px] text-dim">{t.lab.appendixHint}</p>
               </div>
 
               <div className="flex flex-col gap-2">
                 <div className="flex items-center justify-between">
-                  <Label className="text-edu">{pl.lab.temperature}</Label>
+                  <Label className="text-edu">{t.lab.temperature}</Label>
                   <span className="font-mono text-sm font-bold text-edu">
                     {temperature.toFixed(2)}
                   </span>
@@ -390,13 +391,13 @@ export function SetupScreen({
                   min={0}
                   max={1.5}
                   step={0.05}
-                  aria-label={pl.lab.temperature}
+                  aria-label={t.lab.temperature}
                 />
-                <p className="font-mono text-[10px] text-dim">{pl.lab.temperatureHint}</p>
+                <p className="font-mono text-[10px] text-dim">{t.lab.temperatureHint}</p>
               </div>
 
               <p className="font-mono text-[10px] uppercase tracking-wider text-edu/80">
-                {pl.lab.excludedNote}
+                {t.lab.excludedNote}
               </p>
             </div>
           )}
@@ -405,7 +406,7 @@ export function SetupScreen({
 
       <CardFooter>
         <Button size="lg" className="w-full" onClick={start}>
-          {pl.setup.start}
+          {t.setup.start}
         </Button>
       </CardFooter>
     </Card>

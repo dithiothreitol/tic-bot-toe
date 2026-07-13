@@ -1,5 +1,5 @@
 import { HudPanel, SectionLabel } from '@/components/ui/hud';
-import { pl } from '@/i18n/pl';
+import { useT } from '@/i18n';
 import { cn } from '@/lib/utils';
 
 /**
@@ -16,16 +16,16 @@ export function OpenRouterKeyHelp({
   className?: string;
   withField?: boolean;
 }) {
-  const t = pl.keyHelp;
-  const steps = [...t.steps, withField ? t.lastStepHere : t.lastStepSettings];
+  const copy = useT().keyHelp;
+  const steps = [...copy.steps, withField ? copy.lastStepHere : copy.lastStepSettings];
 
   return (
     <HudPanel className={cn('flex flex-col gap-3 p-3', className)}>
-      <SectionLabel>{t.title}</SectionLabel>
-      <p className="text-xs text-muted-foreground">{t.why}</p>
+      <SectionLabel>{copy.title}</SectionLabel>
+      <p className="text-xs text-muted-foreground">{copy.why}</p>
 
       <div className="flex flex-col gap-2">
-        <SectionLabel>{t.howTitle}</SectionLabel>
+        <SectionLabel>{copy.howTitle}</SectionLabel>
         <ol className="flex flex-col gap-1.5">
           {steps.map((step, i) => (
             <li key={step} className="flex gap-2 text-xs text-muted-foreground">
@@ -36,15 +36,15 @@ export function OpenRouterKeyHelp({
         </ol>
       </div>
 
-      <p className="text-xs text-muted-foreground">{t.cost}</p>
+      <p className="text-xs text-muted-foreground">{copy.cost}</p>
 
       <a
-        href={t.href}
+        href={copy.href}
         target="_blank"
         rel="noreferrer"
         className="font-mono text-xs text-p1 underline-offset-2 hover:underline"
       >
-        {t.cta} ↗
+        {copy.cta} ↗
       </a>
     </HudPanel>
   );

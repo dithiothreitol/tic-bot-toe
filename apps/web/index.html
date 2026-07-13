@@ -15,6 +15,12 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
 
+    <!--
+      Polish defaults. In production the SERVER owns this block: it rewrites
+      `lang`, title, description, canonical, hreflang, OG/Twitter and JSON-LD for
+      the language of the path (`/en/...` → English) — see apps/server/src/og/meta.ts.
+      What stays here is what `vite dev` and a bare `vite preview` fall back to.
+    -->
     <title>tic-bot-toe — LLM Game Arena</title>
     <meta
       name="description"
