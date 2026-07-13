@@ -1,6 +1,6 @@
 import type { Move, MoveResult, Player, PlayerView } from '@arena/game-core';
 
-import { type ChatTransport, type LlmMoveConfig, runLlmMove } from './llm-runner';
+import { type ChatTransport, type LlmMoveConfig, moveMaxTokens, runLlmMove } from './llm-runner';
 
 /**
  * Ollama provider (SPEC §2.3): talks to the local Ollama daemon through our
@@ -37,6 +37,8 @@ export interface OllamaConfig {
   maxTokens?: number;
   /** Prompt-lab appendix (§12.4), appended after the core system prompt. */
   systemAppendix?: string;
+  /** Let the model reason before answering; also lifts the default num_predict. */
+  reasoning?: boolean;
   fetchImpl?: typeof fetch;
   runner?: Pick<LlmMoveConfig, 'maxRetries' | 'timeoutMs' | 'rng' | 'now'>;
 }
@@ -53,7 +55,7 @@ export function createOllamaTransport(model: string, config: OllamaConfig = {}):
         stream: false,
         options: {
           temperature: config.temperature ?? 0.2,
-          num_predict: config.maxTokens ?? 60,
+          num_predict: config.maxTokens ?? moveMaxTokens(config.reasoning),
         },
       }),
       signal,
@@ -82,6 +84,7 @@ export function createOllamaPlayer(
       return runLlmMove(view, legal, {
         transport,
         systemAppendix: config.systemAppendix,
+        reasoning: config.reasoning,
         ...config.runner,
       });
     },

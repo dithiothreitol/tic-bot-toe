@@ -16,6 +16,7 @@ export type PlayerSpec =
       price?: TokenPrice;
       temperature?: number;
       systemAppendix?: string;
+      reasoning?: boolean;
     }
   | {
       kind: 'webllm';
@@ -23,6 +24,7 @@ export type PlayerSpec =
       displayName: string;
       temperature?: number;
       systemAppendix?: string;
+      reasoning?: boolean;
     }
   | {
       kind: 'ollama';
@@ -30,6 +32,7 @@ export type PlayerSpec =
       displayName: string;
       temperature?: number;
       systemAppendix?: string;
+      reasoning?: boolean;
     };
 
 export interface BuiltPlayer {
@@ -49,6 +52,7 @@ export function makePlayer(spec: PlayerSpec): BuiltPlayer {
         player: createWebLlmPlayer(spec.model, spec.displayName, {
           temperature: spec.temperature,
           systemAppendix: spec.systemAppendix,
+          reasoning: spec.reasoning,
         }),
       };
     case 'ollama':
@@ -56,6 +60,7 @@ export function makePlayer(spec: PlayerSpec): BuiltPlayer {
         player: createOllamaPlayer(spec.model, spec.displayName, {
           temperature: spec.temperature,
           systemAppendix: spec.systemAppendix,
+          reasoning: spec.reasoning,
         }),
       };
     case 'openrouter':
@@ -67,6 +72,7 @@ export function makePlayer(spec: PlayerSpec): BuiltPlayer {
             price: spec.price,
             temperature: spec.temperature,
             systemAppendix: spec.systemAppendix,
+            reasoning: spec.reasoning,
           },
           spec.displayName,
         ),

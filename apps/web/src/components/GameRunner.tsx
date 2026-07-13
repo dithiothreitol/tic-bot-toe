@@ -108,6 +108,13 @@ export interface MatchConfig {
   extraShotOnHit?: boolean;
   /** Prompt-lab match (§12.4): excluded from Elo, kept for replays. */
   lab?: boolean;
+  /**
+   * Give the models a short chain-of-thought + a higher token budget so they
+   * play near their real strength (SPEC §8 default forbids reasoning). Applied
+   * to every LLM in the match. Excluded from Elo — saved as a lab match — so the
+   * default no-reasoning ranking stays comparable.
+   */
+  reasoning?: boolean;
   /** Started from the daily-challenge tile (§12.6) — a win claims the day. */
   daily?: boolean;
   /** AI commentator (§12.1) — off unless the user picked a model. Never a player. */
@@ -203,7 +210,11 @@ export function GameRunner({
     const abort = new AbortController();
     const humans: Partial<Record<PlayerSide, HumanPlayerHandle>> = {};
     const build = (spec: PlayerSpec, side: PlayerSide) => {
-      const built = makePlayer(spec);
+      // Reasoning is a match-level toggle; fold it into every LLM spec here so
+      // the setup screen doesn't have to stamp it on each side. Human has no prompt.
+      const withReasoning: PlayerSpec =
+        spec.kind === 'human' ? spec : { ...spec, reasoning: config.reasoning };
+      const built = makePlayer(withReasoning);
       if (built.human) humans[side] = built.human;
       return built.player;
     };
@@ -356,7 +367,9 @@ export function GameRunner({
       const session = await ensureSession();
       const resp = await saveResult(outcome, {
         priceSnapshot: priceSnapshotFor(config),
-        lab: config.lab,
+        // Reasoning changes how strong the models play, so those games must not
+        // move Elo — save them as lab, exactly like the prompt lab (§12.4).
+        lab: config.lab || config.reasoning,
         startToken: startTokenRef.current ?? undefined,
         // §12.1 — commentary is opt-in content, so it rides along only when present.
         commentary: commentary.length > 0 ? [...commentary].sort((a, b) => a.moveIndex - b.moveIndex) : undefined,
@@ -414,6 +427,11 @@ export function GameRunner({
         {config.lab && (
           <span className="clip-cut border border-edu/50 bg-edu/10 px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-widest text-edu">
             {t.lab.badge}
+          </span>
+        )}
+        {config.reasoning && (
+          <span className="clip-cut border border-p2/50 bg-p2/10 px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-widest text-p2">
+            {t.reasoning.badge}
           </span>
         )}
         {prediction !== 'pending' && prediction !== 'skipped' && (

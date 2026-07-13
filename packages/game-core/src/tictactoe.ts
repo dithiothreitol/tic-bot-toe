@@ -11,6 +11,7 @@ import type {
   GameStatus,
   PlayerSide,
   PlayerView,
+  PromptOptions,
   RenderedPrompt,
   SetupConfig,
   SetupRecord,
@@ -196,19 +197,35 @@ export const ticTacToe: GameDefinition<TicTacToeState, number, TicTacToeView> = 
     };
   },
 
-  renderPrompt(view: PlayerView, legal: number[]): RenderedPrompt {
+  renderPrompt(view: PlayerView, legal: number[], opts?: PromptOptions): RenderedPrompt {
     const v = asTicTacToeView(view);
-    const system = [
+    const head = [
       `You are playing tic-tac-toe. You play as ${v.symbol}.`,
       `The board uses cell indices 0-8 (left-to-right, top-to-bottom).`,
       `Current board:`,
       renderAsciiBoard(v.board),
       `Occupied cells: ${renderOccupied(v.board)}`,
       `Legal moves: ${legal.join(', ')}`,
-      `Respond with ONLY a JSON object: {"move": <cell_index>}`,
-      `No explanation, no markdown, no code fences.`,
-    ].join('\n');
-    return { system, user: renderUserMessage(v) };
+    ];
+    // Reasoning mode: allow a short chain-of-thought and hand the model the
+    // priority order it otherwise fails to apply (win > block > centre >
+    // corner > edge). The answer format is unchanged — the JSON object is still
+    // the parse target — so `parseMove` and server replay don't care. `extractCell`
+    // already pulls `{"move": N}` out of surrounding prose (tier 2), so ending
+    // with it on its own line is enough.
+    const tail = opts?.reasoning
+      ? [
+          `Think it through in AT MOST two short sentences, in this priority order:`,
+          `1) if you have two-in-a-row with an empty third, take it and WIN;`,
+          `2) else if the opponent has two-in-a-row with an empty third, BLOCK it;`,
+          `3) else prefer the centre (4), then a corner (0,2,6,8), then an edge.`,
+          `Then, on the LAST line, output ONLY the move as a JSON object: {"move": <cell_index>}`,
+        ]
+      : [
+          `Respond with ONLY a JSON object: {"move": <cell_index>}`,
+          `No explanation, no markdown, no code fences.`,
+        ];
+    return { system: [...head, ...tail].join('\n'), user: renderUserMessage(v) };
   },
 
   parseMove(raw: string, legal: number[]): number | null {

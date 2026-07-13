@@ -16,6 +16,7 @@ import type {
   GameStatus,
   PlayerSide,
   PlayerView,
+  PromptOptions,
   RenderedPrompt,
   SetupConfig,
   SetupRecord,
@@ -476,22 +477,32 @@ export const battleship: GameDefinition<BattleshipState, string, BattleshipView>
     };
   },
 
-  renderPrompt(view: PlayerView, legal: string[]): RenderedPrompt {
+  renderPrompt(view: PlayerView, legal: string[], opts?: PromptOptions): RenderedPrompt {
     const v = asBattleshipView(view);
     const maxCol = COLS[v.size - 1];
-    const system = [
+    const head = [
       `You are playing Battleship on a ${v.size}x${v.size} grid. Columns A-${maxCol}, rows 1-${v.size}.`,
       `Rule: extra shot on hit: ${v.extraShotOnHit ? 'yes' : 'no'}. Ships cannot touch each other.`,
       `Your tracking board ('?' unknown, 'M' miss, 'H' hit, 'S' sunk):`,
       renderTrackingBoard(v.trackingBoard, v.size),
       `Enemy ships remaining (lengths): ${v.enemyShipsRemaining.join(', ')}`,
       `Cells not yet fired at: ${legal.join(', ')}`,
-      `Respond with ONLY a JSON object: {"shot": "<cell>"} e.g. {"shot": "C5"}`,
-      `No explanation, no markdown, no code fences.`,
-    ].join('\n');
+    ];
+    // Reasoning mode: permit a short thought and point at the one idea that
+    // matters — chase adjacent cells of an unfinished hit ('H'), otherwise
+    // hunt. Answer format unchanged (`extractShot` still reads the JSON).
+    const tail = opts?.reasoning
+      ? [
+          `Think in AT MOST two short sentences: if any 'H' cell has an un-fired neighbour, TARGET that neighbour to finish the ship; otherwise HUNT a spread-out unknown cell.`,
+          `Then, on the LAST line, output ONLY the shot as a JSON object: {"shot": "<cell>"} e.g. {"shot": "C5"}`,
+        ]
+      : [
+          `Respond with ONLY a JSON object: {"shot": "<cell>"} e.g. {"shot": "C5"}`,
+          `No explanation, no markdown, no code fences.`,
+        ];
     const user =
       v.moveHistory.length === 0 ? 'Take your first shot.' : 'Your shot.';
-    return { system, user };
+    return { system: [...head, ...tail].join('\n'), user };
   },
 
   parseMove(raw: string, legal: string[]): string | null {

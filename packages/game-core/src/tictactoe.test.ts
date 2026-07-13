@@ -222,6 +222,26 @@ describe('renderPrompt', () => {
     );
   });
 
+  it('reasoning mode allows a short chain-of-thought and still ends on the JSON contract', () => {
+    const s = play([4, 0]);
+    const view = ticTacToe.viewFor(s, 'p1');
+    const legal = ticTacToe.legalMoves(s, 'p1');
+    const { system } = ticTacToe.renderPrompt(view, legal, { reasoning: true });
+
+    // Board + legal moves are unchanged from the default prompt…
+    expect(system).toContain('Legal moves: 1, 2, 3, 5, 6, 7, 8');
+    // …but the "no explanation" gag is gone and the win/block/centre heuristic is in.
+    expect(system).not.toContain('No explanation');
+    expect(system).toMatch(/WIN/);
+    expect(system).toMatch(/BLOCK/);
+    // The parse target is still the JSON object, so parseMove / replay are unaffected.
+    expect(system).toContain('{"move": <cell_index>}');
+    // A reasoned answer that ends with the JSON still parses to the right cell.
+    expect(
+      ticTacToe.parseMove('Centre is taken, I should block at 1.\n{"move": 1}', legal),
+    ).toBe(1);
+  });
+
   it('tells the first mover they move first', () => {
     const s = ticTacToe.createInitialState(variant, {});
     const { user } = ticTacToe.renderPrompt(

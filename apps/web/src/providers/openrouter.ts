@@ -4,6 +4,7 @@ import {
   type ChatTransport,
   type LlmMoveConfig,
   type TokenPrice,
+  moveMaxTokens,
   runLlmMove,
 } from './llm-runner';
 
@@ -19,9 +20,11 @@ export interface OpenRouterConfig {
   apiKey: string;
   price?: TokenPrice;
   temperature?: number; // SPEC §8 default 0.2 (lab: 0–1.5 slider, §12.4)
-  maxTokens?: number; // SPEC §8: 50–60
+  maxTokens?: number; // SPEC §8: 50–60 (reasoning mode raises the default)
   /** Prompt-lab appendix (§12.4), appended after the core system prompt. */
   systemAppendix?: string;
+  /** Let the model reason before answering; also lifts the default max_tokens. */
+  reasoning?: boolean;
   /** HTTP-Referer / X-Title for OpenRouter attribution. */
   referer?: string;
   title?: string;
@@ -57,7 +60,7 @@ export function createOpenRouterTransport(config: OpenRouterConfig): ChatTranspo
         model: config.model,
         messages,
         temperature: config.temperature ?? 0.2,
-        max_tokens: config.maxTokens ?? 60,
+        max_tokens: config.maxTokens ?? moveMaxTokens(config.reasoning),
       }),
       signal,
     });
@@ -105,6 +108,7 @@ export function createOpenRouterPlayer(
         transport,
         price: config.price,
         systemAppendix: config.systemAppendix,
+        reasoning: config.reasoning,
         ...config.runner,
       });
     },

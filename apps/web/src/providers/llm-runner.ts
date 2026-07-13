@@ -59,10 +59,33 @@ export interface LlmMoveConfig {
    * undefined = no change. Lab matches carry `lab=true` and never touch Elo.
    */
   systemAppendix?: string;
+  /**
+   * Let the model reason briefly before answering (flows into the game's
+   * `renderPrompt`). Pairs with a higher `max_tokens` in the transport, since
+   * the terse default truncates the reasoning. Reasoning matches never rank.
+   */
+  reasoning?: boolean;
 }
 
 const DEFAULT_MAX_RETRIES = 3;
 const DEFAULT_TIMEOUT_MS = 30_000;
+
+/** Terse JSON-only default (SPEC §8: 50–60). */
+export const DEFAULT_MAX_TOKENS = 60;
+/**
+ * Reasoning mode needs room for chain-of-thought BEFORE the JSON, or the answer
+ * gets cut off mid-thought and forfeits to a random move. Generous on purpose:
+ * dedicated "thinking" models (o1 / R1 / reasoning-Grok) spend hidden reasoning
+ * tokens against this same ceiling, so a tight cap would truncate them on every
+ * move — the exact opposite of what the toggle is for. Still bounded so a
+ * runaway model can't burn the budget.
+ */
+export const REASONING_MAX_TOKENS = 1024;
+
+/** Per-move token ceiling a transport should request, given the reasoning flag. */
+export function moveMaxTokens(reasoning?: boolean): number {
+  return reasoning ? REASONING_MAX_TOKENS : DEFAULT_MAX_TOKENS;
+}
 
 function correction(legal: Move[]): string {
   return (
@@ -122,7 +145,7 @@ export async function runLlmMove(
   const now = config.now ?? defaultNow;
   const rng = config.rng ?? Math.random;
 
-  const { system, user } = def.renderPrompt(view, legal);
+  const { system, user } = def.renderPrompt(view, legal, { reasoning: config.reasoning });
   // Lab appendix goes AFTER the core prompt — the format rules must win (§12.4).
   const appendix = config.systemAppendix?.trim();
   const systemContent = appendix ? `${system}\n\n${appendix}` : system;

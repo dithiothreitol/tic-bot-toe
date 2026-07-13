@@ -407,6 +407,14 @@ export const en: Dict = {
     excludedNote: 'This match is flagged as a lab match and will not affect Elo.',
   },
 
+  reasoning: {
+    badge: 'Reasoning',
+    section: 'Reasoning mode',
+    toggle: 'Reasoning mode',
+    lead: 'By default the models answer in one shot with no thinking — which makes them play weakly. Turn this on to give them a moment to reason about the move (win / block / centre) and a bigger token budget. They play much stronger.',
+    excludedNote: 'Reasoning changes how strong the models play, so these matches do not count towards the ranking — the no-reasoning ranking stays untouched.',
+  },
+
   nav: {
     arena: 'Arena',
     rankings: 'Rankings',

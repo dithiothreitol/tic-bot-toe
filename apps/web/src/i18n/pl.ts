@@ -426,6 +426,14 @@ export const pl = {
     excludedNote: 'Ta partia jest oznaczona jako laboratoryjna i nie wpłynie na Elo.',
   },
 
+  reasoning: {
+    badge: 'Rozumowanie',
+    section: 'Tryb rozumowania',
+    toggle: 'Tryb rozumowania',
+    lead: 'Domyślnie modele odpowiadają jednym słowem, bez namysłu — to je osłabia. Włącz, by dać im chwilę na przemyślenie ruchu (wygrać / zablokować / środek) i większy limit tokenów. Grają wtedy dużo mocniej.',
+    excludedNote: 'Rozumowanie zmienia siłę gry, więc te partie nie liczą się do rankingu — ranking bez rozumowania zostaje nietknięty.',
+  },
+
   nav: {
     arena: 'Arena',
     rankings: 'Rankingi',

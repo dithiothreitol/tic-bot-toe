@@ -102,6 +102,9 @@ export function SetupScreen({
   const [labOpen, setLabOpen] = useState(false);
   const [appendix, setAppendix] = useState('');
   const [temperature, setTemperature] = useState(0.2);
+  // §8 — let the models reason before answering. Off by default (the ranking is
+  // no-reasoning); when on, the match is saved as a lab match and skips Elo.
+  const [reasoning, setReasoning] = useState(false);
   // §12.1 — commentator is OFF by default; turning it on means picking a model.
   const [commentatorOn, setCommentatorOn] = useState(false);
   const [commentatorModel, setCommentatorModel] = useState<SelectableModel | null>(null);
@@ -206,7 +209,7 @@ export function SetupScreen({
               name: commentatorModel.name,
             }
           : undefined;
-    const base = { game, variant, seed: randomSeed(), lab: labOpen, commentator };
+    const base = { game, variant, seed: randomSeed(), lab: labOpen, reasoning, commentator };
     const config: MatchConfig =
       mode === 'model_vs_model'
         ? {
@@ -386,6 +389,25 @@ export function SetupScreen({
                 </div>
               )}
             </div>
+          )}
+        </section>
+
+        <section className="flex flex-col gap-3 border-t border-border/60 pt-5">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-col gap-1">
+              <SectionLabel>{t.reasoning.section}</SectionLabel>
+              <p className="max-w-prose text-xs text-muted-foreground">{t.reasoning.lead}</p>
+            </div>
+            <Switch
+              checked={reasoning}
+              onCheckedChange={setReasoning}
+              aria-label={t.reasoning.toggle}
+            />
+          </div>
+          {reasoning && (
+            <p className="clip-cut border border-p2/30 bg-p2/5 p-3 font-mono text-[10px] uppercase tracking-wider text-p2/80">
+              {t.reasoning.excludedNote}
+            </p>
           )}
         </section>
 

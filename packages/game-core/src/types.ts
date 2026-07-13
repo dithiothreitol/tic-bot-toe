@@ -53,6 +53,25 @@ export interface RenderedPrompt {
   user: string;
 }
 
+/**
+ * Prompt-shaping knobs handed to `renderPrompt`. Empty/undefined = the fixed
+ * SPEC §8 default (terse, JSON-only, no reasoning).
+ */
+export interface PromptOptions {
+  /**
+   * Let the model reason briefly before answering and drop the "no explanation"
+   * gag. This is the single biggest lever on real playing strength for a game
+   * like tic-tac-toe — the default prompt forbids chain-of-thought, which is
+   * exactly what these models need to stop blundering. Callers pair it with a
+   * higher `max_tokens` (the terse default truncates the reasoning otherwise).
+   *
+   * It NEVER changes the move format: the answer is still the same JSON object,
+   * so `parseMove` and server-side replay are untouched. Because it changes how
+   * strong a model plays, reasoning matches are kept out of Elo (saved as lab).
+   */
+  reasoning?: boolean;
+}
+
 /** Per-move telemetry collected by every provider (SPEC §5, §9). */
 export interface MoveTelemetry {
   /** fetch → response, summed across retries. */
@@ -174,7 +193,7 @@ export interface GameDefinition<
   status(state: S): GameStatus;
   /** Hidden-information games: never leak the opponent's secret state. */
   viewFor(state: S, player: PlayerSide): V;
-  renderPrompt(view: V, legal: M[]): RenderedPrompt;
+  renderPrompt(view: V, legal: M[], opts?: PromptOptions): RenderedPrompt;
   parseMove(raw: string, legal: M[]): M | null;
   serializeSetup(state: S): SetupRecord;
   /** Optional post-game analysis (SPEC §12.2), added per game in Stage 10. */

@@ -2,7 +2,7 @@ import type { Move, MoveResult, Player, PlayerView } from '@arena/game-core';
 
 import { useModelLoad } from '@/store/model-load';
 
-import { type ChatTransport, type LlmMoveConfig, runLlmMove } from './llm-runner';
+import { type ChatTransport, type LlmMoveConfig, moveMaxTokens, runLlmMove } from './llm-runner';
 
 /**
  * WebLLM provider (SPEC §2.2): runs small models in-browser via WebGPU — free,
@@ -84,6 +84,8 @@ export interface WebLlmConfig {
   maxTokens?: number;
   /** Prompt-lab appendix (§12.4), appended after the core system prompt. */
   systemAppendix?: string;
+  /** Let the model reason before answering; also lifts the default max_tokens. */
+  reasoning?: boolean;
   factory?: WebLlmEngineFactory;
   runner?: Pick<LlmMoveConfig, 'maxRetries' | 'timeoutMs' | 'rng' | 'now'>;
   /** Override the progress reporter (defaults to the model-load store). */
@@ -110,7 +112,7 @@ export function createWebLlmTransport(
     const completion = await engine.chat.completions.create({
       messages,
       temperature: config.temperature ?? 0.2,
-      max_tokens: config.maxTokens ?? 60,
+      max_tokens: config.maxTokens ?? moveMaxTokens(config.reasoning),
       stream: false,
     });
     return {
@@ -136,6 +138,7 @@ export function createWebLlmPlayer(
       return runLlmMove(view, legal, {
         transport,
         systemAppendix: config.systemAppendix,
+        reasoning: config.reasoning,
         ...config.runner,
       });
     },
