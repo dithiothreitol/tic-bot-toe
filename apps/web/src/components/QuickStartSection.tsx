@@ -22,7 +22,10 @@ export function QuickStartSection() {
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {t.quickStart.steps.map((step, i) => (
-          <HudPanel key={step.title} className="flex flex-col gap-2 p-3">
+          <HudPanel key={step.title} className="flex flex-col gap-2 overflow-hidden p-3">
+            {/* Full-bleed header art: pull it out of the panel padding so the
+                graphic fills the whole top edge-to-edge, and cover (not contain)
+                so there's no letterboxing around it. */}
             <img
               src={STEP_ART[i]}
               alt=""
@@ -30,7 +33,7 @@ export function QuickStartSection() {
               loading="lazy"
               width={1000}
               height={400}
-              className="clip-tab h-28 w-full bg-card-inset object-contain"
+              className="-mx-3 -mt-3 mb-1 h-28 w-[calc(100%+1.5rem)] max-w-none border-b border-border-soft bg-card-inset object-cover"
             />
             <div className="flex items-baseline gap-2">
               <span className="font-mono text-[11px] text-p1">{`0${i + 1}`}</span>
