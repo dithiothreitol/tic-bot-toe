@@ -27,10 +27,12 @@ import {
   type MoveTelemetry,
   type PlayerSide,
   type Variant,
+  BATTLESHIP_VARIANTS,
   TICTACTOE_VARIANTS,
+  getBattleshipVariant,
   getGame,
 } from '@arena/game-core';
-import { randomUUID } from 'node:crypto';
+import { randomInt, randomUUID } from 'node:crypto';
 
 import { createDb } from '../src/db/client';
 import { type ResultMove, type ResultPayload, submitResult } from '../src/db/results';
@@ -48,6 +50,9 @@ const MODELS = (process.env.SEED_MODELS ??
   .map((s) => s.trim())
   .filter(Boolean);
 const GAMES_PER_PAIR = Number(process.env.SEED_GAMES_PER_PAIR ?? 2);
+const GAME: GameId = (process.env.SEED_GAME as GameId) ?? 'tictactoe';
+// Battleship variant id (small=6×6 is quickest). Ignored for tic-tac-toe.
+const VARIANT_ID = process.env.SEED_VARIANT ?? 'small';
 /** Spacing between model calls — free endpoints are rate-limited (429). */
 const MOVE_DELAY_MS = Number(process.env.SEED_MOVE_DELAY_MS ?? 700);
 
@@ -166,11 +171,16 @@ async function playGame(
   prices: Map<string, Price>,
 ): Promise<ResultPayload> {
   const def = getGame(game) as GameDefinition<unknown, Move>;
-  let state = def.createInitialState(variant, {});
+  // Battleship auto-places both fleets from the seed (no human placement in a
+  // model-vs-model game); a fresh seed per game keeps boards — and moves_hash —
+  // distinct. Tic-tac-toe ignores the seed. The safety cap mirrors runMatch.
+  const size = game === 'battleship' ? getBattleshipVariant(variant.id).size : 3;
+  const maxMoves = game === 'battleship' ? 2 * size * size : 9;
+  let state = def.createInitialState(variant, { seed: randomInt(2 ** 31) });
   const moves: ResultMove[] = [];
   const modelOf: Record<PlayerSide, string> = { p1, p2 };
 
-  while (def.status(state) === 'playing' && moves.length < 9) {
+  while (def.status(state) === 'playing' && moves.length < maxMoves) {
     const side = def.currentPlayer(state);
     const view = def.viewFor(state, side);
     const legal = def.legalMoves(state, side);
@@ -209,7 +219,11 @@ async function main(): Promise<void> {
   if (unknown.length) console.warn(`[seed] not in catalog, playing anyway: ${unknown.join(', ')}`);
 
   const { db, close } = createDb(DATABASE_URL);
-  const variant = TICTACTOE_VARIANTS[0];
+  const variant =
+    GAME === 'battleship'
+      ? (BATTLESHIP_VARIANTS.find((v) => v.id === VARIANT_ID) ?? BATTLESHIP_VARIANTS[0])
+      : TICTACTOE_VARIANTS[0];
+  console.log(`[seed] game=${GAME} variant=${variant.id}`);
 
   // Round-robin so every pair shares games → the Compare view has data.
   const pairs: Array<[string, string]> = [];
@@ -223,7 +237,7 @@ async function main(): Promise<void> {
   let ranked = 0;
   for (const [p1, p2] of pairs) {
     for (let g = 0; g < GAMES_PER_PAIR; g++) {
-      const payload = await playGame('tictactoe', variant, p1, p2, prices);
+      const payload = await playGame(GAME, variant, p1, p2, prices);
       const r = await submitResult(db, randomUUID(), payload, null, {});
       if (r.ok) {
         saved++;
