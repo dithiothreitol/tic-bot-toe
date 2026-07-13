@@ -56,6 +56,10 @@ services:
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
       TURNSTILE_SECRET: ${TURNSTILE_SECRET:?set TURNSTILE_SECRET in .env}
       ENABLE_OLLAMA: ${ENABLE_OLLAMA:-false}
+      # Funded AI coach (§12.1). Runtime secret (NOT a build-arg) — empty = coach
+      # off, BYOK commentator still works. Own var, separate from asset-gen.
+      GEMINI_COACH_API_KEY: ${GEMINI_COACH_API_KEY:-}
+      GEMINI_COACH_MODEL: ${GEMINI_COACH_MODEL:-gemini-3.5-flash}
       # Za Caddy — ufamy X-Forwarded-For (IP klienta, rate-limit, schemat origin).
       TRUSTED_PROXY: 'true'
       PORT: 8080
