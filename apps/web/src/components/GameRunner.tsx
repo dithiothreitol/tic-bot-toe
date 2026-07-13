@@ -162,6 +162,28 @@ function statusToWinnerSide(status: GameStatus): PlayerSide | null {
   return null;
 }
 
+/**
+ * A model that can't move forfeits to a random legal move (§8). Left silent,
+ * that reads as "only the algorithm plays" — a key can pass the validity test
+ * yet still 402/429 on every completion. So when a forfeit names a cause, say
+ * so: what happened, to which model, and that the moves are now random. `null`
+ * for a plain forfeit with no known cause (nothing actionable to add).
+ */
+function forfeitToast(
+  entry: MoveLogEntry,
+  names: { p1: string; p2: string },
+  t: Dict,
+): { message: string; hard: boolean } | null {
+  const reason = entry.telemetry.error;
+  if (!entry.telemetry.forfeit || !reason) return null;
+  const name = entry.player === 'p1' ? names.p1 : names.p2;
+  const message = `${t.moveError[reason].replace('{name}', name)} ${t.moveError.playingRandom}`;
+  // A config problem (no credits / bad key / dead model) needs the user to act;
+  // the rest is transient noise from the provider.
+  const hard = reason === 'no_credits' || reason === 'auth' || reason === 'unavailable';
+  return { message, hard };
+}
+
 /** Turn an anti-bot rejection (§15.3) into something a person can act on. */
 function saveErrorMessage(e: unknown, t: Dict): string {
   const reason = e instanceof ApiError ? e.message : '';
@@ -197,6 +219,9 @@ export function GameRunner({
   /** Opaque per-match id for the home-page live counter — no identity is sent. */
   const liveIdRef = useRef<string>('');
   if (!liveIdRef.current) liveIdRef.current = randomToken();
+  /** Forfeit reasons already surfaced this match, so a persistent failure (e.g.
+   *  every move 402s) toasts once per cause instead of once per move. */
+  const forfeitToastedRef = useRef<Set<string>>(new Set());
 
   /**
    * Viewer prediction (§12.5). The bet must be placed BEFORE the first move, so
@@ -244,6 +269,7 @@ export function GameRunner({
     setPredictionResult(null);
     setDailyClaim(null);
     setCommentary([]);
+    forfeitToastedRef.current = new Set();
 
     // §12.1 — a third model narrating. It never enters `players`, so it cannot
     // influence a single move; it only watches. Comments land asynchronously.
@@ -320,6 +346,14 @@ export function GameRunner({
       onMove: (entry, snap) => {
         setLog((l) => [...l, entry]);
         applySnap(snap);
+
+        // A forfeit with a named cause is why the match "only plays algo" — tell
+        // the user once per cause, not once per move.
+        const forfeit = forfeitToast(entry, config.names, t);
+        if (forfeit && entry.telemetry.error && !forfeitToastedRef.current.has(entry.telemetry.error)) {
+          forfeitToastedRef.current.add(entry.telemetry.error);
+          (forfeit.hard ? toast.error : toast.warning)(forfeit.message, { duration: 8000 });
+        }
 
         if (commentator && prevState !== null) {
           const quality = classifyLastMove(config.game, prevState, entry.player, entry.move);

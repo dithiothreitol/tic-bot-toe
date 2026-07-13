@@ -3,6 +3,7 @@ import { TICTACTOE_VARIANTS, ticTacToe } from '@arena/game-core';
 import {
   type ChatCompletion,
   type ChatMessage,
+  classifyTransportError,
   runLlmMove,
 } from './llm-runner';
 
@@ -112,6 +113,45 @@ describe('runLlmMove', () => {
     expect(result.telemetry.latencyMs).toBe(40);
   });
 
+  it('names no_credits on a forfeit when the transport 402s every attempt', async () => {
+    const { view, legal } = viewAndLegal();
+    const { transport } = scriptedTransport([new Error('OpenRouter 402: insufficient credits')]);
+
+    const result = await runLlmMove(view, legal, { transport, rng: () => 0 });
+
+    expect(result.telemetry.forfeit).toBe(true);
+    expect(result.telemetry.error).toBe('no_credits');
+  });
+
+  it('names rate_limited on a forfeit when the transport 429s every attempt', async () => {
+    const { view, legal } = viewAndLegal();
+    const { transport } = scriptedTransport([new Error('OpenRouter 429: rate limit')]);
+
+    const result = await runLlmMove(view, legal, { transport, rng: () => 0 });
+
+    expect(result.telemetry.error).toBe('rate_limited');
+  });
+
+  it('names bad_output when the model answers but never gives a legal move', async () => {
+    const { view, legal } = viewAndLegal();
+    const { transport } = scriptedTransport([{ text: 'no valid move here' }]);
+
+    const result = await runLlmMove(view, legal, { transport, rng: () => 0 });
+
+    expect(result.telemetry.forfeit).toBe(true);
+    expect(result.telemetry.error).toBe('bad_output');
+  });
+
+  it('leaves error unset on a successful move', async () => {
+    const { view, legal } = viewAndLegal();
+    const { transport } = scriptedTransport([{ text: '{"move": 4}' }]);
+
+    const result = await runLlmMove(view, legal, { transport });
+
+    expect(result.telemetry.forfeit).toBe(false);
+    expect(result.telemetry.error).toBeUndefined();
+  });
+
   it('picks the forfeit move deterministically from rng', async () => {
     const { view, legal } = viewAndLegal();
     const { transport } = scriptedTransport([{ text: 'garbage' }]);
@@ -197,5 +237,29 @@ describe('runLlmMove', () => {
 
     const { system: core } = ticTacToe.renderPrompt(view, legal);
     expect(calls[0][0].content).toBe(core);
+  });
+});
+
+describe('classifyTransportError', () => {
+  it('maps HTTP statuses from provider error messages', () => {
+    expect(classifyTransportError(new Error('OpenRouter 429: rate'))).toBe('rate_limited');
+    expect(classifyTransportError(new Error('OpenRouter 402: no funds'))).toBe('no_credits');
+    expect(classifyTransportError(new Error('OpenRouter 401: bad key'))).toBe('auth');
+    expect(classifyTransportError(new Error('OpenRouter 403: forbidden'))).toBe('auth');
+    expect(classifyTransportError(new Error('OpenRouter 404: no model'))).toBe('unavailable');
+    expect(classifyTransportError(new Error('Ollama 500'))).toBe('unavailable');
+  });
+
+  it('maps aborts / timeouts', () => {
+    const abort = new Error('The operation was aborted');
+    abort.name = 'AbortError';
+    expect(classifyTransportError(abort)).toBe('timeout');
+    expect(classifyTransportError(new Error('request timed out'))).toBe('timeout');
+  });
+
+  it('falls back to network for an unrecognised shape', () => {
+    expect(classifyTransportError(new Error('Failed to fetch'))).toBe('network');
+    expect(classifyTransportError('boom')).toBe('network');
+    expect(classifyTransportError(null)).toBe('network');
   });
 });

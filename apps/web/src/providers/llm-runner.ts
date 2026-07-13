@@ -1,6 +1,7 @@
 import {
   type GameDefinition,
   type Move,
+  type MoveErrorReason,
   type MoveResult,
   type MoveTelemetry,
   type PlayerView,
@@ -100,6 +101,25 @@ function defaultNow(): number {
     : Date.now();
 }
 
+/**
+ * Name why a transport call failed so the UI can tell the player what to do,
+ * instead of silently substituting a random move. Providers throw
+ * `Error("OpenRouter 429: …")` / `Error("Ollama 500")`; an abort is the
+ * per-move timeout. The HTTP status leads the message, so the first 3-digit run
+ * is the status. Unknown shapes fall back to `network`.
+ */
+export function classifyTransportError(err: unknown): MoveErrorReason {
+  if (err instanceof Error && err.name === 'AbortError') return 'timeout';
+  const msg = err instanceof Error ? err.message : String(err ?? '');
+  if (/(abort|time\s?d?\s?out)/i.test(msg)) return 'timeout';
+  const status = /\b([45]\d\d)\b/.exec(msg)?.[1];
+  if (status === '429') return 'rate_limited';
+  if (status === '402') return 'no_credits';
+  if (status === '401' || status === '403') return 'auth';
+  if (status === '404' || status?.startsWith('5')) return 'unavailable';
+  return 'network';
+}
+
 interface TelemetryAccumulator {
   latencyMs: number;
   promptTokens: number;
@@ -112,12 +132,15 @@ function finalizeTelemetry(
   retries: number,
   forfeit: boolean,
   price: TokenPrice | undefined,
+  error?: MoveErrorReason,
 ): MoveTelemetry {
   const telemetry: MoveTelemetry = {
     latencyMs: Math.round(acc.latencyMs),
     retries,
     forfeit,
   };
+  // A named cause rides along only with a forfeit — a successful move has none.
+  if (forfeit && error) telemetry.error = error;
   // Missing token usage stays `undefined` (rendered as "—", never 0 — SPEC §20.1).
   if (acc.sawTokens) {
     telemetry.promptTokens = acc.promptTokens;
@@ -160,6 +183,9 @@ export async function runLlmMove(
     completionTokens: 0,
     sawTokens: false,
   };
+  // The last transport rejection, kept so a forfeit can name WHY (429 / 402 /
+  // timeout …) instead of masquerading as a random "algo" move.
+  let lastTransportError: unknown = null;
 
   // Attempt 0 is the first try; `retries` corrective retries follow (max 3 →
   // up to 4 calls). retries lands in 0..maxRetries, matching MoveTelemetry.
@@ -170,8 +196,10 @@ export async function runLlmMove(
     let completion: ChatCompletion | null = null;
     try {
       completion = await config.transport(messages, controller.signal);
-    } catch {
-      // Network / timeout / abort — a failed attempt; keep retrying.
+    } catch (err) {
+      // Network / timeout / abort — a failed attempt; keep retrying, but keep
+      // the reason for the forfeit telemetry.
+      lastTransportError = err;
     } finally {
       clearTimeout(timer);
       acc.latencyMs += Math.max(0, now() - start);
@@ -200,10 +228,15 @@ export async function runLlmMove(
     }
   }
 
-  // Exhausted retries → random legal move, forfeit flagged.
+  // Exhausted retries → random legal move, forfeit flagged. Name the cause: a
+  // transport failure (429/402/timeout/…) if one occurred, else `bad_output`
+  // (the model answered but never gave a legal move).
+  const reason: MoveErrorReason = lastTransportError
+    ? classifyTransportError(lastTransportError)
+    : 'bad_output';
   const forfeitMove = legal[Math.floor(rng() * legal.length)] ?? legal[0]!;
   return {
     move: forfeitMove,
-    telemetry: finalizeTelemetry(acc, maxRetries, true, config.price),
+    telemetry: finalizeTelemetry(acc, maxRetries, true, config.price, reason),
   };
 }

@@ -73,6 +73,23 @@ export interface PromptOptions {
 }
 
 /** Per-move telemetry collected by every provider (SPEC §5, §9). */
+/**
+ * Why a forfeit happened (SPEC §8). Set ONLY when `forfeit` is true and the
+ * cause is known — it turns "the app silently plays random moves" into an
+ * actionable message. A key can pass the `/key` validity test yet still fail
+ * every completion (no balance / throttled / dead model), which is exactly the
+ * case this names. `bad_output` means the model answered but never produced a
+ * legal move. Runtime diagnostic only: the server strips it on save.
+ */
+export type MoveErrorReason =
+  | 'rate_limited' // HTTP 429 — free model throttled / burst limit hit
+  | 'no_credits' // HTTP 402 — key valid but the account has no balance
+  | 'auth' // HTTP 401/403 — key rejected for this call
+  | 'unavailable' // HTTP 404/5xx — model id dead or provider down
+  | 'timeout' // per-move deadline hit / request aborted
+  | 'network' // fetch failed (offline / CORS)
+  | 'bad_output'; // model responded but never gave a legal move
+
 export interface MoveTelemetry {
   /** fetch → response, summed across retries. */
   latencyMs: number;
@@ -83,6 +100,8 @@ export interface MoveTelemetry {
   retries: number;
   /** A random legal move was substituted after exhausting retries. */
   forfeit: boolean;
+  /** Why the forfeit happened, when known — set only alongside `forfeit`. */
+  error?: MoveErrorReason;
   /** tokens × price snapshot from the catalog at match time. */
   costUsd?: number;
 }

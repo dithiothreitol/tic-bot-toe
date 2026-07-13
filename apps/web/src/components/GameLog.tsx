@@ -71,6 +71,7 @@ export function GameLog({ moves, names, commentary = [], className }: GameLogPro
               {m.telemetry.forfeit && (
                 <Badge variant="destructive" className="h-4 px-1 text-[10px]">
                   {t.log.forfeit}
+                  {m.telemetry.error && ` · ${t.log.reason[m.telemetry.error]}`}
                 </Badge>
               )}
             </li>

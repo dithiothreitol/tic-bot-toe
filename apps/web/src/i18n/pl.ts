@@ -247,6 +247,32 @@ export const pl = {
     cost: 'koszt',
     retry: 'retry',
     forfeit: 'wymuszony',
+    // Krótka etykieta przyczyny wymuszonego ruchu (obok znacznika „wymuszony").
+    reason: {
+      rate_limited: 'limit',
+      no_credits: 'brak środków',
+      auth: 'klucz',
+      unavailable: 'niedostępny',
+      timeout: 'timeout',
+      network: 'sieć',
+      bad_output: 'zła odpowiedź',
+    },
+  },
+
+  // Model nie zagrał realnego ruchu — nazwij powód, zamiast po cichu grać losowo.
+  moveError: {
+    // {name} = nazwa modelu. Sufiks wspólny dla wszystkich powodów.
+    playingRandom: 'Ruchy tego modelu są teraz losowe.',
+    rate_limited:
+      '{name}: OpenRouter ogranicza zapytania (429). Darmowe modele są mocno limitowane — poczekaj chwilę albo wybierz model płatny.',
+    no_credits:
+      '{name}: brak środków na koncie OpenRouter (402). Klucz jest ważny, ale konto nie ma budżetu — doładuj je albo wybierz darmowy model.',
+    auth: '{name}: OpenRouter odrzucił klucz przy tym modelu (401/403).',
+    unavailable:
+      '{name}: model niedostępny (404/5xx) — zły identyfikator albo awaria dostawcy. Wybierz inny model.',
+    timeout: '{name}: model nie odpowiedział na czas.',
+    network: '{name}: błąd sieci przy wywołaniu modelu (offline lub CORS).',
+    bad_output: '{name}: model odpowiada, ale nie trzyma się formatu ruchu.',
   },
 
   result: {

@@ -234,6 +234,33 @@ export const en: Dict = {
     cost: 'cost',
     retry: 'retry',
     forfeit: 'forced',
+    // Short label for why a move was forced (next to the "forced" badge).
+    reason: {
+      rate_limited: 'rate limit',
+      no_credits: 'no credits',
+      auth: 'key',
+      unavailable: 'unavailable',
+      timeout: 'timeout',
+      network: 'network',
+      bad_output: 'bad reply',
+    },
+  },
+
+  // The model never made a real move — name the cause instead of silently
+  // playing random.
+  moveError: {
+    // {name} = model name. Shared suffix for every reason.
+    playingRandom: "This model's moves are now random.",
+    rate_limited:
+      '{name}: OpenRouter is rate-limiting requests (429). Free models are heavily throttled — wait a moment or pick a paid model.',
+    no_credits:
+      '{name}: no balance on the OpenRouter account (402). The key is valid but the account has no budget — top it up or pick a free model.',
+    auth: '{name}: OpenRouter rejected the key for this model (401/403).',
+    unavailable:
+      '{name}: model unavailable (404/5xx) — bad id or provider outage. Pick another model.',
+    timeout: '{name}: the model did not answer in time.',
+    network: '{name}: network error calling the model (offline or CORS).',
+    bad_output: "{name}: the model responds but doesn't follow the move format.",
   },
 
   result: {
