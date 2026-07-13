@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useShell } from '@/App';
 import { DailyChallengeCard } from '@/components/DailyChallengeCard';
 import { type MatchConfig, GameRunner } from '@/components/GameRunner';
+import { LiveStats } from '@/components/LiveStats';
 import { QuickStartSection } from '@/components/QuickStartSection';
 import { SetupScreen } from '@/components/SetupScreen';
 import { SectionLabel } from '@/components/ui/hud';
@@ -43,6 +44,10 @@ export function ArenaPage() {
             </h1>
             <p className="max-w-prose text-sm text-muted-foreground">{t.arena.lead}</p>
           </header>
+
+          {/* Live pulse: matches in progress + tokens burned. Polls on a timer,
+              hides itself when there is nothing to show. */}
+          <LiveStats />
 
           {/* §12.6 — remounts on return to setup, so the streak refreshes itself. */}
           <DailyChallengeCard onStart={start} onOpenSettings={openSettings} />

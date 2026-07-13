@@ -24,15 +24,22 @@ function authHeaders(auth: ApiAuth = {}): Record<string, string> {
   };
 }
 
-export async function apiGet<T>(path: string, auth: ApiAuth = {}): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, { headers: authHeaders(auth) });
-  if (!res.ok) throw new ApiError(res.status, `GET ${path} → ${res.status}`);
-  return (await res.json()) as T;
-}
-
 /** Optional per-call knobs — `signal` lets a caller cancel/timeout the request. */
 export interface RequestOpts {
   signal?: AbortSignal;
+}
+
+export async function apiGet<T>(
+  path: string,
+  auth: ApiAuth = {},
+  opts: RequestOpts = {},
+): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, {
+    headers: authHeaders(auth),
+    ...(opts.signal ? { signal: opts.signal } : {}),
+  });
+  if (!res.ok) throw new ApiError(res.status, `GET ${path} → ${res.status}`);
+  return (await res.json()) as T;
 }
 
 export async function apiPost<T>(

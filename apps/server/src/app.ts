@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 
 import type { Config } from './config';
 import type { Database } from './db/client';
+import { LiveRegistry } from './lib/live';
 import { rateLimit } from './middleware/rate-limit';
 import { securityHeaders } from './middleware/security';
 import { eloHistoryRoute, headToHeadRoute } from './routes/analytics';
@@ -9,6 +10,7 @@ import { commentaryRoute } from './routes/commentary';
 import { dailyRoute } from './routes/daily';
 import { healthRoute } from './routes/health';
 import { leaderboardRoute } from './routes/leaderboard';
+import { liveRoute } from './routes/live';
 import { matchStartRoute } from './routes/match';
 import { matchesRoute, replayRoute } from './routes/matches';
 import { modelRoute } from './routes/model';
@@ -72,6 +74,16 @@ export function buildApp(deps: AppDeps): Hono {
     rateLimit('match', 120, { trustedProxy: deps.config.trustedProxy, now: deps.now }),
   );
   api.route('/match', matchStartRoute({ config: deps.config }));
+
+  // Home-page "arena pulse": an in-memory counter of matches in progress plus
+  // cumulative token spend. Mounted with or without a DB — the live counter runs
+  // on its own; the token totals stay null until a DB is configured. The limit is
+  // generous: a client both heartbeats a running match and polls the home page,
+  // and several people can share one NAT'd IP, but each call is cheap.
+  const live = new LiveRegistry();
+  api.use('/live', rateLimit('live', 1200, { trustedProxy: deps.config.trustedProxy, now: deps.now }));
+  api.use('/live/*', rateLimit('live', 1200, { trustedProxy: deps.config.trustedProxy, now: deps.now }));
+  api.route('/live', liveRoute({ registry: live, db: deps.db, now: deps.now }));
 
   if (deps.db) {
     api.use(

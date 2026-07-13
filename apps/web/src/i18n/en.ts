@@ -31,6 +31,15 @@ export const en: Dict = {
     lead: 'Pick a game, the opponents and a mode. After a few matches you will see how models actually differ — without reading a single benchmark.',
   },
 
+  live: {
+    kicker: 'Live',
+    heading: 'matches in progress',
+    hvm: 'human vs model',
+    mvm: 'model vs model',
+    none: 'Nobody is playing right now — start the first match.',
+    tokensBurned: 'tokens burned on matches',
+  },
+
   games: {
     tictactoe: 'Tic-tac-toe',
     battleship: 'Battleship',

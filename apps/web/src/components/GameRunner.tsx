@@ -44,6 +44,7 @@ import {
   claimDaily,
   submitPrediction,
 } from '@/api/community';
+import { pingLive, stopLive } from '@/api/live';
 import { fetchStartToken } from '@/api/match';
 import { saveResult } from '@/api/results';
 import {
@@ -61,6 +62,7 @@ import { createOpenRouterTransport } from '@/providers/openrouter';
 import { createWebLlmTransport } from '@/providers/webllm';
 import { getOpenRouterKey } from '@/store/settings';
 import { type Dict, useLocale, useLocalePath, useT } from '@/i18n';
+import { randomToken } from '@/lib/id';
 import { formatCost, formatMs, formatTokens } from '@/lib/format';
 import { type SideTotals, sideTotals } from '@/lib/telemetry';
 import { cn } from '@/lib/utils';
@@ -96,6 +98,13 @@ async function copyReplayLink(path: string, copied: string): Promise<void> {
 }
 
 const EMPTY_TTT: TicTacToeCell[] = Array<TicTacToeCell>(9).fill(null);
+
+/**
+ * How often a running match reports itself to the home-page "live" counter.
+ * Comfortably inside the server's entry TTL (see server `lib/live`), so a single
+ * dropped beat never makes the match blink out of the count.
+ */
+const LIVE_BEAT_MS = 20_000;
 
 export interface MatchConfig {
   game: GameId;
@@ -185,6 +194,9 @@ export function GameRunner({
   const humansRef = useRef<Partial<Record<PlayerSide, HumanPlayerHandle>>>({});
   /** Server-stamped start of this match — proves the person really spent the time (§15.3). */
   const startTokenRef = useRef<string | null>(null);
+  /** Opaque per-match id for the home-page live counter — no identity is sent. */
+  const liveIdRef = useRef<string>('');
+  if (!liveIdRef.current) liveIdRef.current = randomToken();
 
   /**
    * Viewer prediction (§12.5). The bet must be placed BEFORE the first move, so
@@ -338,6 +350,27 @@ export function GameRunner({
       commentator?.stop();
     };
   }, [config, restartKey, placement, needsPlacement, needsPrediction, humanSide]);
+
+  // Feed the home-page "live" counter while the match is actually being played.
+  // Best-effort heartbeat: it pings on start and every LIVE_BEAT_MS, and drops the
+  // match the moment it ends or the component unmounts. Kept out of the run-loop
+  // effect above so a beat never perturbs the game itself.
+  const matchLive =
+    !needsPlacement && !needsPrediction && status === 'playing' && outcome === null;
+  useEffect(() => {
+    if (!matchLive) return;
+    const id = liveIdRef.current;
+    const mode = config.mode;
+    const ctrl = new AbortController();
+    const beat = () => void pingLive(id, mode, { signal: ctrl.signal });
+    beat();
+    const interval = window.setInterval(beat, LIVE_BEAT_MS);
+    return () => {
+      window.clearInterval(interval);
+      ctrl.abort();
+      stopLive(id);
+    };
+  }, [matchLive, config.mode]);
 
   const isHumanTurn =
     status === 'playing' && outcome === null && humansRef.current[toMove] !== undefined;

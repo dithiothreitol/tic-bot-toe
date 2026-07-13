@@ -86,6 +86,47 @@ describe('POST /api/verify (Turnstile → JWT)', () => {
   });
 });
 
+describe('/api/live (arena pulse)', () => {
+  const postLive = (app: ReturnType<typeof buildApp>, body: unknown, path = '/api/live') =>
+    app.request(path, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+
+  it('starts empty, with null totals when no DB is configured', async () => {
+    const res = await buildApp({ config }).request('/api/live');
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      live: { model_vs_model: 0, human_vs_model: 0, total: 0 },
+      totals: null,
+    });
+  });
+
+  it('counts a heartbeat and splits it by mode', async () => {
+    const app = buildApp({ config });
+    await postLive(app, { id: 'm1', mode: 'model_vs_model' });
+    await postLive(app, { id: 'h1', mode: 'human_vs_model' });
+    const res = await app.request('/api/live');
+    expect(await res.json()).toMatchObject({
+      live: { model_vs_model: 1, human_vs_model: 1, total: 2 },
+    });
+  });
+
+  it('drops a match on /stop', async () => {
+    const app = buildApp({ config });
+    await postLive(app, { id: 'm1', mode: 'model_vs_model' });
+    await postLive(app, { id: 'm1' }, '/api/live/stop');
+    const res = await app.request('/api/live');
+    expect(await res.json()).toMatchObject({ live: { total: 0 } });
+  });
+
+  it('rejects a heartbeat with a bad mode', async () => {
+    const res = await postLive(buildApp({ config }), { id: 'm1', mode: 'nope' });
+    expect(res.status).toBe(400);
+  });
+});
+
 describe('security headers (SPEC §16)', () => {
   it('pins a CSP to openrouter + turnstile and sets nosniff', async () => {
     const res = await buildApp({ config }).request('/api/health');

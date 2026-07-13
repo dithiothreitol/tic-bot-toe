@@ -31,6 +31,16 @@ export const pl = {
     lead: 'Wybierz grę, przeciwników i tryb. Po kilku partiach zobaczysz, czym różnią się modele — bez czytania benchmarków.',
   },
 
+  /** Pasek „na żywo" na stronie głównej: partie w toku + spalone tokeny. */
+  live: {
+    kicker: 'Na żywo',
+    heading: 'partie w toku',
+    hvm: 'człowiek vs model',
+    mvm: 'model vs model',
+    none: 'Nikt teraz nie gra — rozpocznij pierwszą partię.',
+    tokensBurned: 'tokenów spalonych na partie',
+  },
+
   games: {
     tictactoe: 'Kółko i krzyżyk',
     battleship: 'Statki',
