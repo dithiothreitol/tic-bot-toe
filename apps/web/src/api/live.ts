@@ -19,8 +19,11 @@ export interface LiveCounts {
 
 export interface LiveStats {
   live: LiveCounts;
-  /** `null` when the server has no ranking DB configured. */
-  totals: { tokens: number } | null;
+  /**
+   * Cumulative counters across ALL finished matches — saved to the ranking or
+   * not (see server `lib/arena-totals`). `null` when the server has no DB.
+   */
+  totals: { games: number; tokens: number } | null;
 }
 
 /** Home-page poll: live counts + cumulative token spend. */
@@ -44,4 +47,14 @@ export async function pingLive(id: string, mode: LiveMode, opts?: RequestOpts): 
 /** Best-effort "match ended" — drops the entry so the counter falls at once. */
 export function stopLive(id: string): void {
   void apiPost('/api/live/stop', { id }).catch(() => {});
+}
+
+/**
+ * Best-effort "match finished" — folds one completed match into the cumulative
+ * games/tokens counters on the home page. Fired once per match, independent of
+ * whether the player saves it to the ranking. `tokens` is the total prompt +
+ * completion tokens the models spent in the match (0 for a human-only game).
+ */
+export function reportFinish(id: string, mode: LiveMode, game: string, tokens: number): void {
+  void apiPost('/api/live/finish', { id, mode, game, tokens }).catch(() => {});
 }

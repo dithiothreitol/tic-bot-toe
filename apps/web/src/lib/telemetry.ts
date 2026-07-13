@@ -16,19 +16,29 @@ export interface TimelinePoint {
   seconds: number;
   retries: number;
   forfeit: boolean;
+  /** Prompt + completion tokens for this move; null when none reported (a human
+   *  move, or a provider that omits usage) — shown as "—", never 0 (SPEC §20). */
+  tokens: number | null;
 }
 
 /** Per-move thinking time for the live bar chart (§9.3.1). */
 export function buildTimeline(log: MoveLogEntry[]): TimelinePoint[] {
-  return log.map((m) => ({
-    index: m.index + 1,
-    label: `#${m.index + 1}`,
-    player: m.player,
-    latencyMs: m.telemetry.latencyMs,
-    seconds: Math.round((m.telemetry.latencyMs / 1000) * 100) / 100,
-    retries: m.telemetry.retries,
-    forfeit: m.telemetry.forfeit,
-  }));
+  return log.map((m) => {
+    const reported =
+      m.telemetry.promptTokens !== undefined || m.telemetry.completionTokens !== undefined;
+    return {
+      index: m.index + 1,
+      label: `#${m.index + 1}`,
+      player: m.player,
+      latencyMs: m.telemetry.latencyMs,
+      seconds: Math.round((m.telemetry.latencyMs / 1000) * 100) / 100,
+      retries: m.telemetry.retries,
+      forfeit: m.telemetry.forfeit,
+      tokens: reported
+        ? (m.telemetry.promptTokens ?? 0) + (m.telemetry.completionTokens ?? 0)
+        : null,
+    };
+  });
 }
 
 // ------------------------------------------------------------------- 2. Radar

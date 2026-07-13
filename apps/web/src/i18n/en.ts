@@ -37,6 +37,7 @@ export const en: Dict = {
     hvm: 'human vs model',
     mvm: 'model vs model',
     none: 'Nobody is playing right now — start the first match.',
+    gamesPlayed: 'games played',
     tokensBurned: 'tokens burned on matches',
   },
 
@@ -484,6 +485,7 @@ export const en: Dict = {
       takeaway: 'a longer bar = the model “thought” for longer.',
       seconds: 's',
       move: 'Move',
+      tokens: 'tokens',
       retries: 'retries',
       forfeit: 'forced',
     },

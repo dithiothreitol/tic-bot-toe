@@ -38,6 +38,7 @@ export const pl = {
     hvm: 'człowiek vs model',
     mvm: 'model vs model',
     none: 'Nikt teraz nie gra — rozpocznij pierwszą partię.',
+    gamesPlayed: 'rozegranych partii',
     tokensBurned: 'tokenów spalonych na partie',
   },
 
@@ -503,6 +504,7 @@ export const pl = {
       takeaway: 'dłuższy słupek = model dłużej „myślał".',
       seconds: 's',
       move: 'Ruch',
+      tokens: 'tokenów',
       retries: 'poprawki',
       forfeit: 'wymuszony',
     },

@@ -12,6 +12,7 @@ import { chartTheme } from '@/components/charts/theme';
 import { ChartFrame } from '@/components/charts/ChartFrame';
 import type { MoveLogEntry } from '@/game/orchestrator';
 import { useT } from '@/i18n';
+import { formatTokens } from '@/lib/format';
 import { type TimelinePoint, buildTimeline } from '@/lib/telemetry';
 
 /** Bar color: player accent, or warn/danger when the move needed retries / was forfeited. */
@@ -33,6 +34,12 @@ function TimelineTooltip({ active, payload }: { active?: boolean; payload?: { pa
       <div className="text-foreground">
         {p.seconds}
         {t.charts.timeline.seconds}
+        {p.tokens !== null && (
+          <span className="text-dim">
+            {' · '}
+            {formatTokens(p.tokens)} {t.charts.timeline.tokens}
+          </span>
+        )}
       </div>
       {p.retries > 0 && (
         <div className="text-warn">⟲ {p.retries} {t.charts.timeline.retries}</div>

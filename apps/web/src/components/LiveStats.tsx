@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { type LiveStats as LiveStatsData, fetchLiveStats } from '@/api/live';
 import { HudPanel, SectionLabel } from '@/components/ui/hud';
 import { useT } from '@/i18n';
-import { formatTokens } from '@/lib/format';
+import { formatCount, formatTokens } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
 /** Match the server-side heartbeat/TTL cadence — see server `lib/live`. */
@@ -41,10 +41,11 @@ export function LiveStats() {
 
   if (!stats) return null;
   const { live, totals } = stats;
+  const hasGames = totals !== null && totals.games > 0;
   const hasTokens = totals !== null && totals.tokens > 0;
   // Fresh server, nobody playing and no history yet — nothing to say, so stay
   // out of the way rather than showing a row of zeros.
-  if (live.total === 0 && !hasTokens) return null;
+  if (live.total === 0 && !hasGames && !hasTokens) return null;
 
   const anyLive = live.total > 0;
 
@@ -85,17 +86,39 @@ export function LiveStats() {
         </div>
       )}
 
-      {hasTokens && (
-        <div className="flex flex-col items-start sm:items-end">
-          <span className="font-mono text-sm font-semibold text-p1">
-            {formatTokens(totals!.tokens)}
-          </span>
-          <span className="font-mono text-[10px] uppercase tracking-wider text-dim">
-            {t.live.tokensBurned}
-          </span>
+      {(hasGames || hasTokens) && (
+        <div className="flex items-center gap-6 sm:justify-end">
+          {hasGames && (
+            <TotalStat value={formatCount(totals!.games)} label={t.live.gamesPlayed} accent="edu" />
+          )}
+          {hasTokens && (
+            <TotalStat value={formatTokens(totals!.tokens)} label={t.live.tokensBurned} accent="p1" />
+          )}
         </div>
       )}
     </HudPanel>
+  );
+}
+
+/** A cumulative counter (games played / tokens burned): big number over label. */
+function TotalStat({
+  value,
+  label,
+  accent,
+}: {
+  value: string;
+  label: string;
+  accent: 'p1' | 'edu';
+}) {
+  return (
+    <div className="flex flex-col items-start sm:items-end">
+      <span
+        className={cn('font-mono text-sm font-semibold', accent === 'edu' ? 'text-edu' : 'text-p1')}
+      >
+        {value}
+      </span>
+      <span className="font-mono text-[10px] uppercase tracking-wider text-dim">{label}</span>
+    </div>
   );
 }
 

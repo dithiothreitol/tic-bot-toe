@@ -44,7 +44,7 @@ import {
   claimDaily,
   submitPrediction,
 } from '@/api/community';
-import { pingLive, stopLive } from '@/api/live';
+import { pingLive, reportFinish, stopLive } from '@/api/live';
 import { fetchStartToken } from '@/api/match';
 import { saveResult } from '@/api/results';
 import {
@@ -222,6 +222,9 @@ export function GameRunner({
   /** Forfeit reasons already surfaced this match, so a persistent failure (e.g.
    *  every move 402s) toasts once per cause instead of once per move. */
   const forfeitToastedRef = useRef<Set<string>>(new Set());
+  /** Match id already reported to the cumulative finished-games counter, so a
+   *  re-render never counts the same match twice. */
+  const finishReportedRef = useRef<string>('');
 
   /**
    * Viewer prediction (§12.5). The bet must be placed BEFORE the first move, so
@@ -270,6 +273,9 @@ export function GameRunner({
     setDailyClaim(null);
     setCommentary([]);
     forfeitToastedRef.current = new Set();
+    // A fresh id per match: the live counter treats each match as its own slot,
+    // and the finish report below dedups per match rather than per session.
+    liveIdRef.current = randomToken();
 
     // §12.1 — a third model narrating. It never enters `players`, so it cannot
     // influence a single move; it only watches. Comments land asynchronously.
@@ -405,6 +411,22 @@ export function GameRunner({
       stopLive(id);
     };
   }, [matchLive, config.mode]);
+
+  // Count every match that actually finishes (a winner or a draw) toward the
+  // home-page "games / tokens burned" totals — once per match, and regardless of
+  // whether the player goes on to save it to the ranking. Aborted matches (tab
+  // closed mid-game, reset before the end) don't count as played.
+  useEffect(() => {
+    if (!outcome || outcome.aborted) return;
+    const id = liveIdRef.current;
+    if (finishReportedRef.current === id) return;
+    finishReportedRef.current = id;
+    const tokens = log.reduce(
+      (sum, m) => sum + (m.telemetry.promptTokens ?? 0) + (m.telemetry.completionTokens ?? 0),
+      0,
+    );
+    reportFinish(id, config.mode, config.game, tokens);
+  }, [outcome, log, config.mode, config.game]);
 
   const isHumanTurn =
     status === 'playing' && outcome === null && humansRef.current[toMove] !== undefined;

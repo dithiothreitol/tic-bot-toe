@@ -10,6 +10,11 @@ export function formatTokens(n: number | undefined): string {
   return n === undefined ? '—' : n.toLocaleString('pl-PL');
 }
 
+/** Plain integer count with thousands separators (e.g. games played). */
+export function formatCount(n: number): string {
+  return Math.round(n).toLocaleString('pl-PL');
+}
+
 export function formatCost(usd: number | undefined): string {
   if (usd === undefined) return '—';
   if (usd === 0) return '$0';

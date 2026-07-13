@@ -125,6 +125,20 @@ describe('/api/live (arena pulse)', () => {
     const res = await postLive(buildApp({ config }), { id: 'm1', mode: 'nope' });
     expect(res.status).toBe(400);
   });
+
+  it('accepts a finish report (a no-op without a DB) and rejects a malformed one', async () => {
+    const app = buildApp({ config });
+    const ok = await postLive(
+      app,
+      { id: 'm1', mode: 'model_vs_model', tokens: 500 },
+      '/api/live/finish',
+    );
+    expect(ok.status).toBe(200);
+    expect(await ok.json()).toEqual({ ok: true });
+
+    const bad = await postLive(app, { id: 'm1' }, '/api/live/finish'); // no mode
+    expect(bad.status).toBe(400);
+  });
 });
 
 describe('security headers (SPEC §16)', () => {

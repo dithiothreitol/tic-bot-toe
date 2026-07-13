@@ -149,3 +149,19 @@ export const usedJti = pgTable('used_jti', {
   jti: uuid('jti').primaryKey(),
   usedAt: timestamp('used_at', { withTimezone: true }).notNull().defaultNow(),
 });
+
+/**
+ * Cumulative arena counters behind the home-page "games / tokens burned" stat.
+ * Bumped once for EVERY finished match — ranked or not, saved to the ranking or
+ * not — via a best-effort client report (see routes/live `/finish`). Deliberately
+ * NOT derived from `ratings`, which only ever sees matches a player chose to
+ * save. One row (`id = 'global'`); seeded from history on migration so the public
+ * number carries over instead of resetting to zero. Client-reported, so it is a
+ * soft vanity stat, not a verified ledger — same trust model as the live counter.
+ */
+export const arenaTotals = pgTable('arena_totals', {
+  id: text('id').primaryKey().default('global'),
+  games: bigint('games', { mode: 'number' }).notNull().default(0),
+  tokens: bigint('tokens', { mode: 'number' }).notNull().default(0),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
