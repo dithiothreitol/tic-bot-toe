@@ -1,0 +1,25 @@
+# =============================================================================
+# Site-block dla ticbottoe.lol — laduje go WSPOLNY Caddy grzybiarza przez
+# `import /etc/caddy/conf.d/*.caddy`.
+#
+# MIEJSCE DOCELOWE NA SERWERZE: /opt/caddy/conf.d/ticbottoe.caddy
+# (POZA /opt/grzybiarz/services/, wiec deploy grzybiarza tego NIE nadpisuje.)
+#
+# Wymaga: A-rekordy ticbottoe.lol i www.ticbottoe.lol -> 167.233.57.77,
+# Cloudflare proxy OFF (szara chmurka) na czas wydania certu Let's Encrypt.
+#
+# `ticbottoe-app` rozwiazuje sie po nazwie kontenera w sieci grzybiarz_grz,
+# do ktorej kontener aplikacji jest dolaczony (docker-compose.prod.yml).
+# =============================================================================
+
+# www -> apex (kanoniczny host bez www)
+www.ticbottoe.lol {
+	redir https://ticbottoe.lol{uri} permanent
+}
+
+ticbottoe.lol {
+	encode gzip zstd
+	# Aplikacja sama ustawia CSP/HSTS/nosniff/Referrer-Policy — Caddy tego NIE
+	# duplikuje, tylko proxuje i kompresuje.
+	reverse_proxy ticbottoe-app:8080
+}

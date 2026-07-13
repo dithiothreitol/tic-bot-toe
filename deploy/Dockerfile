@@ -10,9 +10,17 @@ WORKDIR /app
 # Manifests first for cached dependency layers.
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json tsconfig.base.json ./
 COPY packages/game-core/package.json packages/game-core/
+COPY packages/i18n/package.json packages/i18n/
 COPY apps/web/package.json apps/web/
 COPY apps/server/package.json apps/server/
 RUN pnpm install --frozen-lockfile
+
+# Turnstile site key jest PUBLICZNY (leci do przegladarki) i Vite wkompilowuje
+# VITE_* na sztywno w bundle -> musi byc obecny w chwili `vite build`. Bez tego
+# obraz wychodzi z testowym kluczem Cloudflare (przepuszcza wszystko) i anti-bot
+# jest de facto wylaczony. Podmiana klucza wymaga PRZEBUDOWY obrazu, nie restartu.
+ARG VITE_TURNSTILE_SITE_KEY=1x00000000000000000000AA
+ENV VITE_TURNSTILE_SITE_KEY=${VITE_TURNSTILE_SITE_KEY}
 
 # Sources + build.
 COPY . .

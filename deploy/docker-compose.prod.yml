@@ -1,0 +1,88 @@
+# =============================================================================
+# Produkcyjny stack tic-bot-toe (ticbottoe.lol) — wspoldzieli VPS z grzybiarzem.
+#
+# Model: OSOBNY, samodzielny stack. NIE overlay (grzybiarz uzywa overlaya i to
+# jest ich pulapka — my sie w nia nie pchamy). Wlasny Postgres, wlasny wolumen,
+# wlasny cykl zycia. Jedyny punkt styku: siec `grzybiarz_grz`, przez ktora
+# wspolny Caddy (kontener grzybiarza, trzyma :80/:443) proxuje po nazwie
+# kontenera `ticbottoe-app`.
+#
+# Uruchomienie na serwerze (cwd = /opt/ticbottoe/deploy):
+#   docker compose -f docker-compose.prod.yml build \
+#     --build-arg VITE_TURNSTILE_SITE_KEY=$VITE_TURNSTILE_SITE_KEY
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# Sekrety w ./.env (600, poza gitem). Wzor: ./.env.prod.example.
+# =============================================================================
+name: ticbottoe
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ticbottoe-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ticbottoe
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ticbottoe
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ticbottoe']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    # Nie publikujemy portu na hoscie — Postgres widoczny tylko w prywatnej
+    # sieci `ticbottoe`. Grzybiarz go NIE widzi.
+    mem_limit: 256m
+    networks: [ticbottoe]
+
+  app:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      args:
+        # Publiczny site key — wkompilowany w bundle web na etapie `vite build`.
+        VITE_TURNSTILE_SITE_KEY: ${VITE_TURNSTILE_SITE_KEY:-1x00000000000000000000AA}
+    image: ticbottoe-app:local
+    container_name: ticbottoe-app
+    restart: unless-stopped
+    environment:
+      # Host = container_name (unikalny), NIE alias `postgres` — grzybiarz ma na
+      # wspolnej sieci grzybiarz_grz swoj serwis o aliasie `postgres`, wiec sama
+      # nazwa `postgres` rozwiazuje sie niejednoznacznie i app trafialby do bazy
+      # grzybiarza (auth_failed). `ticbottoe-postgres` jest jednoznaczne.
+      DATABASE_URL: postgres://ticbottoe:${POSTGRES_PASSWORD}@ticbottoe-postgres:5432/ticbottoe
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+      TURNSTILE_SECRET: ${TURNSTILE_SECRET:?set TURNSTILE_SECRET in .env}
+      ENABLE_OLLAMA: ${ENABLE_OLLAMA:-false}
+      # Za Caddy — ufamy X-Forwarded-For (IP klienta, rate-limit, schemat origin).
+      TRUSTED_PROXY: 'true'
+      PORT: 8080
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      # Aplikacja eksponuje GET /api/health -> {ok:true,...}
+      test: ['CMD-SHELL', 'wget -q -O /dev/null http://localhost:8080/api/health || exit 1']
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    # Bez publikacji portu na hoscie — ruch wchodzi WYLACZNIE przez Caddy,
+    # ktory siega `ticbottoe-app:8080` po sieci `grzybiarz_grz`.
+    mem_limit: 384m
+    networks:
+      - ticbottoe      # do wlasnego Postgresa
+      - grzybiarz_grz  # zeby wspolny Caddy rozwiazal nas po nazwie
+
+networks:
+  ticbottoe:
+    driver: bridge
+  # Siec stworzona przez stack grzybiarza (project name `grzybiarz`, siec `grz`).
+  # Dolaczamy sie do niej jako zewnetrznej — NIE tworzymy jej.
+  grzybiarz_grz:
+    external: true
+
+volumes:
+  pgdata:
