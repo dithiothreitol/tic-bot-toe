@@ -46,6 +46,10 @@ export function ShipPlacement({ size, fleet, accent, onConfirm }: ShipPlacementP
 
   return (
     <div className="flex flex-col items-center gap-3">
+      {/* The screen had no heading at all — you landed on a grid with no title. */}
+      <h2 className="font-sans text-2xl font-bold uppercase tracking-tight">
+        {pl.placement.title}
+      </h2>
       <p className="max-w-prose text-center text-sm text-muted-foreground">
         {pl.placement.instruction}
       </p>

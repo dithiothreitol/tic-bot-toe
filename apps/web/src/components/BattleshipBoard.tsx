@@ -86,7 +86,10 @@ export function BattleshipBoard({
   const coordOf = (r: number, c: number): string => `${COLS[c]}${r + 1}`;
 
   return (
-    <div className="flex flex-col items-center gap-1.5">
+    // Both boards label their cells by coordinate ("C5"), so `data-board` is what
+    // tells them apart — for assistive tech and for the e2e tests, which must be
+    // able to aim at the *tracking* grid and not at the player's own fleet.
+    <div data-board={variant} className="flex flex-col items-center gap-1.5">
       <div
         className={cn(
           'text-[11px] font-medium uppercase tracking-wide',
