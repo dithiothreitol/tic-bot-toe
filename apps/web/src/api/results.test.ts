@@ -56,3 +56,14 @@ describe('saveResult identity header (SPEC §10)', () => {
     expect(headersOf()['x-player-token']).toBeUndefined();
   });
 });
+
+describe('saveResult start token (SPEC §15.3)', () => {
+  const bodyOf = () => JSON.parse((fetchMock.mock.calls[0]![1] as RequestInit).body as string);
+
+  it('carries the match-start token in the body — a ranked human match needs it', async () => {
+    await saveResult(outcome('human_vs_model', 'human'), { startToken: 'start-jwt' });
+    // The bug this guards: the token was accepted as an option, then dropped
+    // before the POST, so every browser human save 422'd as missing_start_token.
+    expect(bodyOf().startToken).toBe('start-jwt');
+  });
+});

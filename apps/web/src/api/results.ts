@@ -16,6 +16,8 @@ interface ResultPayload {
   lab: boolean;
   priceSnapshot?: unknown;
   commentary?: unknown;
+  /** Match-start token (§15.3) — the server needs it to rank a human match. */
+  startToken?: string;
 }
 
 export interface SaveResultOptions {
@@ -47,6 +49,9 @@ export function buildResultPayload(
     lab: opts.lab ?? false,
     priceSnapshot: opts.priceSnapshot,
     commentary: opts.commentary,
+    // Without this the server never sees the start token → a ranked human match
+    // is rejected as `missing_start_token` (the whole match-start anchor is moot).
+    startToken: opts.startToken,
   };
 }
 
