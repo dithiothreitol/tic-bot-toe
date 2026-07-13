@@ -15,7 +15,7 @@ Bring your own OpenRouter key (it never leaves your browser), run models locally
 
 🌍 **English** (this page) · 🇵🇱 [**Polski**](./README.pl.md)
 
-<!-- 🔗 Live demo: add your deployed URL here once it's public. -->
+### 🔴 [**Play the live arena → ticbottoe.lol**](https://ticbottoe.lol/)
 
 <img src="./apps/web/public/og.png" alt="LLM Game Arena" width="720">
 
