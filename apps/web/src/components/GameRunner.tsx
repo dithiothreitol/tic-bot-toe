@@ -49,8 +49,10 @@ import { saveResult } from '@/api/results';
 import {
   type Commentary,
   type Commentator,
+  chatCommentate,
   classifyLastMove,
   createCommentator,
+  serverCommentate,
   shouldComment,
 } from '@/providers/commentator';
 import type { ChatTransport } from '@/providers/llm-runner';
@@ -112,14 +114,20 @@ export interface MatchConfig {
   commentator?: CommentatorSpec;
 }
 
-export interface CommentatorSpec {
-  provider: 'openrouter' | 'webllm' | 'ollama';
-  id: string;
-  name: string;
-}
+/**
+ * Where the commentator's words come from (§12.1). Either the user's own model
+ * on their own key (`byok`), or the app-funded server coach (`server`, Gemini —
+ * the key is a server secret the browser never sees).
+ */
+export type CommentatorSpec =
+  | { source: 'byok'; provider: 'openrouter' | 'webllm' | 'ollama'; id: string; name: string }
+  | { source: 'server' };
 
-/** The commentator runs on the same providers as the players (§12.1), on the user's key. */
-function commentatorTransport(spec: CommentatorSpec, apiKey: string | null): ChatTransport {
+/** BYOK commentator transport — same providers as the players, on the user's key. */
+function commentatorTransport(
+  spec: Extract<CommentatorSpec, { source: 'byok' }>,
+  apiKey: string | null,
+): ChatTransport {
   const tuning = { temperature: 0.7, maxTokens: 90 };
   if (spec.provider === 'webllm') return createWebLlmTransport(spec.id, tuning);
   if (spec.provider === 'ollama') return createOllamaTransport(spec.id, tuning);
@@ -219,11 +227,28 @@ export function GameRunner({
     let commentator: Commentator | null = null;
     if (config.commentator) {
       const spec = config.commentator;
+      // The user reads the commentary, so it is written in the UI language.
+      // BYOK builds the prompt here; the server coach builds it server-side.
+      const commentate =
+        spec.source === 'server'
+          ? serverCommentate(locale)
+          : chatCommentate(commentatorTransport(spec, getOpenRouterKey()), locale);
+      // When the funded coach runs out of its hourly quota, nudge toward BYOK —
+      // once per match, and never for the BYOK path (which has no such limit).
+      let nudgedLimit = false;
+      const onError =
+        spec.source === 'server'
+          ? (e: unknown) => {
+              if (!nudgedLimit && e instanceof ApiError && e.status === 429) {
+                nudgedLimit = true;
+                toast.info(t.commentator.serverLimited);
+              }
+            }
+          : undefined;
       commentator = createCommentator({
-        transport: commentatorTransport(spec, getOpenRouterKey()),
-        modelId: `${spec.provider}:${spec.id}`,
-        // The user reads the commentary, so it is written in the UI language.
-        locale,
+        commentate,
+        onError,
+        modelId: spec.source === 'server' ? 'server' : `${spec.provider}:${spec.id}`,
         onComment: (c) =>
           setCommentary((prev) =>
             prev.some((x) => x.moveIndex === c.moveIndex) ? prev : [...prev, c],

@@ -1,40 +1,48 @@
 import {
   type BattleshipState,
+  type CommentRequest,
+  type CommentaryLocale,
   type GameId,
   type Move,
   type MoveQuality,
   type PlayerSide,
-  type TicTacToeCell,
   type TicTacToeState,
   battleship,
+  buildCommentaryPrompt,
   classifyBattleshipShot,
   classifyTicTacToeMove,
   coordToCell,
   symbolFor,
+  trimToTwoSentences,
 } from '@arena/game-core';
 
+import { apiPost } from '@/api/client';
 import type { Locale } from '@/i18n';
 
 import type { ChatTransport } from './llm-runner';
 
 /**
- * AI commentator (SPEC §12.1).
+ * AI commentator (SPEC §12.1) — a THIRD model narrating the match in the UI
+ * language. It never enters `players`, so it cannot influence a single move; it
+ * only watches, and its calls are fire-and-forget so it can never block the game.
  *
- * A THIRD model narrates the match in plain language — in whichever language the
- * interface is in. Two things make it different from a player:
+ * Two sources, the user picks one (SetupScreen):
+ *  - BYOK: their own model on their own key/provider (`chatCommentate`), exactly
+ *    like a player — off by default, on the user's dime.
+ *  - Server coach: a Gemini model funded by the app owner (`serverCommentate`).
+ *    The key is a SERVER secret; the browser never sees it, and the prompt is
+ *    built server-side from structured input (see game-core/commentary.ts).
  *
- *  1. It gets the GOD VIEW. It may see both fleets, because it never plays — the
- *     "prompt contains only PlayerView" rule (§5) exists to stop a *player* from
- *     seeing hidden information, and the commentator is not a player. It is
- *     therefore built from engine state directly, never through `viewFor`, and
- *     it is never wired into `runMatch`.
- *  2. It must NEVER block the game. Calls are fire-and-forget through a
- *     single-flight queue; a comment that arrives late still carries its
- *     `moveIndex`, so it is attached to the move it was about (§12.1).
- *
- * Cost: it runs on the user's own key/WebLLM/Ollama, exactly like the players,
- * and is OFF by default (§12.1).
+ * The prompt itself lives in game-core so both this client and the server build
+ * it identically — re-exported here for the components and tests that used it.
  */
+export {
+  type CommentRequest,
+  buildCommentaryPrompt,
+  describeGodView,
+  shouldComment,
+  trimToTwoSentences,
+} from '@arena/game-core';
 
 export interface Commentary {
   moveIndex: number;
@@ -42,153 +50,57 @@ export interface Commentary {
   modelId: string;
 }
 
-export interface CommentRequest {
-  game: GameId;
-  moveIndex: number;
-  player: PlayerSide;
-  playerName: string;
-  move: Move;
-  quality: MoveQuality;
-  /** Engine state AFTER the move — the god view the commentator is allowed to see. */
-  state: unknown;
-  /** True for the last move of the match. */
-  isFinal: boolean;
-  /** Who won, when the match is over. */
-  winnerName?: string | null;
-}
-
 // ---------------------------------------------------------------------------
-// Which moves are worth a comment (§12.1: "1–2 sentences after SELECTED moves")
+// Where a comment's text comes from — one function, two implementations
 // ---------------------------------------------------------------------------
 
 /**
- * Commenting on every move would be noisy and would cost the user money for
- * nothing. Comment on what a human commentator would: mistakes, the opening, the
- * finish, and an occasional beat in between.
+ * Turn a `CommentRequest` into commentary text (untrimmed; the queue trims).
+ * Rejects on failure — the queue swallows it, since the commentator is decor.
  */
-export function shouldComment(index: number, quality: MoveQuality, isFinal: boolean): boolean {
-  if (isFinal) return true;
-  if (quality === 'blunder') return true;
-  if (index === 0) return true;
-  return index % 3 === 2;
-}
+export type Commentate = (req: CommentRequest, signal: AbortSignal) => Promise<string>;
 
-// ---------------------------------------------------------------------------
-// God-view board rendering
-// ---------------------------------------------------------------------------
-
-const TTT_MARK: Record<string, string> = { X: 'X', O: 'O' };
-
-function describeTicTacToe(state: TicTacToeState): string {
-  const b: TicTacToeCell[] = state.board;
-  const cell = (i: number): string => (b[i] ? TTT_MARK[b[i] as string]! : String(i));
-  return [0, 3, 6].map((r) => `${cell(r)} ${cell(r + 1)} ${cell(r + 2)}`).join('\n');
-}
-
-const OWN_SYMBOL: Record<string, string> = {
-  water: '.',
-  ship: 'S',
-  'ship-hit': 'X',
-  miss: 'o',
-};
-
-/** Both fleets, fully revealed. Legal here — and only here (see the file header). */
-function describeBattleship(state: BattleshipState): string {
-  const grid = (side: PlayerSide): string => {
-    const own = battleship.viewFor(state, side).ownBoard;
-    const rows: string[] = [];
-    for (let r = 0; r < state.size; r++) {
-      const cells = own
-        .slice(r * state.size, (r + 1) * state.size)
-        .map((c) => OWN_SYMBOL[c] ?? '.');
-      rows.push(`${String.fromCharCode(65 + r)} ${cells.join(' ')}`);
-    }
-    const header = `  ${Array.from({ length: state.size }, (_, i) => i + 1).join(' ')}`;
-    return [header, ...rows].join('\n');
-  };
-  return [
-    'Player 1 fleet (S=ship, X=hit, o=enemy miss):',
-    grid('p1'),
-    '',
-    'Player 2 fleet (S=ship, X=hit, o=enemy miss):',
-    grid('p2'),
-  ].join('\n');
-}
-
-export function describeGodView(game: GameId, state: unknown): string {
-  return game === 'tictactoe'
-    ? describeTicTacToe(state as TicTacToeState)
-    : describeBattleship(state as BattleshipState);
-}
-
-// ---------------------------------------------------------------------------
-// Prompt
-// ---------------------------------------------------------------------------
-
-const QUALITY_EN: Record<MoveQuality, string> = {
-  optimal: 'the best move available',
-  good: 'a decent move',
-  weak: 'a weak move that gives something away',
-  blunder: 'a blunder that changes the outcome of the game',
-};
-
-/** What the commentary must be written IN — the one prompt detail that is not fixed. */
-const OUTPUT_LANGUAGE: Record<Locale, string> = { pl: 'POLISH', en: 'ENGLISH' };
-
-/**
- * The instructions stay English (SPEC §5: model prompts are English, whatever the
- * UI language) — but the OUTPUT is read by the user, so it follows the INTERFACE
- * language. This is the only prompt in the app that does.
- */
-export function buildCommentaryPrompt(
-  req: CommentRequest,
-  locale: Locale = 'pl',
-): { system: string; user: string } {
-  const language = OUTPUT_LANGUAGE[locale];
-  const system = [
-    'You are a witty sports commentator for a board-game match between AI models.',
-    'You can see the ENTIRE board, including both fleets — you are a commentator, not a player.',
-    '',
-    'Rules for your answer:',
-    `- Write in ${language}.`,
-    '- Maximum 2 sentences. Short ones.',
-    '- Light, warm, slightly playful tone. Never sarcastic towards the player.',
-    '- Explain WHY the move was good or bad, in words a beginner understands.',
-    '- No technical jargon: no "minimax", no "heuristic", no "eval", no percentages.',
-    '- Do not describe the board layout. Comment on the decision.',
-    '- Output the commentary only. No preamble, no quotes, no markdown.',
-  ].join('\n');
-
-  const lines = [
-    `Game: ${req.game === 'tictactoe' ? 'tic-tac-toe' : 'battleship'}`,
-    `Board after the move (god view):`,
-    describeGodView(req.game, req.state),
-    '',
-    `Move ${req.moveIndex + 1}: ${req.playerName} played ${String(req.move)}.`,
-    `Our solver rates it as: ${QUALITY_EN[req.quality]}.`,
-  ];
-  if (req.isFinal) {
-    lines.push(
-      req.winnerName
-        ? `This ended the match — ${req.winnerName} wins.`
-        : 'This ended the match — it is a draw.',
+/** BYOK: build the prompt here and call the user's own provider transport. */
+export function chatCommentate(transport: ChatTransport, locale: Locale): Commentate {
+  return async (req, signal) => {
+    const { system, user } = buildCommentaryPrompt(req, locale as CommentaryLocale);
+    const res = await transport(
+      [
+        { role: 'system', content: system },
+        { role: 'user', content: user },
+      ],
+      signal,
     );
-  }
-  lines.push('', `Write the ${language} commentary now (max 2 sentences).`);
-
-  return { system, user: lines.join('\n') };
+    return res.text;
+  };
 }
 
-/** Models love to over-deliver. Enforce the "max 2 sentences" rule ourselves. */
-export function trimToTwoSentences(raw: string): string {
-  const text = raw
-    .trim()
-    .replace(/^["'`\s]+|["'`\s]+$/g, '')
-    .replace(/\s+/g, ' ');
-  if (!text) return '';
-  const sentences = text.match(/[^.!?]+[.!?]*/g);
-  if (!sentences) return text;
-  return sentences.slice(0, 2).join('').trim();
+/**
+ * Server coach: send the STRUCTURED request to our backend, which holds the
+ * Gemini key and builds the prompt itself. The browser sends no prompt and no
+ * key — it cannot turn the endpoint into an arbitrary-text proxy.
+ */
+export function serverCommentate(locale: Locale): Commentate {
+  return async (req, signal) => {
+    const res = await apiPost<{ text: string }>(
+      '/api/commentary',
+      {
+        locale,
+        game: req.game,
+        moveIndex: req.moveIndex,
+        player: req.player,
+        playerName: req.playerName,
+        move: req.move,
+        quality: req.quality,
+        state: req.state,
+        isFinal: req.isFinal,
+        winnerName: req.winnerName ?? null,
+      },
+      {},
+      { signal },
+    );
+    return res.text;
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -221,11 +133,16 @@ export function classifyLastMove(
 // ---------------------------------------------------------------------------
 
 export interface CommentatorOptions {
-  transport: ChatTransport;
+  /** How a request becomes text — `chatCommentate` (BYOK) or `serverCommentate`. */
+  commentate: Commentate;
+  /** Label attached to each comment, e.g. `openrouter:gpt-4o-mini` or `server`. */
   modelId: string;
   onComment: (c: Commentary) => void;
-  /** The language the commentary is written in — the user reads it. */
-  locale?: Locale;
+  /**
+   * Notified when a comment fails (still swallowed — the game never stalls).
+   * The server coach uses it to nudge toward BYOK once it is rate-limited.
+   */
+  onError?: (err: unknown) => void;
   /** Cap on in-flight + queued work, so a slow model can't pile up cost. */
   maxPending?: number;
   timeoutMs?: number;
@@ -252,24 +169,24 @@ export function createCommentator(opts: CommentatorOptions): Commentator {
     running = true;
     while (queue.length > 0 && !stopped) {
       const req = queue.shift()!;
-      const { system, user } = buildCommentaryPrompt(req, opts.locale);
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), timeoutMs);
       try {
-        const res = await opts.transport(
-          [
-            { role: 'system', content: system },
-            { role: 'user', content: user },
-          ],
-          controller.signal,
-        );
-        const text = trimToTwoSentences(res.text);
+        const raw = await opts.commentate(req, controller.signal);
+        const text = trimToTwoSentences(raw);
         // A late comment still knows which move it was about (§12.1).
         if (text && !stopped) {
           opts.onComment({ moveIndex: req.moveIndex, text, modelId: opts.modelId });
         }
-      } catch {
-        // The commentator is decoration. A failure must never surface as an error.
+      } catch (err) {
+        // The commentator is decoration: a failure never surfaces as a game
+        // error. `onError` is an out-of-band hook (e.g. a BYOK nudge) and is
+        // itself guarded so it can't break the drain loop.
+        try {
+          opts.onError?.(err);
+        } catch {
+          /* ignore */
+        }
       } finally {
         clearTimeout(timer);
       }

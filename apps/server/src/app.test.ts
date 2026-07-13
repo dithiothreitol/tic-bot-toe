@@ -5,7 +5,9 @@ import { verifySession } from './auth/jwt';
 import { loadConfig } from './config';
 import { resetRateLimits } from './middleware/rate-limit';
 
-const config = loadConfig({ JWT_SECRET: 'test-secret', TURNSTILE_SECRET: 'ts-secret' });
+const TEST_ENV = { JWT_SECRET: 'test-secret', TURNSTILE_SECRET: 'ts-secret' };
+const config = loadConfig(TEST_ENV);
+const configWithCoach = loadConfig({ ...TEST_ENV, GEMINI_COACH_API_KEY: 'k' });
 
 function turnstileFetch(success: boolean): typeof fetch {
   return (async () => ({
@@ -25,10 +27,35 @@ function postVerify(app: ReturnType<typeof buildApp>, token: string) {
 beforeEach(() => resetRateLimits());
 
 describe('GET /api/health', () => {
-  it('returns ok', async () => {
+  it('returns ok, with the coach off when no Gemini key is set', async () => {
     const res = await buildApp({ config }).request('/api/health');
     expect(res.status).toBe(200);
-    expect(await res.json()).toMatchObject({ ok: true });
+    expect(await res.json()).toMatchObject({ ok: true, coach: false });
+  });
+
+  it('advertises the coach only when a Gemini key is configured', async () => {
+    const res = await buildApp({ config: configWithCoach }).request('/api/health');
+    expect(await res.json()).toMatchObject({ coach: true });
+  });
+});
+
+describe('POST /api/commentary (funded coach)', () => {
+  it('is not mounted without a Gemini key', async () => {
+    const res = await buildApp({ config }).request('/api/commentary', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: '{}',
+    });
+    expect(res.status).toBe(404);
+  });
+
+  it('is mounted when a Gemini key is set (400 on an empty body, not 404)', async () => {
+    const res = await buildApp({ config: configWithCoach }).request('/api/commentary', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: '{}',
+    });
+    expect(res.status).toBe(400);
   });
 });
 

@@ -5,6 +5,7 @@ import type { Database } from './db/client';
 import { rateLimit } from './middleware/rate-limit';
 import { securityHeaders } from './middleware/security';
 import { eloHistoryRoute, headToHeadRoute } from './routes/analytics';
+import { commentaryRoute } from './routes/commentary';
 import { dailyRoute } from './routes/daily';
 import { healthRoute } from './routes/health';
 import { leaderboardRoute } from './routes/leaderboard';
@@ -33,10 +34,33 @@ export function buildApp(deps: AppDeps): Hono {
   const app = new Hono();
   app.use('*', securityHeaders());
 
+  const coachEnabled = deps.config.geminiApiKey !== '';
+
   const api = new Hono();
-  api.route('/health', healthRoute({ enableOllama: deps.config.enableOllama }));
+  api.route(
+    '/health',
+    healthRoute({ enableOllama: deps.config.enableOllama, coach: coachEnabled }),
+  );
   if (deps.config.enableOllama) {
     api.route('/ollama', ollamaRoute({ fetch: deps.fetch }));
+  }
+  // Funded AI coach (§12.1) — only when the owner set a Gemini key. Rate-limited
+  // hard: every call spends the owner's credits, and it needs no login.
+  if (coachEnabled) {
+    // Deliberately modest (≈ a couple of matches / hour). The funded coach is a
+    // taster, not the main path: past this the client nudges the user toward
+    // their OWN model on their OWN provider (unlimited, on their key). Every call
+    // here spends the owner's credits, so a tight cap doubles as budget defence.
+    api.use(
+      '/commentary',
+      rateLimit('commentary', 40, { trustedProxy: deps.config.trustedProxy, now: deps.now }),
+    );
+    api.route(
+      '/commentary',
+      commentaryRoute({
+        gemini: { apiKey: deps.config.geminiApiKey, model: deps.config.geminiModel },
+      }),
+    );
   }
   api.use(
     '/verify',

@@ -163,9 +163,25 @@ powtórki: `/api/og/:id?lang=en`).
 - Opisy modeli (`model-copy.ts`) są dwujęzyczne, ale **klasyfikacja** (rozmiar/cena/kontekst)
   jest wspólna — tłumaczenie nie może przesunąć modelu do innego kubełka.
 
+## Trener AI — komentator (§12.1)
+
+Komentator ma **dwa źródła**, użytkownik wybiera jedno:
+
+- **Mój model (BYOK)** — dowolny model na kluczu/providerze gracza (OpenRouter/WebLLM/Ollama),
+  dokładnie jak gracz. Domyślnie wyłączony, koszt po stronie gracza.
+- **Trener wbudowany** — model Gemini **fundowany przez właściciela**. Klucz to **sekret serwera**
+  (`GEMINI_COACH_API_KEY`), przeglądarka nigdy go nie widzi. Dostępny tylko gdy właściciel go ustawi
+  (`GET /api/health` → `coach:true`); wtedy staje się domyślnym, przyjaznym wyborem (bez klucza).
+
+Prompt trenera **składa serwer** z ustrukturyzowanego, walidowanego wejścia — nie przyjmuje gotowego
+tekstu od klienta, więc endpoint `/api/commentary` nie jest otwartym proxy do klucza Gemini (można nim
+wygenerować wyłącznie komentarz do partii). Endpoint jest limitowany (120/h/IP). Model ustawiasz przez
+`GEMINI_COACH_MODEL` (domyślnie `gemini-3.5-flash`; `gemini-flash-latest` **nie** jest aliasem natywnego
+API — trzeba podać konkretną wersję).
+
 ## Testy
 
-**~290 testów** (game-core 95, i18n 11, server 52 unit + integracyjne testcontainers, web 91).
+**~300 testów** (game-core 95, i18n 11, server 63 unit + integracyjne testcontainers, web 95).
 Priorytet pokrycia: `game-core` (silniki, solvery, Elo, replay, wyzwanie dnia, parsery).
 
 ```bash

@@ -105,6 +105,9 @@ export function SetupScreen({
   // §12.1 — commentator is OFF by default; turning it on means picking a model.
   const [commentatorOn, setCommentatorOn] = useState(false);
   const [commentatorModel, setCommentatorModel] = useState<SelectableModel | null>(null);
+  // The funded server coach (Gemini) is offered only when the server has a key.
+  const [coachAvailable, setCoachAvailable] = useState(false);
+  const [commentatorSource, setCommentatorSource] = useState<'byok' | 'server'>('byok');
 
   useEffect(() => {
     let alive = true;
@@ -127,8 +130,14 @@ export function SetupScreen({
   // Ollama models — only when the server has ENABLE_OLLAMA (from /api/health).
   useEffect(() => {
     let alive = true;
-    apiGet<{ ollama?: boolean }>('/api/health')
-      .then((h) => (h.ollama ? fetchOllamaModels() : []))
+    apiGet<{ ollama?: boolean; coach?: boolean }>('/api/health')
+      .then((h) => {
+        if (alive && h.coach) {
+          setCoachAvailable(true);
+          setCommentatorSource('server'); // funded coach is the friendlier default
+        }
+        return h.ollama ? fetchOllamaModels() : [];
+      })
       .then((m) => {
         if (alive) setOllama(ollamaSelectable(m));
       })
@@ -169,24 +178,34 @@ export function SetupScreen({
       return;
     }
 
-    // The commentator runs on the user's key too — refuse to start without one.
-    if (commentatorOn && commentatorModel?.provider === 'openrouter' && !apiKey) {
+    // A BYOK commentator on OpenRouter runs on the user's key — refuse without one.
+    // The funded server coach needs no key, so it is exempt.
+    const byokCommentator = commentatorOn && commentatorSource === 'byok';
+    if (byokCommentator && commentatorModel?.provider === 'openrouter' && !apiKey) {
       toast.error(t.setup.needKey);
       onOpenSettings();
+      return;
+    }
+    if (byokCommentator && !commentatorModel) {
+      toast.error(t.setup.needModel);
       return;
     }
 
     const lab: LabTuning | undefined = labOpen
       ? { temperature, systemAppendix: appendix }
       : undefined;
-    const commentator =
-      commentatorOn && commentatorModel
-        ? {
-            provider: commentatorModel.provider,
-            id: commentatorModel.id,
-            name: commentatorModel.name,
-          }
-        : undefined;
+    const commentator: MatchConfig['commentator'] = !commentatorOn
+      ? undefined
+      : commentatorSource === 'server'
+        ? { source: 'server' }
+        : commentatorModel
+          ? {
+              source: 'byok',
+              provider: commentatorModel.provider,
+              id: commentatorModel.id,
+              name: commentatorModel.name,
+            }
+          : undefined;
     const base = { game, variant, seed: randomSeed(), lab: labOpen, commentator };
     const config: MatchConfig =
       mode === 'model_vs_model'
@@ -336,15 +355,36 @@ export function SetupScreen({
           </div>
 
           {commentatorOn && (
-            <div className="flex flex-col gap-1.5">
-              <Label className="text-edu">{t.commentator.model}</Label>
-              <ModelPicker
-                models={models}
-                loading={loading}
-                value={commentatorModel?.id ?? null}
-                onSelect={setCommentatorModel}
-              />
-              <p className="font-mono text-[10px] text-dim">{t.commentator.costHint}</p>
+            <div className="flex flex-col gap-2.5">
+              {coachAvailable && (
+                <div className="flex flex-col gap-1.5">
+                  <Label className="text-edu">{t.commentator.sourceLabel}</Label>
+                  <Tabs
+                    value={commentatorSource}
+                    onValueChange={(v) => setCommentatorSource(v as 'byok' | 'server')}
+                  >
+                    <TabsList className="grid w-full grid-cols-2">
+                      <TabsTrigger value="server">{t.commentator.sourceServer}</TabsTrigger>
+                      <TabsTrigger value="byok">{t.commentator.sourceOwn}</TabsTrigger>
+                    </TabsList>
+                  </Tabs>
+                </div>
+              )}
+
+              {coachAvailable && commentatorSource === 'server' ? (
+                <p className="font-mono text-[10px] text-dim">{t.commentator.serverHint}</p>
+              ) : (
+                <div className="flex flex-col gap-1.5">
+                  <Label className="text-edu">{t.commentator.model}</Label>
+                  <ModelPicker
+                    models={models}
+                    loading={loading}
+                    value={commentatorModel?.id ?? null}
+                    onSelect={setCommentatorModel}
+                  />
+                  <p className="font-mono text-[10px] text-dim">{t.commentator.costHint}</p>
+                </div>
+              )}
             </div>
           )}
         </section>

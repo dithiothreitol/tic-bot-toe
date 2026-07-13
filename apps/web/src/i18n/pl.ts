@@ -399,6 +399,16 @@ export const pl = {
     costHint:
       'Komentator działa na Twoim kluczu / WebLLM — wybierz tani albo darmowy model (filtr „Tylko darmowe"). Komentuje wybrane ruchy, nie każdy, i nigdy nie spowalnia gry.',
     badge: 'Komentator',
+    /** Wybór źródła trenera: własny model gracza vs fundowany trener serwerowy. */
+    sourceLabel: 'Kto komentuje',
+    sourceOwn: 'Mój model',
+    sourceServer: 'Trener (wbudowany)',
+    serverName: 'Trener AI',
+    serverHint:
+      'Wbudowany trener — bez klucza i bez kosztu po Twojej stronie; działa na serwerze aplikacji, więc żaden sekret nie trafia do przeglądarki. Ma limit uczciwego użycia (kilka partii na godzinę). Chcesz komentarza bez limitu i na dowolnym modelu? Wybierz „Mój model" i zagraj na własnym kluczu oraz providerze.',
+    /** Toast, gdy fundowany trener wyczerpie limit — jednorazowa zachęta do BYOK. */
+    serverLimited:
+      'Wbudowany trener wyczerpał limit na tę godzinę. Przełącz na „Mój model", aby komentować bez limitu na własnym kluczu.',
   },
 
   lab: {

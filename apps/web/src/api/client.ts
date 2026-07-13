@@ -30,8 +30,18 @@ export async function apiGet<T>(path: string, auth: ApiAuth = {}): Promise<T> {
   return (await res.json()) as T;
 }
 
-export async function apiPost<T>(path: string, body: unknown, auth: ApiAuth = {}): Promise<T> {
-  return send<T>('POST', path, auth, body);
+/** Optional per-call knobs — `signal` lets a caller cancel/timeout the request. */
+export interface RequestOpts {
+  signal?: AbortSignal;
+}
+
+export async function apiPost<T>(
+  path: string,
+  body: unknown,
+  auth: ApiAuth = {},
+  opts: RequestOpts = {},
+): Promise<T> {
+  return send<T>('POST', path, auth, body, opts);
 }
 
 export async function apiDelete<T>(path: string, auth: ApiAuth = {}): Promise<T> {
@@ -43,11 +53,13 @@ async function send<T>(
   path: string,
   auth: ApiAuth,
   body?: unknown,
+  opts: RequestOpts = {},
 ): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     method,
     headers: { 'content-type': 'application/json', ...authHeaders(auth) },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    ...(opts.signal ? { signal: opts.signal } : {}),
   });
   if (!res.ok) {
     const detail = (await res.json().catch(() => ({}))) as { error?: string };

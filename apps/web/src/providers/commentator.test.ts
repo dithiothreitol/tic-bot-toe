@@ -16,7 +16,6 @@ import {
   shouldComment,
   trimToTwoSentences,
 } from './commentator';
-import type { ChatCompletion, ChatMessage } from './llm-runner';
 
 function tttAfter(moves: number[]): TicTacToeState {
   let s = ticTacToe.createInitialState(TICTACTOE_VARIANTS[0], {});
@@ -134,27 +133,25 @@ describe('classifyLastMove', () => {
 
 describe('createCommentator (fire-and-forget queue)', () => {
   it('returns immediately and delivers the comment against its own move index', async () => {
-    const calls: ChatMessage[][] = [];
-    let release!: (c: ChatCompletion) => void;
-    const pending = new Promise<ChatCompletion>((r) => {
+    let release!: (text: string) => void;
+    const pending = new Promise<string>((r) => {
       release = r;
     });
     const got: Array<{ moveIndex: number; text: string }> = [];
 
+    // `commentate` stands in for either source (own model or the server coach) —
+    // the queue only cares that it returns text.
     const commentator = createCommentator({
-      transport: async (messages) => {
-        calls.push(messages);
-        return pending;
-      },
-      modelId: 'openrouter:free',
+      commentate: () => pending,
+      modelId: 'server',
       onComment: (c) => got.push({ moveIndex: c.moveIndex, text: c.text }),
     });
 
-    // enqueue must not block, even though the transport has not resolved.
+    // enqueue must not block, even though commentate has not resolved.
     commentator.enqueue(req({ moveIndex: 5 }));
     expect(got).toEqual([]); // nothing yet — the game went on
 
-    release({ text: 'Świetny ruch. Teraz przeciwnik ma problem.' });
+    release('Świetny ruch. Teraz przeciwnik ma problem.');
     await new Promise((r) => setTimeout(r, 0));
 
     // The late comment is attached to the move it was about (§12.1).
@@ -166,9 +163,7 @@ describe('createCommentator (fire-and-forget queue)', () => {
   it('never rejects when the model fails — commentary is decoration', async () => {
     const got: string[] = [];
     const commentator = createCommentator({
-      transport: async () => {
-        throw new Error('402 payment required');
-      },
+      commentate: () => Promise.reject(new Error('402 payment required')),
       modelId: 'm',
       onComment: (c) => got.push(c.text),
     });
@@ -180,33 +175,33 @@ describe('createCommentator (fire-and-forget queue)', () => {
 
   it('drops the stalest backlog rather than piling up cost', async () => {
     const seen: number[] = [];
-    let resolveFirst!: (c: ChatCompletion) => void;
-    const first = new Promise<ChatCompletion>((r) => {
+    let resolveFirst!: (text: string) => void;
+    const first = new Promise<string>((r) => {
       resolveFirst = r;
     });
     let call = 0;
 
     const commentator = createCommentator({
       maxPending: 2,
-      transport: async (messages) => {
-        const m = /Move (\d+):/.exec(messages[1].content);
-        seen.push(Number(m?.[1]));
+      // The request carries its own move index — no need to parse the prompt.
+      commentate: (r) => {
+        seen.push(r.moveIndex);
         call += 1;
-        return call === 1 ? first : { text: 'ok.' };
+        return call === 1 ? first : Promise.resolve('ok.');
       },
       modelId: 'm',
       onComment: () => {},
     });
 
-    // Move 1 goes in flight; 2,3,4 queue up but the cap is 2 → the oldest is dropped.
+    // Move 0 goes in flight; 1,2,3 queue up but the cap is 2 → the oldest is dropped.
     for (const i of [0, 1, 2, 3]) commentator.enqueue(req({ moveIndex: i }));
-    resolveFirst({ text: 'ok.' });
+    resolveFirst('ok.');
     await new Promise((r) => setTimeout(r, 0));
     await new Promise((r) => setTimeout(r, 0));
 
     commentator.stop();
-    // Move 1 ran; of the backlog only the two freshest survived (3 and 4).
-    expect(seen[0]).toBe(1);
-    expect(seen).not.toContain(2);
+    // Move 0 ran; of the backlog only the two freshest survived (2 and 3).
+    expect(seen[0]).toBe(0);
+    expect(seen).not.toContain(1);
   });
 });

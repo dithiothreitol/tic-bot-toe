@@ -14,6 +14,14 @@ export interface Config {
   databaseUrl: string;
   /** Directory of the built frontend to serve (single-port deploy). */
   staticDir: string;
+  /**
+   * The AI-coach (§12.1) Gemini key. A SERVER secret funded by the owner, NOT a
+   * per-user BYOK key — empty means the funded coach is simply unavailable (the
+   * BYOK commentator still works). Never sent to the browser.
+   */
+  geminiApiKey: string;
+  /** Gemini model for the coach. Owner sets whatever their key can call. */
+  geminiModel: string;
 }
 
 const DEV_JWT_SECRET = 'dev-insecure-secret-change-me';
@@ -35,5 +43,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     trustedProxy: env.TRUSTED_PROXY === 'true',
     databaseUrl: env.DATABASE_URL ?? '',
     staticDir: env.STATIC_DIR ?? '../web/dist',
+    // Its OWN var, not the dev-time asset-gen GEMINI_API_KEY — otherwise a key set
+    // for image generation would silently switch on a paid, public coach in prod.
+    geminiApiKey: env.GEMINI_COACH_API_KEY ?? '',
+    // `gemini-flash-latest` is NOT a native-API alias — pin a concrete model.
+    // Lower this (e.g. gemini-2.5-flash) if the key lacks 3.5 access.
+    geminiModel: env.GEMINI_COACH_MODEL ?? 'gemini-3.5-flash',
   };
 }

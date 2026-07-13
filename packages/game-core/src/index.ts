@@ -13,6 +13,7 @@ export * from './elo';
 export * from './replay';
 export * from './solvers';
 export * from './daily';
+export * from './commentary';
 
 import type { GameId } from './types';
 import { battleship } from './battleship';

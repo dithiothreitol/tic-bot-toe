@@ -381,6 +381,15 @@ export const en: Dict = {
     costHint:
       'The commentator runs on your key / WebLLM — pick a cheap or free model (the “Free only” filter). It comments on selected moves, not on every one, and it never slows the game down.',
     badge: 'Commentator',
+    sourceLabel: 'Who commentates',
+    sourceOwn: 'My model',
+    sourceServer: 'Coach (built-in)',
+    serverName: 'AI coach',
+    serverHint:
+      'The built-in coach — no key and no cost on your side; it runs on the app server, so no secret ever reaches your browser. It has a fair-use limit (a few matches per hour). Want commentary with no limit, on any model? Pick “My model” and play on your own key and provider.',
+    /** Toast when the funded coach hits its cap — a one-time nudge toward BYOK. */
+    serverLimited:
+      'The built-in coach hit its hourly limit. Switch to “My model” to keep commentary going, unlimited, on your own key.',
   },
 
   lab: {
