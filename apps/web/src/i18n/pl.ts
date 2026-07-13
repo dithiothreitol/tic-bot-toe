@@ -140,6 +140,12 @@ export const pl = {
     thinking: 'myśli…',
     yourTurn: 'Twój ruch',
     aborted: 'Partia przerwana',
+    abortedStalled: 'Partia przerwana — za dużo błędnych ruchów',
+    abortedBudget: 'Partia przerwana — limit tokenów',
+  },
+
+  control: {
+    stop: 'PRZERWIJ',
   },
 
   player: {
@@ -469,6 +475,17 @@ export const pl = {
     toggle: 'Tryb rozumowania',
     lead: 'Domyślnie modele odpowiadają jednym słowem, bez namysłu — to je osłabia. Włącz, by dać im chwilę na przemyślenie ruchu (wygrać / zablokować / środek) i większy limit tokenów. Grają wtedy dużo mocniej.',
     excludedNote: 'Rozumowanie zmienia siłę gry, więc te partie nie liczą się do rankingu — ranking bez rozumowania zostaje nietknięty.',
+  },
+
+  safety: {
+    section: 'Auto-przerwanie',
+    toggle: 'Auto-przerwanie',
+    lead: 'Gdy modele nie potrafią zwrócić poprawnego ruchu, partia zamienia się w serię wymuszonych, losowych ruchów, które palą tokeny bez sensu. Ten strażnik ubija taką partię automatycznie.',
+    forfeits: 'Wymuszone ruchy z rzędu',
+    forfeitsHint: 'Ubij partię po tylu wymuszonych ruchach pod rząd. 0 = wyłączone.',
+    tokens: 'Limit tokenów na partię',
+    tokensHint: 'Ubij partię, gdy łączne tokeny przekroczą tę wartość. 0 = bez limitu.',
+    off: 'wył.',
   },
 
   nav: {

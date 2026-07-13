@@ -20,6 +20,27 @@ function firstLegalPlayer(id: string): Player {
   };
 }
 
+/** Bot that always forfeits (a random legal move), like a model that can't comply. */
+function forfeitingPlayer(id: string, tokensPerMove = 0): Player {
+  return {
+    id,
+    displayName: id,
+    kind: 'llm',
+    getMove(_view: PlayerView, legal: Move[]) {
+      return Promise.resolve({
+        move: legal[0],
+        telemetry: {
+          latencyMs: 1,
+          retries: 3,
+          forfeit: true,
+          promptTokens: tokensPerMove,
+          completionTokens: 0,
+        },
+      });
+    },
+  };
+}
+
 describe('runMatch', () => {
   it('plays a full game to a winner and logs every move with telemetry', async () => {
     const onMove = vi.fn();
@@ -79,6 +100,58 @@ describe('runMatch', () => {
     const outcome = await promise;
     expect(outcome.aborted).toBe(true);
     expect(outcome.winner).toBeNull();
+    expect(outcome.abortReason).toBe('user');
     expect(outcome.moves).toHaveLength(0);
+  });
+
+  it('records abortReason null on a match that finishes on its own', async () => {
+    const outcome = await runMatch({
+      mode: 'model_vs_model',
+      game: 'tictactoe',
+      variant,
+      players: { p1: firstLegalPlayer('A'), p2: firstLegalPlayer('B') },
+    });
+    expect(outcome.aborted).toBe(false);
+    expect(outcome.abortReason).toBeNull();
+  });
+
+  it('auto-stops (stalled) after N forced moves in a row', async () => {
+    const outcome = await runMatch({
+      mode: 'model_vs_model',
+      game: 'tictactoe',
+      variant,
+      players: { p1: forfeitingPlayer('A'), p2: forfeitingPlayer('B') },
+      maxConsecutiveForfeits: 3,
+    });
+    expect(outcome.aborted).toBe(true);
+    expect(outcome.abortReason).toBe('stalled');
+    expect(outcome.winner).toBeNull();
+    // Stopped as soon as the 3rd forced move landed — not the full 9-move game.
+    expect(outcome.moves).toHaveLength(3);
+  });
+
+  it('resets the forfeit streak on a clean move, so scattered forfeits do not trip it', async () => {
+    const outcome = await runMatch({
+      mode: 'model_vs_model',
+      game: 'tictactoe',
+      variant,
+      // p1 always plays clean, p2 always forfeits → never 2 forfeits in a row.
+      players: { p1: firstLegalPlayer('A'), p2: forfeitingPlayer('B') },
+      maxConsecutiveForfeits: 2,
+    });
+    expect(outcome.abortReason).not.toBe('stalled');
+  });
+
+  it('auto-stops (budget) once the token budget is spent', async () => {
+    const outcome = await runMatch({
+      mode: 'model_vs_model',
+      game: 'tictactoe',
+      variant,
+      players: { p1: forfeitingPlayer('A', 100), p2: forfeitingPlayer('B', 100) },
+      maxTokens: 250,
+    });
+    expect(outcome.aborted).toBe(true);
+    expect(outcome.abortReason).toBe('budget');
+    expect(outcome.moves).toHaveLength(3); // 100+100+100 ≥ 250
   });
 });

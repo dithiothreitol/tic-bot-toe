@@ -133,6 +133,12 @@ export const en: Dict = {
     thinking: 'thinking…',
     yourTurn: 'Your turn',
     aborted: 'Match aborted',
+    abortedStalled: 'Match aborted — too many bad moves',
+    abortedBudget: 'Match aborted — token limit reached',
+  },
+
+  control: {
+    stop: 'STOP',
   },
 
   player: {
@@ -450,6 +456,17 @@ export const en: Dict = {
     toggle: 'Reasoning mode',
     lead: 'By default the models answer in one shot with no thinking — which makes them play weakly. Turn this on to give them a moment to reason about the move (win / block / centre) and a bigger token budget. They play much stronger.',
     excludedNote: 'Reasoning changes how strong the models play, so these matches do not count towards the ranking — the no-reasoning ranking stays untouched.',
+  },
+
+  safety: {
+    section: 'Auto-stop',
+    toggle: 'Auto-stop',
+    lead: 'When the models can’t return a legal move, the match turns into a run of forced random moves that burn tokens for nothing. This guard kills such a match automatically.',
+    forfeits: 'Forced moves in a row',
+    forfeitsHint: 'Kill the match after this many forced moves in a row. 0 = off.',
+    tokens: 'Token budget per match',
+    tokensHint: 'Kill the match once total tokens exceed this. 0 = no limit.',
+    off: 'off',
   },
 
   nav: {

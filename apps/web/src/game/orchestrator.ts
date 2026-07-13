@@ -20,6 +20,15 @@ import {
 
 export type MatchMode = 'model_vs_model' | 'human_vs_model';
 
+/**
+ * Why a match stopped early. `user` = someone hit STOP (or the tab closed);
+ * `stalled` = too many forced/invalid moves in a row (the models can't play);
+ * `budget` = the token budget for the match was spent; `fuse` = the
+ * `safetyMaxMoves` cap against a non-terminating game. Null when the match
+ * finished on its own.
+ */
+export type AbortReason = 'user' | 'stalled' | 'budget' | 'fuse';
+
 export interface MoveLogEntry {
   index: number;
   player: PlayerSide;
@@ -47,6 +56,8 @@ export interface MatchOutcome {
   setup: SetupRecord;
   /** True when the loop stopped early (external abort or safety fuse). */
   aborted: boolean;
+  /** Why it stopped early — null unless `aborted`. Drives the UI message. */
+  abortReason: AbortReason | null;
 }
 
 export interface RunMatchOptions {
@@ -61,6 +72,19 @@ export interface RunMatchOptions {
   signal?: AbortSignal;
   /** Fuse against non-terminating games (battleship 2·N²). */
   safetyMaxMoves?: number;
+  /**
+   * Auto-stop a stalled match after this many FORCED/invalid moves in a row
+   * (`telemetry.forfeit`). When both models can't produce a legal move the match
+   * degenerates into forced random moves that burn tokens for nothing — this
+   * kills it. 0/undefined = never (default).
+   */
+  maxConsecutiveForfeits?: number;
+  /**
+   * Auto-stop once cumulative prompt+completion tokens across the match reach
+   * this budget. A second safety net against a match quietly burning tokens.
+   * 0/undefined = no budget (default).
+   */
+  maxTokens?: number;
 }
 
 const DEFAULT_SAFETY_MAX_MOVES = 1000;
@@ -115,9 +139,18 @@ export async function runMatch(opts: RunMatchOptions): Promise<MatchOutcome> {
   opts.onStart?.(snapshot());
 
   let aborted = false;
+  let abortReason: AbortReason | null = null;
+  let consecutiveForfeits = 0;
+  let tokensUsed = 0;
   while (def.status(state) === 'playing') {
-    if (opts.signal?.aborted || moves.length >= maxMoves) {
+    if (opts.signal?.aborted) {
       aborted = true;
+      abortReason = 'user';
+      break;
+    }
+    if (moves.length >= maxMoves) {
+      aborted = true;
+      abortReason = 'fuse';
       break;
     }
     const side = def.currentPlayer(state);
@@ -127,6 +160,7 @@ export async function runMatch(opts: RunMatchOptions): Promise<MatchOutcome> {
     const result = await raceAbort(opts.players[side].getMove(view, legal), opts.signal);
     if (result === ABORTED) {
       aborted = true;
+      abortReason = 'user';
       break;
     }
 
@@ -139,6 +173,22 @@ export async function runMatch(opts: RunMatchOptions): Promise<MatchOutcome> {
     };
     moves.push(entry);
     opts.onMove?.(entry, snapshot());
+
+    // Auto-stop guards (SPEC safety): a run of forced moves means the models
+    // can't play, and a blown token budget means it's not worth continuing.
+    consecutiveForfeits = entry.telemetry.forfeit ? consecutiveForfeits + 1 : 0;
+    tokensUsed +=
+      (entry.telemetry.promptTokens ?? 0) + (entry.telemetry.completionTokens ?? 0);
+    if (opts.maxConsecutiveForfeits && consecutiveForfeits >= opts.maxConsecutiveForfeits) {
+      aborted = true;
+      abortReason = 'stalled';
+      break;
+    }
+    if (opts.maxTokens && tokensUsed >= opts.maxTokens) {
+      aborted = true;
+      abortReason = 'budget';
+      break;
+    }
   }
 
   const status = def.status(state);
@@ -153,6 +203,7 @@ export async function runMatch(opts: RunMatchOptions): Promise<MatchOutcome> {
     moves,
     setup: def.serializeSetup(state),
     aborted,
+    abortReason,
   };
   opts.onEnd?.(outcome);
   return outcome;

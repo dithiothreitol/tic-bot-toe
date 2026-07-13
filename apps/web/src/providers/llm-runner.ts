@@ -55,6 +55,20 @@ export interface LlmMoveConfig {
   /** Injectable monotonic clock in ms (deterministic latency in tests). */
   now?: () => number;
   /**
+   * Wait this long before each corrective retry (linear backoff: ×1, ×2, …).
+   * Stops the client from hammering the API back-to-back — the retries otherwise
+   * fire instantly and flood the console. 0/undefined = no wait (default; tests
+   * stay fast). Production wiring sets a real value.
+   */
+  retryDelayMs?: number;
+  /**
+   * Longer backoff used when the last attempt was rate-limited (HTTP 429), since
+   * retrying immediately just earns another 429. Falls back to `retryDelayMs`.
+   */
+  rateLimitDelayMs?: number;
+  /** Injectable delay (tests). Defaults to a real setTimeout-based sleep. */
+  sleep?: (ms: number) => Promise<void>;
+  /**
    * Prompt-lab appendix (SPEC §12.4). Appended AFTER the fixed core system
    * prompt so the response-format contract from §6/§7 always survives. Blank /
    * undefined = no change. Lab matches carry `lab=true` and never touch Elo.
@@ -93,6 +107,10 @@ function correction(legal: Move[]): string {
     `That was not a valid move. Choose ONLY from these legal moves: ${legal.join(', ')}. ` +
     `Respond with ONLY the required JSON object, nothing else.`
   );
+}
+
+function defaultSleep(ms: number): Promise<void> {
+  return ms > 0 ? new Promise((resolve) => setTimeout(resolve, ms)) : Promise.resolve();
 }
 
 function defaultNow(): number {
@@ -167,6 +185,9 @@ export async function runLlmMove(
   const timeoutMs = config.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const now = config.now ?? defaultNow;
   const rng = config.rng ?? Math.random;
+  const sleep = config.sleep ?? defaultSleep;
+  const retryDelayMs = config.retryDelayMs ?? 0;
+  const rateLimitDelayMs = config.rateLimitDelayMs ?? retryDelayMs;
 
   const { system, user } = def.renderPrompt(view, legal, { reasoning: config.reasoning });
   // Lab appendix goes AFTER the core prompt — the format rules must win (§12.4).
@@ -225,6 +246,17 @@ export async function runLlmMove(
       // Invalid move → show the model its answer, then correct it and retry.
       messages.push({ role: 'assistant', content: completion.text });
       messages.push({ role: 'user', content: correction(legal) });
+    }
+
+    // Back off before the next attempt so we stop hammering the API. A 429 waits
+    // longer (retrying immediately just earns another). Linear ramp by attempt.
+    // Skipped after the final attempt (nothing follows it) and when delay is 0.
+    if (retries < maxRetries) {
+      const rateLimited =
+        lastTransportError !== null &&
+        classifyTransportError(lastTransportError) === 'rate_limited';
+      const base = rateLimited ? rateLimitDelayMs : retryDelayMs;
+      if (base > 0) await sleep(base * (retries + 1));
     }
   }
 

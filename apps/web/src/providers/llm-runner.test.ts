@@ -209,6 +209,40 @@ describe('runLlmMove', () => {
     await expect(runLlmMove(view, [], { transport })).rejects.toThrow(/no legal moves/);
   });
 
+  // ── Retry backoff (429 flooding) ──────────────────────────────────────────
+  it('backs off between retries, waiting longer after a 429', async () => {
+    const { view, legal } = viewAndLegal();
+    const { transport } = scriptedTransport([
+      new Error('OpenRouter 429: rate limit'),
+      { text: '{"move": 2}' },
+    ]);
+    const waits: number[] = [];
+
+    const result = await runLlmMove(view, legal, {
+      transport,
+      retryDelayMs: 700,
+      rateLimitDelayMs: 2000,
+      sleep: (ms) => {
+        waits.push(ms);
+        return Promise.resolve();
+      },
+    });
+
+    expect(result.move).toBe(2);
+    // Attempt 0 hit a 429 → the wait before attempt 1 uses the 429 delay (×1).
+    expect(waits).toEqual([2000]);
+  });
+
+  it('does not wait when no delay is configured (default fast path)', async () => {
+    const { view, legal } = viewAndLegal();
+    const { transport } = scriptedTransport([{ text: 'bad' }, { text: '{"move": 1}' }]);
+    const sleep = vi.fn(() => Promise.resolve());
+
+    await runLlmMove(view, legal, { transport, sleep });
+
+    expect(sleep).not.toHaveBeenCalled();
+  });
+
   // ── Prompt lab (§12.4) ────────────────────────────────────────────────────
   it('appends the lab systemAppendix AFTER the core system prompt', async () => {
     const { view, legal } = viewAndLegal();

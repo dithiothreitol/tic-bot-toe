@@ -128,6 +128,18 @@ export interface MatchConfig {
   daily?: boolean;
   /** AI commentator (§12.1) — off unless the user picked a model. Never a player. */
   commentator?: CommentatorSpec;
+  /**
+   * Auto-stop guard for stalled/expensive matches. Omit = no auto-stop; the
+   * setup screen fills it in. `0` on either field disables that guard.
+   */
+  safety?: MatchSafety;
+}
+
+export interface MatchSafety {
+  /** Kill after this many forced/invalid moves in a row (0 = off). */
+  maxConsecutiveForfeits: number;
+  /** Kill once cumulative prompt+completion tokens reach this (0 = off). */
+  maxTokens: number;
 }
 
 /**
@@ -225,6 +237,9 @@ export function GameRunner({
   /** Match id already reported to the cumulative finished-games counter, so a
    *  re-render never counts the same match twice. */
   const finishReportedRef = useRef<string>('');
+  /** The running match's aborter, lifted out of the run effect so the STOP
+   *  button can end the match while keeping it on screen (§ manual stop). */
+  const aborterRef = useRef<AbortController | null>(null);
 
   /**
    * Viewer prediction (§12.5). The bet must be placed BEFORE the first move, so
@@ -248,6 +263,7 @@ export function GameRunner({
     if (needsPlacement || needsPrediction) return;
 
     const abort = new AbortController();
+    aborterRef.current = abort;
     const humans: Partial<Record<PlayerSide, HumanPlayerHandle>> = {};
     const build = (spec: PlayerSpec, side: PlayerSide) => {
       // Reasoning is a match-level toggle; fold it into every LLM spec here so
@@ -345,6 +361,8 @@ export function GameRunner({
       players,
       signal: abort.signal,
       safetyMaxMoves: config.game === 'battleship' ? 2 * size * size : 9,
+      maxConsecutiveForfeits: config.safety?.maxConsecutiveForfeits || undefined,
+      maxTokens: config.safety?.maxTokens || undefined,
       onStart: (snap) => {
         applySnap(snap);
         prevState = snap.state;
@@ -494,9 +512,15 @@ export function GameRunner({
     }
   };
 
+  const stopMatch = () => aborterRef.current?.abort();
+
   const statusLine = (() => {
     if (outcome) {
-      if (outcome.winner === null) return t.status.aborted;
+      if (outcome.winner === null) {
+        if (outcome.abortReason === 'stalled') return t.status.abortedStalled;
+        if (outcome.abortReason === 'budget') return t.status.abortedBudget;
+        return t.status.aborted;
+      }
       if (outcome.winner === 'draw') return t.status.draw;
       if (humanSide) return outcome.winner === humanSide ? t.result.youWon : t.result.youLost;
       const name = outcome.winner === 'p1' ? config.names.p1 : config.names.p2;
@@ -657,6 +681,12 @@ export function GameRunner({
             {thinking && <ThinkDots side={toMove} />}
             {statusLine}
           </p>
+
+          {status === 'playing' && outcome === null && (
+            <Button variant="ghost" size="sm" onClick={stopMatch} aria-label={t.control.stop}>
+              ■ {t.control.stop}
+            </Button>
+          )}
 
           {config.game === 'tictactoe' ? (
             <TicTacToeArena

@@ -105,6 +105,11 @@ export function SetupScreen({
   // §8 — let the models reason before answering. Off by default (the ranking is
   // no-reasoning); when on, the match is saved as a lab match and skips Elo.
   const [reasoning, setReasoning] = useState(false);
+  // Auto-stop guard (§ safety): kill a match that degenerates into forced moves
+  // or blows a token budget. On by default with sane thresholds; 0 disables a rule.
+  const [safetyOn, setSafetyOn] = useState(true);
+  const [maxForfeits, setMaxForfeits] = useState(4);
+  const [maxTokens, setMaxTokens] = useState(60_000);
   // §12.1 — commentator is OFF by default; turning it on means picking a model.
   const [commentatorOn, setCommentatorOn] = useState(false);
   const [commentatorModel, setCommentatorModel] = useState<SelectableModel | null>(null);
@@ -209,7 +214,10 @@ export function SetupScreen({
               name: commentatorModel.name,
             }
           : undefined;
-    const base = { game, variant, seed: randomSeed(), lab: labOpen, reasoning, commentator };
+    const safety: MatchConfig['safety'] = safetyOn
+      ? { maxConsecutiveForfeits: maxForfeits, maxTokens }
+      : { maxConsecutiveForfeits: 0, maxTokens: 0 };
+    const base = { game, variant, seed: randomSeed(), lab: labOpen, reasoning, commentator, safety };
     const config: MatchConfig =
       mode === 'model_vs_model'
         ? {
@@ -408,6 +416,60 @@ export function SetupScreen({
             <p className="clip-cut border border-p2/30 bg-p2/5 p-3 font-mono text-[10px] uppercase tracking-wider text-p2/80">
               {t.reasoning.excludedNote}
             </p>
+          )}
+        </section>
+
+        <section className="flex flex-col gap-3 border-t border-border/60 pt-5">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-col gap-1">
+              <SectionLabel>{t.safety.section}</SectionLabel>
+              <p className="max-w-prose text-xs text-muted-foreground">{t.safety.lead}</p>
+            </div>
+            <Switch
+              checked={safetyOn}
+              onCheckedChange={setSafetyOn}
+              aria-label={t.safety.toggle}
+            />
+          </div>
+
+          {safetyOn && (
+            <div className="flex flex-col gap-4 clip-cut border border-border bg-card-inset p-4">
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <Label>{t.safety.forfeits}</Label>
+                  <span className="font-mono text-sm font-bold">
+                    {maxForfeits === 0 ? t.safety.off : maxForfeits}
+                  </span>
+                </div>
+                <Slider
+                  value={[maxForfeits]}
+                  onValueChange={([v]) => setMaxForfeits(v ?? 0)}
+                  min={0}
+                  max={9}
+                  step={1}
+                  aria-label={t.safety.forfeits}
+                />
+                <p className="font-mono text-[10px] text-dim">{t.safety.forfeitsHint}</p>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <Label>{t.safety.tokens}</Label>
+                  <span className="font-mono text-sm font-bold">
+                    {maxTokens === 0 ? t.safety.off : `${(maxTokens / 1000).toFixed(0)}k`}
+                  </span>
+                </div>
+                <Slider
+                  value={[maxTokens]}
+                  onValueChange={([v]) => setMaxTokens(v ?? 0)}
+                  min={0}
+                  max={200_000}
+                  step={10_000}
+                  aria-label={t.safety.tokens}
+                />
+                <p className="font-mono text-[10px] text-dim">{t.safety.tokensHint}</p>
+              </div>
+            </div>
           )}
         </section>
 

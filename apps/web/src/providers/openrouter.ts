@@ -31,7 +31,10 @@ export interface OpenRouterConfig {
   /** Injectable fetch (tests). */
   fetchImpl?: typeof fetch;
   /** Runner knobs (tests / lab temperature is separate). */
-  runner?: Pick<LlmMoveConfig, 'maxRetries' | 'timeoutMs' | 'rng' | 'now'>;
+  runner?: Pick<
+    LlmMoveConfig,
+    'maxRetries' | 'timeoutMs' | 'rng' | 'now' | 'retryDelayMs' | 'rateLimitDelayMs' | 'sleep'
+  >;
 }
 
 interface OpenRouterResponse {
@@ -109,6 +112,10 @@ export function createOpenRouterPlayer(
         price: config.price,
         systemAppendix: config.systemAppendix,
         reasoning: config.reasoning,
+        // Space out retries so BYOK keys don't flood OpenRouter with back-to-back
+        // calls; a 429 backs off ~2s. Overridable via `runner` (tests pass 0).
+        retryDelayMs: 700,
+        rateLimitDelayMs: 2000,
         ...config.runner,
       });
     },
