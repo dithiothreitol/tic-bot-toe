@@ -6,6 +6,7 @@ import App from './App';
 import { en } from '@/i18n/en';
 import { pl } from '@/i18n/pl';
 import { useSettings } from '@/store/settings';
+import { SETUP_DEFAULTS, useSetupPrefs } from '@/store/setup';
 
 // No network in tests: the catalog resolves empty.
 vi.mock('@/providers/openrouter-catalog', () => ({
@@ -21,6 +22,9 @@ const renderApp = (path = '/') =>
 
 beforeEach(() => {
   localStorage.clear();
+  // The setup screen remembers its configuration between matches, so it also
+  // remembers it between tests — start each one from the defaults.
+  useSetupPrefs.setState(SETUP_DEFAULTS);
   // jsdom reports an English browser, and an unprefixed path follows the browser
   // (§ LocaleGate). These tests are about the Polish UI, so they pin the language
   // the way a returning user does: by having chosen it once.

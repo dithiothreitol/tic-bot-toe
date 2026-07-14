@@ -40,6 +40,7 @@ import { fetchOllamaModels } from '@/providers/ollama';
 import { fetchCatalog } from '@/providers/openrouter-catalog';
 import { isWebGpuAvailable } from '@/providers/webllm';
 import { useSettings } from '@/store/settings';
+import { useSetupPrefs } from '@/store/setup';
 
 /**
  * Game-select tile: glyph over title + meta, stacked and left-aligned
@@ -93,32 +94,37 @@ export function SetupScreen({
   onOpenSettings: () => void;
 }) {
   const t = useT();
-  const [game, setGame] = useState<GameId>('tictactoe');
-  const [variantId, setVariantId] = useState('small');
-  const [mode, setMode] = useState<MatchMode>('human_vs_model');
+  // Everything the user picks here is persisted (§16): the arena unmounts this
+  // screen while a match runs, and "back to setup" must return to the same
+  // configuration — changing one model should not mean re-picking all of them.
+  //
+  // Defaults worth knowing: reasoning OFF (§8 — the ranking is no-reasoning, so
+  // a reasoning match is saved as a lab match and skips Elo), safety ON (auto-stop
+  // for forfeit loops / token blowouts, 0 disables a rule), commentator OFF (§12.1).
+  const {
+    game,
+    variantId,
+    mode,
+    p1ModelId,
+    p2ModelId,
+    labOpen,
+    appendix,
+    temperature,
+    reasoning,
+    safetyOn,
+    maxForfeits,
+    maxTokens,
+    commentatorOn,
+    commentatorModelId,
+    patch,
+  } = useSetupPrefs();
   const [catalog, setCatalog] = useState<SelectableModel[]>([]);
   const [ollama, setOllama] = useState<SelectableModel[]>([]);
   const [loading, setLoading] = useState(true);
-  const [p1Model, setP1Model] = useState<SelectableModel | null>(null);
-  const [p2Model, setP2Model] = useState<SelectableModel | null>(null);
   const [webGpu] = useState(() => isWebGpuAvailable());
-  const [labOpen, setLabOpen] = useState(false);
-  const [appendix, setAppendix] = useState('');
-  const [temperature, setTemperature] = useState(0.2);
-  // §8 — let the models reason before answering. Off by default (the ranking is
-  // no-reasoning); when on, the match is saved as a lab match and skips Elo.
-  const [reasoning, setReasoning] = useState(false);
-  // Auto-stop guard (§ safety): kill a match that degenerates into forced moves
-  // or blows a token budget. On by default with sane thresholds; 0 disables a rule.
-  const [safetyOn, setSafetyOn] = useState(true);
-  const [maxForfeits, setMaxForfeits] = useState(4);
-  const [maxTokens, setMaxTokens] = useState(60_000);
-  // §12.1 — commentator is OFF by default; turning it on means picking a model.
-  const [commentatorOn, setCommentatorOn] = useState(false);
-  const [commentatorModel, setCommentatorModel] = useState<SelectableModel | null>(null);
   // The funded server coach (Gemini) is offered only when the server has a key.
   const [coachAvailable, setCoachAvailable] = useState(false);
-  const [commentatorSource, setCommentatorSource] = useState<'byok' | 'server'>('byok');
+  const commentatorSource = useSetupPrefs((s) => s.commentatorSource) ?? 'byok';
 
   useEffect(() => {
     let alive = true;
@@ -145,7 +151,11 @@ export function SetupScreen({
       .then((h) => {
         if (alive && h.coach) {
           setCoachAvailable(true);
-          setCommentatorSource('server'); // funded coach is the friendlier default
+          // Funded coach is the friendlier default — but only for a user who has
+          // not picked a source yet; an explicit BYOK choice must survive.
+          if (useSetupPrefs.getState().commentatorSource === null) {
+            patch({ commentatorSource: 'server' });
+          }
         }
         return h.ollama ? fetchOllamaModels() : [];
       })
@@ -164,6 +174,13 @@ export function SetupScreen({
     () => [...(webGpu ? webLlmSelectable() : []), ...ollama, ...catalog],
     [catalog, ollama, webGpu],
   );
+
+  // Persisted picks are ids; the model objects come from the freshly loaded
+  // catalog, so an id that vanished from it reads as "nothing selected".
+  const byId = (id: string | null) => models.find((m) => m.id === id) ?? null;
+  const p1Model = byId(p1ModelId);
+  const p2Model = byId(p2ModelId);
+  const commentatorModel = byId(commentatorModelId);
 
   const variant: Variant = useMemo(
     () =>
@@ -245,7 +262,7 @@ export function SetupScreen({
       <CardContent className="flex flex-col gap-6">
         <section className="flex flex-col gap-2">
           <SectionLabel tag="01">{t.setup.game}</SectionLabel>
-          <Tabs value={game} onValueChange={(v) => setGame(v as GameId)}>
+          <Tabs value={game} onValueChange={(v) => patch({ game: v as GameId })}>
             {/* h-9 comes from the Tabs cva variant — override it with the same
                 selector, otherwise the taller tiles overflow the list. */}
             <TabsList className="grid h-auto w-full grid-cols-2 gap-2 group-data-[orientation=horizontal]/tabs:h-auto">
@@ -286,7 +303,7 @@ export function SetupScreen({
         {game === 'battleship' && (
           <section className="flex flex-col gap-2">
             <SectionLabel tag="02">{t.setup.variant}</SectionLabel>
-            <Select value={variantId} onValueChange={setVariantId}>
+            <Select value={variantId} onValueChange={(v) => patch({ variantId: v })}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -305,7 +322,7 @@ export function SetupScreen({
           <SectionLabel tag={game === 'battleship' ? '03' : '02'}>
             {t.mode.label}
           </SectionLabel>
-          <Tabs value={mode} onValueChange={(v) => setMode(v as MatchMode)}>
+          <Tabs value={mode} onValueChange={(v) => patch({ mode: v as MatchMode })}>
             <TabsList className="grid h-auto w-full grid-cols-2 group-data-[orientation=horizontal]/tabs:h-auto">
               <TabsTrigger value="human_vs_model" className="py-2.5">
                 {t.mode.humanVsModel}
@@ -325,7 +342,7 @@ export function SetupScreen({
                 models={models}
                 loading={loading}
                 value={p1Model?.id ?? null}
-                onSelect={setP1Model}
+                onSelect={(m) => patch({ p1ModelId: m.id })}
               />
             </div>
           ) : (
@@ -348,7 +365,7 @@ export function SetupScreen({
               models={models}
               loading={loading}
               value={p2Model?.id ?? null}
-              onSelect={setP2Model}
+              onSelect={(m) => patch({ p2ModelId: m.id })}
             />
           </div>
         </section>
@@ -363,7 +380,7 @@ export function SetupScreen({
             </div>
             <Switch
               checked={commentatorOn}
-              onCheckedChange={setCommentatorOn}
+              onCheckedChange={(v) => patch({ commentatorOn: v })}
               aria-label={t.commentator.toggle}
             />
           </div>
@@ -375,7 +392,9 @@ export function SetupScreen({
                   <Label className="text-edu">{t.commentator.sourceLabel}</Label>
                   <Tabs
                     value={commentatorSource}
-                    onValueChange={(v) => setCommentatorSource(v as 'byok' | 'server')}
+                    onValueChange={(v) =>
+                      patch({ commentatorSource: v as 'byok' | 'server' })
+                    }
                   >
                     <TabsList className="grid w-full grid-cols-2">
                       <TabsTrigger value="server">{t.commentator.sourceServer}</TabsTrigger>
@@ -394,7 +413,7 @@ export function SetupScreen({
                     models={models}
                     loading={loading}
                     value={commentatorModel?.id ?? null}
-                    onSelect={setCommentatorModel}
+                    onSelect={(m) => patch({ commentatorModelId: m.id })}
                   />
                   <p className="font-mono text-[10px] text-dim">{t.commentator.costHint}</p>
                 </div>
@@ -411,7 +430,7 @@ export function SetupScreen({
             </div>
             <Switch
               checked={reasoning}
-              onCheckedChange={setReasoning}
+              onCheckedChange={(v) => patch({ reasoning: v })}
               aria-label={t.reasoning.toggle}
             />
           </div>
@@ -430,7 +449,7 @@ export function SetupScreen({
             </div>
             <Switch
               checked={safetyOn}
-              onCheckedChange={setSafetyOn}
+              onCheckedChange={(v) => patch({ safetyOn: v })}
               aria-label={t.safety.toggle}
             />
           </div>
@@ -446,7 +465,7 @@ export function SetupScreen({
                 </div>
                 <Slider
                   value={[maxForfeits]}
-                  onValueChange={([v]) => setMaxForfeits(v ?? 0)}
+                  onValueChange={([v]) => patch({ maxForfeits: v ?? 0 })}
                   min={0}
                   max={9}
                   step={1}
@@ -464,7 +483,7 @@ export function SetupScreen({
                 </div>
                 <Slider
                   value={[maxTokens]}
-                  onValueChange={([v]) => setMaxTokens(v ?? 0)}
+                  onValueChange={([v]) => patch({ maxTokens: v ?? 0 })}
                   min={0}
                   max={200_000}
                   step={10_000}
@@ -484,7 +503,7 @@ export function SetupScreen({
             </div>
             <Switch
               checked={labOpen}
-              onCheckedChange={setLabOpen}
+              onCheckedChange={(v) => patch({ labOpen: v })}
               aria-label={t.lab.toggle}
             />
           </div>
@@ -498,7 +517,7 @@ export function SetupScreen({
                 <Textarea
                   id="lab-appendix"
                   value={appendix}
-                  onChange={(e) => setAppendix(e.target.value)}
+                  onChange={(e) => patch({ appendix: e.target.value })}
                   placeholder={t.lab.appendixPlaceholder}
                   rows={3}
                 />
@@ -514,7 +533,7 @@ export function SetupScreen({
                 </div>
                 <Slider
                   value={[temperature]}
-                  onValueChange={([t]) => setTemperature(t ?? 0.2)}
+                  onValueChange={([v]) => patch({ temperature: v ?? 0.2 })}
                   min={0}
                   max={1.5}
                   step={0.05}
