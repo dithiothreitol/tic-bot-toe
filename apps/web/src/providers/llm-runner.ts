@@ -2,8 +2,10 @@ import {
   type GameDefinition,
   type Move,
   type MoveErrorReason,
+  type MoveRejection,
   type MoveResult,
   type MoveTelemetry,
+  type MoveValidation,
   type PlayerView,
   getGame,
 } from '@arena/game-core';
@@ -235,17 +237,38 @@ export async function runLlmMove(
         acc.completionTokens += completion.completionTokens;
         acc.sawTokens = true;
       }
-      const move = def.parseMove(completion.text, legal);
-      if (move !== null) {
+      // Parse recovers the move SYNTACTICALLY; legality is a separate step so
+      // games with a non-enumerable/hidden legal set (scrabble, sudoku) can
+      // decide it via `validateMove` on the view (plan §3). Existing games have
+      // no hook, so this collapses to the old `legal.includes` behaviour.
+      const parsed = def.parseMove(completion.text, legal);
+      const validity: MoveValidation | null =
+        parsed === null
+          ? null
+          : def.validateMove
+            ? def.validateMove(view, parsed)
+            : legal.includes(parsed)
+              ? { ok: true }
+              : { ok: false, reason: 'not a legal move' };
+
+      if (parsed !== null && validity?.ok) {
         return {
-          move,
+          move: parsed,
           telemetry: finalizeTelemetry(acc, retries, false, config.price),
           raw: completion.text,
         };
       }
-      // Invalid move → show the model its answer, then correct it and retry.
+
+      // Invalid/unparseable move → show the model its answer, then correct it and
+      // retry. A parsed-but-rejected move carries a reason; a parse failure does
+      // not. Games may render their own correction (no full legal-list dump).
+      const rejection: MoveRejection | undefined =
+        validity && !validity.ok ? validity : undefined;
+      const correctionMsg = def.renderCorrection
+        ? def.renderCorrection(view, rejection)
+        : correction(legal);
       messages.push({ role: 'assistant', content: completion.text });
-      messages.push({ role: 'user', content: correction(legal) });
+      messages.push({ role: 'user', content: correctionMsg });
     }
 
     // Back off before the next attempt so we stop hammering the API. A 429 waits
@@ -266,7 +289,11 @@ export async function runLlmMove(
   const reason: MoveErrorReason = lastTransportError
     ? classifyTransportError(lastTransportError)
     : 'bad_output';
-  const forfeitMove = legal[Math.floor(rng() * legal.length)] ?? legal[0]!;
+  // Games may override the forfeit substitute (scrabble → 'PASS'); default is a
+  // random legal move (plan §3).
+  const forfeitMove = def.fallbackMove
+    ? def.fallbackMove(view, legal, rng)
+    : (legal[Math.floor(rng() * legal.length)] ?? legal[0]!);
   return {
     move: forfeitMove,
     telemetry: finalizeTelemetry(acc, maxRetries, true, config.price, reason),

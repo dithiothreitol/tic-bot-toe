@@ -3,6 +3,13 @@
 Jednozdaniowe decyzje podejmowane tam, gdzie SPEC.md nie rozstrzyga (zgodnie z
 regułą 5 promptu startowego). Najnowsze na górze.
 
+## Sudoku + Scrabble — Etap 0: kontrakt `GameDefinition` (plan §3)
+
+- **`GameId` rośnie per gra, nie z góry (odstępstwo od §3 planu)**: plan wymienia `GameId` = 4 gry w zakresie Etapu 0, ale rozszerzenie unii już teraz psuje `tsc` w `apps/web` — mapy etykiet indeksowane przez `GameId` (`DailyChallengeCard`, `GameRunner`, `LeaderboardPage`, `ReplayPage`) muszą być wyczerpujące. Decyzja (reguła #3): `GameId`, unia `PlayerView` i mapy etykiet rosną **w parze z silnikiem** — `'sudoku'` w Etapie 1, `'scrabble'` w Etapie 5. Etykiety i i18n gier należą i tak do Etapów 2/6 (oba pliki pl+en). Etap 0 zostaje w pełni wstecznie zgodny (zielone testy **i** typecheck).
+- **Trzy opcjonalne hooki kontraktu** (`types.ts`) z domyślnymi ścieżkami zachowanymi dla kółka i statków: `validateMove(view, move)` (legalność z WIDOKU dla gier o nieenumerowalnym/ukrytym zbiorze ruchów), `renderCorrection(view, rejection?)` (komunikat korygujący bez wypisywania listy legalnych), `fallbackMove(view, legal, rng)` (ruch zastępczy przy forfeicie — np. scrabble→`PASS`). Nowy typ `MoveValidation = {ok:true} | MoveRejection`.
+- **`mulberry32` wydzielone do `rng.ts`** (współdzielone przez statki/sudoku/scrabble) — czysty PRNG, ten sam strumień w przeglądarce i na serwerze. Regresja: statki generują identyczne floty dla tego samego seeda (test w `rng.test.ts`).
+- **`llm-runner.ts`**: `parseMove` odzyskuje ruch SKŁADNIOWO, legalność = `def.validateMove?.(view, parsed) ?? legal.includes(parsed)`; korekta = `def.renderCorrection?.(...) ?? correction(legal)`; forfeit = `def.fallbackMove?.(...) ?? losowy legalny`. **`replay.ts`**: legalność w pętli przez `validateMove` gdy zdefiniowane, inaczej `legalMoves().includes`. Kółko i statki (brak hooków) — zero zmian zachowania. Wiring hooków przetestowany na syntetycznej grze (`llm-runner.hooks.test.ts`).
+
 ## Moduł 11 — Powtórki + OG + SEO (SPEC §11; SEO na życzenie: kompletne, profesjonalne, agent-friendly)
 
 - **Powtórka `/replay/:id`** (publiczna, bez JWT/klucza — §20.7): `ReplayPage` czyta partię z istniejącego `GET /api/replay/:id` (zero dodatkowego stanu, §11). `ReplayPlayer`: odtwarzacz krok-po-kroku (⏮◀ Odtwórz ▶⏭, auto-play 900 ms), plansza (kółko: `Board3x3` z ringiem jakości; statki: widok boga dwóch flot), `TimelineChart`, Precyzja per gracz, kolorowana lista ruchów (blunder na czerwono). Wspólny `lib/match-states.ts` (rekonstrukcja stanów) używany też przez `AnalysisView`.

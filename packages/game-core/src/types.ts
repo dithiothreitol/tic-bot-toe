@@ -6,6 +6,10 @@
  * validation, SPEC §5/§15). Keep it that way.
  */
 
+// Grows per game IN LOCKSTEP with its engine + PlayerView member + UI label maps
+// (plan §3, but sequenced per DECISIONS.md): 'sudoku' lands in Etap 1, 'scrabble'
+// in Etap 5. Widening it ahead of those breaks the exhaustive label maps in the
+// web app, so it stays minimal until each game is actually wired.
 export type GameId = 'tictactoe' | 'battleship';
 
 /** Two sides. p1 always moves first. */
@@ -113,6 +117,19 @@ export interface MoveResult {
   raw?: string;
 }
 
+/**
+ * Result of validating a single move against a VIEW (SPEC §5 / plan §3). Games
+ * whose legal-move set is too large to enumerate (scrabble) or must stay hidden
+ * from the model (sudoku candidates) validate a concrete move instead of listing
+ * every option. `reason` is a short English phrase that flows into the corrective
+ * retry message (SPEC §8).
+ */
+export interface MoveRejection {
+  ok: false;
+  reason: string;
+}
+export type MoveValidation = { ok: true } | MoveRejection;
+
 export type MoveQuality = 'optimal' | 'good' | 'weak' | 'blunder';
 
 /** Result of post-game move analysis (SPEC §12.2). */
@@ -217,6 +234,33 @@ export interface GameDefinition<
   serializeSetup(state: S): SetupRecord;
   /** Optional post-game analysis (SPEC §12.2), added per game in Stage 10. */
   evaluateMove?(state: S, player: PlayerSide, move: M): MoveEval;
+
+  // --- Optional hooks for games whose legal set can't/shouldn't be enumerated
+  //     in the prompt (plan §3). Default paths below are used when unset, so
+  //     tic-tac-toe and battleship are unaffected. ---
+
+  /**
+   * Validate a concrete move from the perspective of a VIEW (not the full
+   * state) — the llm-runner and the human UI only ever hold a view. When
+   * defined, this REPLACES `legal.includes(move)` as the legality test. Must be
+   * pure and deterministic. `parseMove` then only needs to recover the move
+   * SYNTACTICALLY; legality is decided here.
+   */
+  validateMove?(view: V, move: M): MoveValidation;
+
+  /**
+   * Corrective message after an illegal/unparseable move — replaces the default
+   * "Choose ONLY from: <full legal list>". Receives the rejection reason when a
+   * move was parsed but rejected (undefined when parsing failed outright).
+   */
+  renderCorrection?(view: V, rejection?: MoveRejection): string;
+
+  /**
+   * Substitute move on forfeit — replaces the default "random pick from
+   * `legalMoves()`". Scrabble returns 'PASS'; sudoku keeps the default. `rng`
+   * yields floats in [0, 1).
+   */
+  fallbackMove?(view: V, legal: M[], rng: () => number): M;
 }
 
 export interface Player {

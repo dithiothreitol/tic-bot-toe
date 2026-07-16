@@ -83,7 +83,12 @@ export function replayMatch(
     if (entry.player !== side) {
       return { valid: false, reason: `move ${i}: expected ${side}, got ${entry.player}`, status: def.status(state), winner: null, moveCount: i };
     }
-    if (!def.legalMoves(state, side).includes(entry.move)) {
+    // Legality: games with a non-enumerable legal set validate the concrete
+    // move against the view (plan §3); the rest fall back to the legal list.
+    const legalHere = def.validateMove
+      ? def.validateMove(def.viewFor(state, side), entry.move).ok
+      : def.legalMoves(state, side).includes(entry.move);
+    if (!legalHere) {
       return { valid: false, reason: `move ${i}: illegal move ${String(entry.move)}`, status: def.status(state), winner: null, moveCount: i };
     }
     try {

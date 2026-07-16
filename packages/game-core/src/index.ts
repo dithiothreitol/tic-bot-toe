@@ -7,6 +7,7 @@
  */
 
 export * from './types';
+export * from './rng';
 export * from './tictactoe';
 export * from './battleship';
 export * from './elo';
