@@ -5,6 +5,7 @@
  * recomputes this and never trusts the client's `eval`.
  */
 import { type BattleshipState, battleship, cellToCoord, coordToCell } from '../battleship';
+import { type SudokuState, sudoku } from '../sudoku';
 import { type TicTacToeState, symbolFor, ticTacToe } from '../tictactoe';
 import type {
   GameId,
@@ -54,9 +55,12 @@ export function analyzeMatch(
   setup: SetupRecord | null | undefined,
   moves: AnalyzedMove[],
 ): GameAnalysis {
-  const variantObj: Variant = (game === 'tictactoe' ? ticTacToe : battleship).variants.find(
-    (v) => v.id === variant,
-  ) ?? { id: variant, label: variant };
+  const engine =
+    game === 'tictactoe' ? ticTacToe : game === 'sudoku' ? sudoku : battleship;
+  const variantObj: Variant = engine.variants.find((v) => v.id === variant) ?? {
+    id: variant,
+    label: variant,
+  };
 
   const analyses: MoveAnalysis[] = [];
   const accuracy = emptyAccuracy();
@@ -69,6 +73,17 @@ export function analyzeMatch(
       record(analyses, accuracy, i, m.player, m.move, quality);
       if (quality === 'blunder' && turningPoint === null) turningPoint = i;
       state = ticTacToe.applyMove(state, m.player, m.move as number);
+    });
+  } else if (game === 'sudoku') {
+    // The engine grades sudoku itself (naked/hidden single → optimal, correct but
+    // unforced → good, wrong → blunder). evaluateMove reads the state BEFORE the
+    // move, exactly what this loop holds.
+    let state: SudokuState = sudoku.createInitialState(variantObj, configFromSetup(setup));
+    moves.forEach((m, i) => {
+      const quality = sudoku.evaluateMove!(state, m.player, m.move as string).quality;
+      record(analyses, accuracy, i, m.player, m.move, quality);
+      if (quality === 'blunder' && turningPoint === null) turningPoint = i;
+      state = sudoku.applyMove(state, m.player, m.move as string);
     });
   } else {
     let state: BattleshipState = battleship.createInitialState(variantObj, configFromSetup(setup));

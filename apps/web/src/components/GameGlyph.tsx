@@ -28,6 +28,33 @@ export function TicTacToeGlyph() {
   );
 }
 
+/** A tiny 4×4 sudoku with a 2×2 box split and a couple of scored cells. */
+const SUDOKU_CELLS = ['p1', null, null, 'p2', null, null, 'p1', null, null, 'p2', null, null, 'p1', null, null, 'p2'] as const;
+
+export function SudokuGlyph() {
+  return (
+    <div aria-hidden className="grid w-fit grid-cols-4 gap-[2px]">
+      {SUDOKU_CELLS.map((cell, i) => {
+        const col = i % 4;
+        const row = Math.floor(i / 4);
+        return (
+          <span
+            key={i}
+            className={cn(
+              'size-[7px] border border-border-soft',
+              // 2×2 box seams.
+              col === 2 && 'border-l-border',
+              row === 2 && 'border-t-border',
+              cell === 'p1' && 'border-p1 bg-p1/70',
+              cell === 'p2' && 'border-p2 bg-p2/70',
+            )}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
 /** A fleet: bars of different lengths, hinting at the ship sizes. */
 export function BattleshipGlyph() {
   return (

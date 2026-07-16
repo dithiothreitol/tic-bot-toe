@@ -13,6 +13,12 @@ interface GameLogProps {
   names: { p1: string; p2: string };
   /** Commentator bubbles (§12.1) — may arrive after their move, hence the lookup. */
   commentary?: Commentary[];
+  /**
+   * Per-move outcome flag (sudoku): true = correct placement (✓ +1), false =
+   * consistent but wrong (✗ −1). Indexed by move index; undefined for games
+   * without a per-move ✓/✗ notion.
+   */
+  correctness?: (boolean | undefined)[];
   className?: string;
 }
 
@@ -28,7 +34,7 @@ export function CommentBubble({ text }: { text: string }) {
   );
 }
 
-export function GameLog({ moves, names, commentary = [], className }: GameLogProps) {
+export function GameLog({ moves, names, commentary = [], correctness, className }: GameLogProps) {
   const t = useT();
   const byMove = new Map(commentary.map((c) => [c.moveIndex, c]));
   return (
@@ -56,6 +62,11 @@ export function GameLog({ moves, names, commentary = [], className }: GameLogPro
               >
                 #{m.index + 1} {(m.player === 'p1' ? names.p1 : names.p2).slice(0, 18)} →{' '}
                 {formatMove(m.move)}
+                {correctness?.[m.index] !== undefined && (
+                  <span className={cn('ml-1', correctness[m.index] ? 'text-edu' : 'text-danger')}>
+                    {correctness[m.index] ? '✓ +1' : '✗ −1'}
+                  </span>
+                )}
               </span>
               <span className="text-muted-foreground">{formatMs(m.telemetry.latencyMs)}</span>
               <span className="text-muted-foreground">

@@ -8,17 +8,21 @@ import {
   type PlayerSide,
   type SetupConfig,
   type SetupRecord,
+  type SudokuState,
   type TicTacToeCell,
   type TicTacToeState,
   type Variant,
+  SUDOKU_VARIANTS_CONFIG,
   battleship,
   getBattleshipVariant,
+  sudoku,
   ticTacToe,
 } from '@arena/game-core';
 
 import { AnalysisView } from '@/components/AnalysisView';
 import { Board3x3 } from '@/components/Board3x3';
 import { BattleshipBoard } from '@/components/BattleshipBoard';
+import { SudokuBoard } from '@/components/SudokuBoard';
 import { TimelineChart } from '@/components/charts/TimelineChart';
 import { GameLog } from '@/components/GameLog';
 import { ShipPlacement } from '@/components/ShipPlacement';
@@ -98,6 +102,23 @@ async function copyReplayLink(path: string, copied: string): Promise<void> {
 }
 
 const EMPTY_TTT: TicTacToeCell[] = Array<TicTacToeCell>(9).fill(null);
+
+/**
+ * Orchestrator hard stop per game. The sudoku engine already ends the game at
+ * 3× the starting empties (plan §4.2b); this is the outer guard, set just above
+ * it (3×empty + 2, plan §7.2). Battleship uses 2·N²; tic-tac-toe 9.
+ */
+function safetyMaxMovesFor(game: GameId, variant: Variant): number {
+  if (game === 'battleship') {
+    const size = getBattleshipVariant(variant.id).size;
+    return 2 * size * size;
+  }
+  if (game === 'sudoku') {
+    const vc = SUDOKU_VARIANTS_CONFIG[variant.id] ?? SUDOKU_VARIANTS_CONFIG.classic9;
+    return 3 * (vc.size * vc.size - vc.clues) + 2;
+  }
+  return 9;
+}
 
 /**
  * How often a running match reports itself to the home-page "live" counter.
@@ -341,9 +362,6 @@ export function GameRunner({
       extraShotOnHit: config.extraShotOnHit,
       placements: humanSide && placement ? { [humanSide]: placement } : undefined,
     };
-    const size =
-      config.game === 'battleship' ? getBattleshipVariant(config.variant.id).size : 3;
-
     const applySnap = (snap: MatchSnapshot) => {
       setState(snap.state);
       setStatus(snap.status);
@@ -360,7 +378,7 @@ export function GameRunner({
       config: setupConfig,
       players,
       signal: abort.signal,
-      safetyMaxMoves: config.game === 'battleship' ? 2 * size * size : 9,
+      safetyMaxMoves: safetyMaxMovesFor(config.game, config.variant),
       maxConsecutiveForfeits: config.safety?.maxConsecutiveForfeits || undefined,
       maxTokens: config.safety?.maxTokens || undefined,
       onStart: (snap) => {
@@ -574,7 +592,7 @@ export function GameRunner({
   );
 
   const slotSymbol = (side: PlayerSide): string =>
-    config.game === 'tictactoe' ? (side === 'p1' ? 'X' : 'O') : '⚓';
+    config.game === 'tictactoe' ? (side === 'p1' ? 'X' : 'O') : config.game === 'sudoku' ? '#' : '⚓';
   /** Identicon seed: the model id, so the same model always looks the same. */
   const slotSeed = (side: PlayerSide): string => {
     const spec = side === 'p1' ? config.p1 : config.p2;
@@ -695,6 +713,14 @@ export function GameRunner({
               toMove={toMove}
               onPlay={(cell) => submit(cell)}
             />
+          ) : config.game === 'sudoku' ? (
+            <SudokuArena
+              state={state as SudokuState | null}
+              interactive={isHumanTurn}
+              toMove={toMove}
+              names={config.names}
+              onPlay={(move) => submit(move)}
+            />
           ) : (
             <BattleshipArena
               state={state as BattleshipState | null}
@@ -715,7 +741,16 @@ export function GameRunner({
         </HudPanel>
 
         <HudPanel className="min-w-0 p-4">
-          <GameLog moves={log} names={config.names} commentary={commentary} />
+          <GameLog
+            moves={log}
+            names={config.names}
+            commentary={commentary}
+            correctness={
+              config.game === 'sudoku' && state
+                ? (state as SudokuState).history.map((h) => h.correct)
+                : undefined
+            }
+          />
         </HudPanel>
       </div>
 
@@ -826,7 +861,9 @@ export function GameRunner({
           setup={
             config.game === 'battleship' && state
               ? (battleship.serializeSetup(state as BattleshipState) as SetupRecord)
-              : null
+              : config.game === 'sudoku' && state
+                ? (sudoku.serializeSetup(state as SudokuState) as SetupRecord)
+                : null
           }
         />
       )}
@@ -968,6 +1005,150 @@ function BattleshipArena({
         interactive={legal}
         onFire={onFire}
       />
+    </div>
+  );
+}
+
+/**
+ * Sudoku Duel arena. There is no hidden information between players, so the board
+ * is a single god view for both LLM-vs-LLM and human play. Human input: tap an
+ * empty cell → a digit picker offering only rules-consistent digits (a
+ * consistent digit may still be WRONG vs the hidden solution and cost −1, so the
+ * picker never reveals the answer). Scores and the last placement's ±1 are shown.
+ */
+function SudokuArena({
+  state,
+  interactive,
+  toMove,
+  names,
+  onPlay,
+}: {
+  state: SudokuState | null;
+  interactive: boolean;
+  toMove: PlayerSide;
+  names: { p1: string; p2: string };
+  onPlay: (move: Move) => void;
+}) {
+  const t = useT();
+  const [selected, setSelected] = useState<number | null>(null);
+
+  // Drop the picked cell the moment it stops being the human's turn (opponent
+  // moving, game over) so a stale selection never lingers.
+  useEffect(() => {
+    if (!interactive) setSelected(null);
+  }, [interactive]);
+
+  if (!state) {
+    return <p className="font-mono text-xs text-muted-foreground">…</p>;
+  }
+  const size = state.size;
+
+  // Colour each scored digit by who placed it (correct entries only).
+  const owners: (PlayerSide | null)[] = Array<PlayerSide | null>(size * size).fill(null);
+  for (const h of state.history) if (h.correct) owners[h.cell] = h.player;
+
+  const last = state.history.at(-1) ?? null;
+  const interactiveCells = interactive
+    ? state.board.map((v, i) => (v === null ? i : -1)).filter((i) => i >= 0)
+    : [];
+
+  // Rules-consistent digits per empty cell, straight from the engine.
+  const legal = interactive ? sudoku.legalMoves(state, toMove) : [];
+  const candidatesFor = (cell: number): number[] => {
+    const prefix = `r${Math.floor(cell / size) + 1}c${(cell % size) + 1}=`;
+    return legal.filter((m) => m.startsWith(prefix)).map((m) => Number(m.slice(prefix.length)));
+  };
+
+  return (
+    <div className="flex w-full flex-col items-center gap-3">
+      <div className="flex items-center justify-center gap-4 font-mono text-sm">
+        <span className="text-p1">
+          {names.p1.slice(0, 14)}: <span className="font-bold">{state.scores.p1}</span>
+        </span>
+        <span className="text-dim">·</span>
+        <span className="text-p2">
+          {names.p2.slice(0, 14)}: <span className="font-bold">{state.scores.p2}</span>
+        </span>
+      </div>
+
+      <SudokuBoard
+        size={size}
+        boxRows={state.boxRows}
+        boxCols={state.boxCols}
+        board={state.board}
+        givenMask={state.givenMask}
+        owners={owners}
+        interactive={interactiveCells}
+        onCellClick={(cell) => setSelected((cur) => (cur === cell ? null : cell))}
+        selectedCell={selected}
+        lastCell={last ? last.cell : null}
+        lastCorrect={last ? last.correct : undefined}
+      />
+
+      {interactive && selected !== null && (
+        <DigitPicker
+          size={size}
+          candidates={candidatesFor(selected)}
+          onPick={(d) => {
+            onPlay(`r${Math.floor(selected / size) + 1}c${(selected % size) + 1}=${d}`);
+            setSelected(null);
+          }}
+          onCancel={() => setSelected(null)}
+        />
+      )}
+
+      <p className="font-mono text-[10px] uppercase tracking-wider text-dim">
+        {t.sudoku.movesLeft}: {Math.max(0, 3 * state.givenMask.filter((g) => !g).length - state.history.length)}
+      </p>
+    </div>
+  );
+}
+
+/**
+ * Digit picker (1–N) for human sudoku input. Buttons are ≥44 px tap targets
+ * (plan §7.2). Digits that would break a row/column/box are disabled — never
+ * hidden — so the layout is stable and the player learns the constraint.
+ */
+function DigitPicker({
+  size,
+  candidates,
+  onPick,
+  onCancel,
+}: {
+  size: number;
+  candidates: number[];
+  onPick: (digit: number) => void;
+  onCancel: () => void;
+}) {
+  const t = useT();
+  const allowed = new Set(candidates);
+  return (
+    <div className="flex flex-col items-center gap-2">
+      <div className="flex flex-wrap justify-center gap-1.5">
+        {Array.from({ length: size }, (_, k) => k + 1).map((d) => {
+          const ok = allowed.has(d);
+          return (
+            <button
+              key={d}
+              type="button"
+              disabled={!ok}
+              onClick={() => onPick(d)}
+              aria-label={t.sudoku.placeDigit(d)}
+              className={cn(
+                'clip-cut flex size-11 items-center justify-center border font-mono text-lg font-bold transition-colors',
+                ok
+                  ? 'cursor-pointer border-p1/50 bg-p1/10 text-p1 hover:bg-p1/25'
+                  : 'border-border bg-card-inset text-faint opacity-40',
+              )}
+            >
+              {d}
+            </button>
+          );
+        })}
+      </div>
+      <Button variant="ghost" size="sm" onClick={onCancel}>
+        {t.sudoku.cancel}
+      </Button>
     </div>
   );
 }

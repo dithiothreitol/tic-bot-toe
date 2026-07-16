@@ -5,10 +5,11 @@ import {
   type GameId,
   type Variant,
   BATTLESHIP_VARIANTS,
+  SUDOKU_VARIANTS,
   TICTACTOE_VARIANTS,
 } from '@arena/game-core';
 
-import { BattleshipGlyph, TicTacToeGlyph } from '@/components/GameGlyph';
+import { BattleshipGlyph, SudokuGlyph, TicTacToeGlyph } from '@/components/GameGlyph';
 import { ModelPicker } from '@/components/ModelPicker';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
@@ -48,6 +49,20 @@ import { useSetupPrefs } from '@/store/setup';
  */
 const gameTileClass =
   'h-auto flex-col items-start justify-start gap-2.5 whitespace-normal px-3 py-3';
+
+/** The selectable variants for a game (tic-tac-toe has a single one). */
+function variantsForGame(game: GameId): Variant[] {
+  if (game === 'battleship') return BATTLESHIP_VARIANTS;
+  if (game === 'sudoku') return SUDOKU_VARIANTS;
+  return TICTACTOE_VARIANTS;
+}
+
+/** The human's board glyph per game, shown in the P1 slot. */
+function humanSymbol(game: GameId): string {
+  if (game === 'tictactoe') return 'X';
+  if (game === 'sudoku') return '#';
+  return '⚓';
+}
 
 /** Prompt-lab overrides applied to every LLM in the match (§12.4). */
 interface LabTuning {
@@ -182,13 +197,15 @@ export function SetupScreen({
   const p2Model = byId(p2ModelId);
   const commentatorModel = byId(commentatorModelId);
 
+  // Variants per game (tic-tac-toe has a single one → no selector). `variantId`
+  // is a shared pref, so a stale cross-game id (e.g. 'small' while on sudoku)
+  // falls back to the game's first variant.
+  const variantList = variantsForGame(game);
   const variant: Variant = useMemo(
-    () =>
-      game === 'battleship'
-        ? (BATTLESHIP_VARIANTS.find((v) => v.id === variantId) ?? BATTLESHIP_VARIANTS[0])
-        : TICTACTOE_VARIANTS[0],
-    [game, variantId],
+    () => variantList.find((v) => v.id === variantId) ?? variantList[0],
+    [variantList, variantId],
   );
+  const hasVariant = variantList.length > 1;
 
   const start = () => {
     const needP1 = mode === 'model_vs_model';
@@ -296,19 +313,28 @@ export function SetupScreen({
                   </span>
                 </span>
               </TabsTrigger>
+              <TabsTrigger value="sudoku" aria-label={t.games.sudoku} className={gameTileClass}>
+                <SudokuGlyph />
+                <span className="flex flex-col items-start gap-0.5 text-left">
+                  <span className="text-sm font-semibold text-foreground">{t.games.sudoku}</span>
+                  <span className="font-mono text-[10px] normal-case tracking-normal text-faint">
+                    {t.gameMeta.sudoku}
+                  </span>
+                </span>
+              </TabsTrigger>
             </TabsList>
           </Tabs>
         </section>
 
-        {game === 'battleship' && (
+        {hasVariant && (
           <section className="flex flex-col gap-2">
             <SectionLabel tag="02">{t.setup.variant}</SectionLabel>
-            <Select value={variantId} onValueChange={(v) => patch({ variantId: v })}>
+            <Select value={variant.id} onValueChange={(v) => patch({ variantId: v })}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {BATTLESHIP_VARIANTS.map((v) => (
+                {variantList.map((v) => (
                   <SelectItem key={v.id} value={v.id}>
                     {variantLabel(t, v.id)}
                   </SelectItem>
@@ -319,7 +345,7 @@ export function SetupScreen({
         )}
 
         <section className="flex flex-col gap-2">
-          <SectionLabel tag={game === 'battleship' ? '03' : '02'}>
+          <SectionLabel tag={hasVariant ? '03' : '02'}>
             {t.mode.label}
           </SectionLabel>
           <Tabs value={mode} onValueChange={(v) => patch({ mode: v as MatchMode })}>
@@ -350,7 +376,7 @@ export function SetupScreen({
               <Label className="text-p1">{t.player.p1}</Label>
               <div className="clip-cut flex items-center gap-2 border border-p1/30 bg-card-inset px-3 py-2 text-sm">
                 <span className="font-mono text-lg font-bold text-p1 text-glow-p1">
-                  {game === 'tictactoe' ? 'X' : '⚓'}
+                  {humanSymbol(game)}
                 </span>
                 <span>{t.player.human}</span>
               </div>

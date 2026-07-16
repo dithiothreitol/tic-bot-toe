@@ -5,11 +5,13 @@ import {
   type MoveQuality,
   type PlayerSide,
   type SetupRecord,
+  type SudokuState,
   type TicTacToeState,
   analyzeMatch,
 } from '@arena/game-core';
 
 import { Board3x3 } from '@/components/Board3x3';
+import { SudokuBoard } from '@/components/SudokuBoard';
 import { Button } from '@/components/ui/button';
 import { HudPanel, SectionLabel } from '@/components/ui/hud';
 import type { MatchConfig } from '@/components/GameRunner';
@@ -117,6 +119,12 @@ export function AnalysisView({
             lastMove={step > 0 ? (moves[step - 1].move as number) : null}
             lastMoveClass={currentMove ? QUALITY_RING[currentMove.quality] : undefined}
           />
+        ) : config.game === 'sudoku' ? (
+          <SudokuAnalysisBoard
+            state={states[step] as SudokuState}
+            lastMove={step > 0 ? (moves[step - 1].move as string) : null}
+            ringClass={currentMove ? QUALITY_RING[currentMove.quality] : undefined}
+          />
         ) : (
           <p className="max-w-prose text-center font-mono text-xs text-muted-foreground">
             {t.games.battleship} — {t.analysis.moveList} ↓
@@ -192,5 +200,34 @@ export function AnalysisView({
         </ol>
       </HudPanel>
     </div>
+  );
+}
+
+/** Sudoku step-through board: colours scored digits by player, rings the graded move. */
+function SudokuAnalysisBoard({
+  state,
+  lastMove,
+  ringClass,
+}: {
+  state: SudokuState;
+  lastMove: string | null;
+  ringClass?: string;
+}) {
+  const size = state.size;
+  const owners: (PlayerSide | null)[] = Array<PlayerSide | null>(size * size).fill(null);
+  for (const h of state.history) if (h.correct) owners[h.cell] = h.player;
+  const m = lastMove ? /r(\d+)c(\d+)/.exec(lastMove) : null;
+  const lastCell = m ? (Number(m[1]) - 1) * size + (Number(m[2]) - 1) : null;
+  return (
+    <SudokuBoard
+      size={size}
+      boxRows={state.boxRows}
+      boxCols={state.boxCols}
+      board={state.board}
+      givenMask={state.givenMask}
+      owners={owners}
+      lastCell={lastCell}
+      lastCellClass={ringClass}
+    />
   );
 }

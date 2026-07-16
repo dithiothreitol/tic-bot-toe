@@ -82,6 +82,38 @@ test.describe('człowiek gra w kółko i krzyżyk', () => {
   });
 });
 
+test.describe('człowiek gra w Sudoku Duel', () => {
+  test('klika puste pole, wybiera cyfrę, wynik i log się aktualizują', async ({ page }) => {
+    await seedKey(page);
+    await page.goto('/');
+
+    // Sudoku tile → default variant is mini (4×4), human moves first.
+    await page.getByRole('tab', { name: /sudoku/i }).click();
+    await pickModel(page);
+    await page.getByRole('button', { name: /^start$/i }).click();
+
+    // The sudoku board is on screen and it is the human's turn (p1 first).
+    await expect(page.getByRole('grid', { name: /plansza sudoku/i })).toBeVisible();
+
+    // Tap the first empty cell that is clickable, then pick the first allowed digit.
+    const emptyCell = page.getByRole('button', { name: /puste$/ }).first();
+    await expect(emptyCell).toBeEnabled({ timeout: 30_000 });
+    await emptyCell.click();
+
+    const digit = page.getByRole('button', { name: /^Wpisz cyfrę \d$/ }).first();
+    await expect(digit).toBeVisible();
+    await digit.click();
+
+    // The placement registered: it shows in the log with a ✓/✗ outcome.
+    await expect(page.getByText(/log partii/i)).toBeVisible();
+    await expect(page.getByText(/#1/).first()).toBeVisible();
+    await expect(page.getByText(/✓ \+1|✗ −1/).first()).toBeVisible({ timeout: 30_000 });
+    if (process.env.E2E_SHOTS) {
+      await page.screenshot({ path: `${process.env.E2E_SHOTS}/human-sudoku.png`, fullPage: true });
+    }
+  });
+});
+
 test.describe('człowiek gra w statki', () => {
   test('rozstawia flotę, strzela i widzi trafienia/pudła', async ({ page }) => {
     await seedKey(page);

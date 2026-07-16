@@ -112,6 +112,15 @@ export const pl = {
     fleetP2: 'Flota — Gracz 2',
   },
 
+  sudoku: {
+    boardLabel: 'Plansza Sudoku',
+    cell: (row: number, col: number, digit: number | null) =>
+      `Wiersz ${row}, kolumna ${col}${digit === null ? ', puste' : `, cyfra ${digit}`}`,
+    placeDigit: (d: number) => `Wpisz cyfrę ${d}`,
+    movesLeft: 'Ruchów do końca',
+    cancel: 'Anuluj',
+  },
+
   placement: {
     title: 'Rozstaw flotę',
     instruction:

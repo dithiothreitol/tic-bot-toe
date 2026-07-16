@@ -105,6 +105,15 @@ export const en: Dict = {
     fleetP2: 'Fleet — Player 2',
   },
 
+  sudoku: {
+    boardLabel: 'Sudoku board',
+    cell: (row: number, col: number, digit: number | null) =>
+      `Row ${row}, column ${col}${digit === null ? ', empty' : `, digit ${digit}`}`,
+    placeDigit: (d: number) => `Place digit ${d}`,
+    movesLeft: 'Moves left',
+    cancel: 'Cancel',
+  },
+
   placement: {
     title: 'Place your fleet',
     instruction:

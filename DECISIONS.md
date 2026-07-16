@@ -3,6 +3,12 @@
 Jednozdaniowe decyzje podejmowane tam, gdzie SPEC.md nie rozstrzyga (zgodnie z
 regułą 5 promptu startowego). Najnowsze na górze.
 
+## Sudoku + Scrabble — Etap 2: UI Sudoku (plan §7)
+
+- **`SudokuBoard`** (separatory boksów grubszą ramką, wskazówki neutralne/pogrubione, cyfry kolorowane wg gracza który je zdobył, ostatni ruch z ringiem i znacznikiem +1/−1), `SudokuGlyph`, kafel + selektor wariantu w `SetupScreen` (uogólniony na gry z >1 wariantem), gałąź `SudokuArena` w `GameRunner` (widok boga dla obu trybów — brak ukrytej informacji między graczami), `GameLog` z ✓/✗ per ruch, `AnalysisView` z planszą krok-po-kroku i ringiem jakości, `analyzeMatch` obsługuje sudoku przez `evaluateMove`. i18n pl+en.
+- **Digit picker pokazuje tylko cyfry spójne z regułami** (kandydaci z `legalMoves`), niedozwolone wyszarzone — zapobiega nielegalnemu ruchowi człowieka i uczy ograniczeń, ale **nie zdradza rozwiązania**: cyfra spójna wciąż może być błędna względem ukrytego rozwiązania i kosztować −1 (dokładnie jak `validateMove`). Tap-target ≥44 px (plan §7.2).
+- **Weryfikacja live (partia→zapis→leaderboard→powtórka) odłożona do Etapu 3** zgodnie z instrukcją #7 (pełny dev-stack weryfikowany w Etapach 3 i 7). Etap 2 pokryty testami komponentowymi (`SudokuBoard`, kafel Sudoku w `SetupScreen`), buildem, typecheckiem i specem e2e (pomijany bez klucza modelu, jak istniejące).
+
 ## Sudoku + Scrabble — Etap 1: silnik Sudoku Duel (plan §4)
 
 - **`sudoku.ts`** — pojedynek turowy na wspólnej planszy z jednoznacznym rozwiązaniem: generator seedowany (`generateSolution` backtracking + `digHoles` z odcięciem liczby rozwiązań na 2 = gwarancja jednoznaczności), scoring +1/−1 z cofnięciem błędnego wpisu, twardy limit `3× puste pola`, `validateMove`/`renderCorrection` (bez listy kandydatów), `evaluateMove` (naked/hidden single→optimal, poprawny niewymuszony→good, błędny→blunder). Warianty: `mini` 4×4 (6 wskazówek), `classic6` 6×6 (14), `classic9` 9×9 (34). Rejestracja w `getGame` + `replay`. `SudokuView` bez `solution`.

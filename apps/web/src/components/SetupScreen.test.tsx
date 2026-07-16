@@ -61,6 +61,17 @@ describe('SetupScreen', () => {
     expect(screen.getByText(pl.setup.variant)).toBeInTheDocument();
   });
 
+  it('offers Sudoku Duel with its variant selector', async () => {
+    const user = userEvent.setup();
+    renderSetup();
+
+    await user.click(await screen.findByRole('tab', { name: pl.games.sudoku }));
+    // The variant selector appears (sudoku has three board sizes).
+    expect(await screen.findByText(pl.setup.variant)).toBeInTheDocument();
+    // Default sudoku variant is the mini board.
+    expect(screen.getByText(pl.variants.mini)).toBeInTheDocument();
+  });
+
   it('restores a remembered model once the catalog loads', async () => {
     useSetupPrefs.setState({ p2ModelId: 'vendor/one' });
     renderSetup();
