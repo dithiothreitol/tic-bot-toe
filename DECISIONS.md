@@ -3,6 +3,14 @@
 Jednozdaniowe decyzje podejmowane tam, gdzie SPEC.md nie rozstrzyga (zgodnie z
 regułą 5 promptu startowego). Najnowsze na górze.
 
+## Sudoku + Scrabble — Etap 5: silnik Scrabble / „Słowna bitwa" (plan §5)
+
+- **`scrabble-data.ts`**: oficjalne rozkłady i wartości płytek PL (100, z ą ć ę ł ń ó ś ź ż; bez q/v/x) i EN (100), plansza 15×15 z pełnym układem premii (8×TW, 17×DW z gwiazdką, 12×TL, 24×DL — zweryfikowane testem). Warianty gry = języki (`pl`/`en`).
+- **`scrabble.ts`**: stan z ukrytą informacją (`viewFor` bez stojaka przeciwnika i worka — test snapshot), notacja `H8>SŁOWO`/`H8vSŁOWO`/`EXCH:AB`/`PASS` (kanoniczna, blank=mała litera, EXCH sortowane), `validateMove` z widoku (składnia→zasięg→zajętość→spójność→stojak multiset→H8/łączność→słownik główny+krzyżówki), punktacja w `applyMove` (premie literowe/słowne tylko od nowych płytek, krzyżówki, +50 bingo, blank=0), koniec gry (worek pusty+opróżniony stojak / 4 ruchy bez punktów, rozliczenie stojaków). `fallbackMove='PASS'` (forfeit nie zgaduje słów). `legalMoves` = PASS + rozsądne EXCH (NIE wyczerpujące). Brak `evaluateMove` (poza zakresem, §12).
+- **Determinizm worka**: tasowanie mulberry32(seed) z licznikiem użyć `rngUses` w stanie; EXCHANGE dobiera z końca, wstawia zwracane na pozycje `randAt(seed, rngUses++)` → replay z (seed, ruchy) odtwarza identyczne stojaki (test obowiązkowy ✓).
+- **Słownik przez rejestr** (`getLexicon(variant)`); testy silnika wstrzykują `miniLexicon` (game-core nie czyta plików). Rejestracja w `getGame`/`replay`; `GameId += scrabble`, etykiety UI „Słowna bitwa"/„Word Battle" w i18n pl+en.
+- 29 testów silnika (punktacja incl. CAT=10/bingo/blank/krzyżówki, każda reguła walidacji z powodem, determinizm wymian + replay, koniec gry, brak przecieków widoku, kaskada parse z polskimi znakami).
+
 ## Sudoku + Scrabble — Etap 4: leksykony (plan §6)
 
 - **Licencje zweryfikowane PRZED pobraniem (instrukcja #5)**: EN = ENABLE1 **domena publiczna** (Alan Beale / M. Cooper); PL = sjp.pl słownik do gier **GPL-2.0 / CC BY 4.0** — używany na CC BY 4.0 (atrybucja). **Nieproblematyczne → kontynuacja** (bez zatrzymania). Pliki licencji + atrybucja w `packages/lexicons/LICENSES/` (+ verbatim README sjp).

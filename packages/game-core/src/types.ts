@@ -10,7 +10,7 @@
 // (plan §3, but sequenced per DECISIONS.md): 'sudoku' lands in Etap 1, 'scrabble'
 // in Etap 5. Widening it ahead of those breaks the exhaustive label maps in the
 // web app, so it stays minimal until each game is actually wired.
-export type GameId = 'tictactoe' | 'battleship' | 'sudoku';
+export type GameId = 'tictactoe' | 'battleship' | 'sudoku' | 'scrabble';
 
 /** Two sides. p1 always moves first. */
 export type PlayerSide = 'p1' | 'p2';
@@ -229,10 +229,52 @@ export interface SudokuView extends PlayerViewBase {
   movesRemaining: number;
 }
 
+// ---------------------------------------------------------------------------
+// Scrabble / "Word Battle" (HIDDEN information — never leak the opponent's rack
+// or the bag order)
+// ---------------------------------------------------------------------------
+
+/** A tile placed on the board. A blank plays a letter but is always worth 0. */
+export interface PlacedTile {
+  /** The letter this tile shows (a blank's chosen letter). */
+  letter: string;
+  isBlank: boolean;
+  points: number;
+}
+
+export interface ScrabbleWordScore {
+  word: string;
+  score: number;
+}
+
+export interface ScrabbleAnnotatedEntry {
+  player: PlayerSide;
+  /** Canonical wire notation ("H8>KOTY", "EXCH:AB", "PASS"). */
+  notation: string;
+  words: ScrabbleWordScore[];
+  total: number;
+}
+
+export interface ScrabbleView extends PlayerViewBase {
+  game: 'scrabble';
+  language: 'pl' | 'en';
+  /** Row-major, length 225. */
+  board: (PlacedTile | null)[];
+  /** ONLY this player's rack ('?' = blank). Never the opponent's. */
+  rack: string[];
+  scores: { p1: number; p2: number };
+  bagCount: number;
+  opponentRackCount: number;
+  scorelessStreak: number;
+  annotatedHistory: ScrabbleAnnotatedEntry[];
+  /** The board carries premium markers on empty squares (prompt legend). */
+  premiumsLegend: true;
+}
+
 /**
  * Union of every per-game view. `renderPrompt`/`parseMove` narrow on `view.game`.
  */
-export type PlayerView = TicTacToeView | BattleshipView | SudokuView;
+export type PlayerView = TicTacToeView | BattleshipView | SudokuView | ScrabbleView;
 
 // ---------------------------------------------------------------------------
 // Multi-game contract

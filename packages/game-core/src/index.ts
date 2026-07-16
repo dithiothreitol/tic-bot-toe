@@ -12,6 +12,8 @@ export * from './lexicon-registry';
 export * from './tictactoe';
 export * from './battleship';
 export * from './sudoku';
+export * from './scrabble';
+export * from './scrabble-data';
 export * from './elo';
 export * from './replay';
 export * from './solvers';
@@ -20,6 +22,7 @@ export * from './commentary';
 
 import type { GameId } from './types';
 import { battleship } from './battleship';
+import { scrabble } from './scrabble';
 import { sudoku } from './sudoku';
 import { ticTacToe } from './tictactoe';
 
@@ -32,6 +35,8 @@ export function getGame(id: GameId) {
       return battleship;
     case 'sudoku':
       return sudoku;
+    case 'scrabble':
+      return scrabble;
     default:
       throw new Error(`Unknown game: ${id as string}`);
   }

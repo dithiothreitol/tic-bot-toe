@@ -46,6 +46,7 @@ export const pl = {
     tictactoe: 'Kółko i krzyżyk',
     battleship: 'Statki',
     sudoku: 'Sudoku Duel',
+    scrabble: 'Słowna bitwa',
   },
 
   /** Sub-labels on the game-select tiles (screen 01). */
@@ -53,6 +54,7 @@ export const pl = {
     tictactoe: '3×3 · pełna informacja',
     battleship: '6×6 · 8×8 · 10×10 · ukryta info',
     sudoku: '4×4 · 6×6 · 9×9 · pojedynek dedukcji',
+    scrabble: 'PL / EN · ukryta info · słownik',
   },
 
   /**
@@ -68,6 +70,8 @@ export const pl = {
     mini: 'Mini 4×4',
     classic6: 'Klasyczne 6×6',
     classic9: 'Klasyczne 9×9',
+    pl: 'Polski',
+    en: 'Angielski',
   },
 
   /** Onboarding strip under the setup card — how to actually use the arena. */
