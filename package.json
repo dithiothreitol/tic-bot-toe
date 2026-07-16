@@ -20,6 +20,7 @@
     "assets:check": "tsx scripts/gen/check-assets.ts",
     "assets:typecheck": "tsc -p scripts/tsconfig.json",
     "daily:check": "tsx scripts/check-daily-pool.ts",
+    "lexicon:build": "tsx scripts/lexicon/build.ts",
     "smoke:live": "tsx --tsconfig scripts/tsconfig.smoke.json scripts/smoke-live.ts",
     "e2e": "playwright test"
   },

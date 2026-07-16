@@ -148,9 +148,22 @@ All 12 stages of the spec are complete — a deployable product with charts/tele
 
 Contributions are welcome! Please read [`CONTRIBUTING.md`](./CONTRIBUTING.md) and our [`CODE_OF_CONDUCT.md`](./CODE_OF_CONDUCT.md). Good first steps: open an issue to discuss, keep `pnpm test` and `pnpm typecheck` green, and match the surrounding code style.
 
+## Dictionaries (word games)
+
+The word game (“Word Battle”) validates moves against compiled binary
+dictionaries (DAWGs) in [`packages/lexicons`](./packages/lexicons):
+
+- **English** — [ENABLE1](https://everything2.com/title/ENABLE+word+list), **public domain**.
+- **Polish** — the [sjp.pl](https://sjp.pl) game dictionary, **GPL-2.0 / CC BY 4.0** (used under CC BY 4.0, attribution: *Słownik SJP.PL — wersja do gier słownych*, https://sjp.pl).
+
+Sources, attributions and rebuild steps: [`packages/lexicons/LICENSES/README.md`](./packages/lexicons/LICENSES/README.md).
+The compiled `.dawg` artifacts are committed (EN ≈ 0.5 MB, PL ≈ 1.7 MB); rebuild with `pnpm lexicon:build` after placing the raw word lists in `scripts/lexicon/sources/`. The client downloads a dictionary lazily (only for the word game) and caches it; the server loads both at boot.
+
 ## License
 
 [MIT](./LICENSE) © 2026 Dariusz Tyszka
+
+The MIT license covers the app's source. The bundled dictionaries keep their own licenses (see above).
 
 ---
 

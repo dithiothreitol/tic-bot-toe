@@ -8,6 +8,7 @@
 
 export * from './types';
 export * from './rng';
+export * from './lexicon-registry';
 export * from './tictactoe';
 export * from './battleship';
 export * from './sudoku';

@@ -1,0 +1,5 @@
+# The compiled dictionaries ARE part of the shipped app (plan §6.1) — commit them,
+# overriding the repo-wide `dist/` ignore. Everything else in dist/ stays ignored.
+!dist/
+/dist/*
+!/dist/*.dawg

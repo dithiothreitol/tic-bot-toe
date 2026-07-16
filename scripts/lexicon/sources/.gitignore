@@ -1,0 +1,6 @@
+# Raw dictionary sources are large and are NOT committed — the compiled DAWG in
+# packages/lexicons/dist/ is the artifact. Obtain these locally to rebuild:
+#   enable1.txt  — ENABLE1, public domain
+#   slowa.txt    — sjp.pl game dictionary (unzip sjp-YYYYMMDD.zip), GPL 2 / CC BY 4.0
+*
+!.gitignore

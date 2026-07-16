@@ -201,6 +201,17 @@ pnpm --filter @arena/server test:integration    # testcontainers — wymaga Dock
   - front **nie oferuje wyzwania**, gdy dzisiejszego przeciwnika nie ma już w katalogu;
   - `pnpm daily:check` sprawdza całą pulę i najbliższe 30 dni względem żywego katalogu (kod ≠ 0 przy zgniłym wpisie — nadaje się do crona/CI).
 
+## Słowniki (gry słowne)
+
+Gra słowna („Słowna bitwa") sprawdza ruchy w skompilowanych słownikach binarnych
+(DAWG) w [`packages/lexicons`](./packages/lexicons):
+
+- **angielski** — [ENABLE1](https://everything2.com/title/ENABLE+word+list), **domena publiczna**;
+- **polski** — słownik do gier [sjp.pl](https://sjp.pl), **GPL-2.0 / CC BY 4.0** (używany na CC BY 4.0, atrybucja: *Słownik SJP.PL — wersja do gier słownych*, https://sjp.pl).
+
+Źródła, atrybucje i przebudowa: [`packages/lexicons/LICENSES/README.md`](./packages/lexicons/LICENSES/README.md).
+Skompilowane artefakty `.dawg` są w repo (EN ≈ 0,5 MB, PL ≈ 1,7 MB); przebudowa `pnpm lexicon:build` po umieszczeniu list słów w `scripts/lexicon/sources/`. Klient pobiera słownik leniwie (tylko dla gry słownej) i cache'uje; serwer ładuje oba przy starcie.
+
 ## Status budowy
 
 **Rdzeń 1–8 (wdrażalny produkt) — ukończony.** Warstwa wizualna Cyber-HUD

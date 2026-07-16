@@ -1,0 +1,25 @@
+{
+  "name": "@arena/lexicons",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Compiled PL/EN word-game dictionaries as binary DAWGs, with a pure-TS decoder and per-environment loaders.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./node": "./src/loader-node.ts",
+    "./package.json": "./package.json"
+  },
+  "types": "./src/index.ts",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.0",
+    "@vitest/coverage-v8": "4.1.10",
+    "typescript": "^5.9.3",
+    "vitest": "4.1.10"
+  }
+}

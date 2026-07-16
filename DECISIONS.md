@@ -3,6 +3,13 @@
 Jednozdaniowe decyzje podejmowane tam, gdzie SPEC.md nie rozstrzyga (zgodnie z
 regułą 5 promptu startowego). Najnowsze na górze.
 
+## Sudoku + Scrabble — Etap 4: leksykony (plan §6)
+
+- **Licencje zweryfikowane PRZED pobraniem (instrukcja #5)**: EN = ENABLE1 **domena publiczna** (Alan Beale / M. Cooper); PL = sjp.pl słownik do gier **GPL-2.0 / CC BY 4.0** — używany na CC BY 4.0 (atrybucja). **Nieproblematyczne → kontynuacja** (bez zatrzymania). Pliki licencji + atrybucja w `packages/lexicons/LICENSES/` (+ verbatim README sjp).
+- **`packages/lexicons`**: własny format binarny **DAWG** (minimalizacja przyrostowa Daciuka), czysty codec TS `encodeLexicon`/`decodeLexicon` (ten sam dekoder w przeglądarce i Node), `has()` O(len) po NFC+uppercase. Loadery: `loadLexiconBrowser` (fetch + Cache API + pasek postępu) i `@arena/lexicons/node` `loadLexiconNode` (fs, env `LEXICON_DIR`). Rejestr w game-core (`lexicon-registry.ts`, `Lexicon` strukturalny — game-core NIE zależy od pakietu leksykonów) + `miniLexicon` do testów.
+- **Artefakty zbudowane i skomitowane** (`pnpm lexicon:build` z `scripts/lexicon/build.ts`; surowe źródła gitignore): **EN 168 551 słów → 0,46 MB**, **PL 3 239 463 słów → 1,69 MB** — mocno w budżecie (plan: EN ~1 MB, PL 5–15 MB; filtr długości ≤15 wystarczył, awaryjny ≤10 niepotrzebny). Nadpisanie repo-wide `dist/` przez `packages/lexicons/.gitignore`.
+- **`has()` zweryfikowane na realnych artefaktach**: EN (cat/house/quiz/xylophone/jazzy=✓, catz/asdfg=✗, `qwerty`=✓ bo faktycznie jest w ENABLE1), PL z polskimi znakami (łódź/żółć/gęś/pięć/mąka/źdźbło=✓, łodz/quark/xyz=✗). Testy: codec (9), artefakty node (2), rejestr game-core (4).
+
 ## Sudoku + Scrabble — Etap 3: serwer Sudoku + daily (plan §8)
 
 - **Serwer**: `result-schema` z.enum += `sudoku`; OG `render.ts` (`drawSudoku` — plansza z separatorami boksów, cyfry kolorowane wg gracza), `og/meta.ts`/`og/seo.ts` etykiety +Sudoku Duel; `commentary.ts` (game-core) `describeSudoku` (plansza + wynik) + `routes/commentary.ts` enum; klient `commentator.classifyLastMove` używa `evaluateMove` dla sudoku. `arena-totals.ts` bez zmian (brak mapy etykiet).
