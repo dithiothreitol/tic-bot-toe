@@ -10,6 +10,7 @@
  * Lives in game-core (not the web app) precisely because both sides need it.
  */
 import { BATTLESHIP_VARIANTS_CONFIG } from './battleship';
+import { SUDOKU_VARIANTS_CONFIG } from './sudoku';
 import type { GameId } from './types';
 
 /** Opponent pool: free only, so the challenge never costs the player money (§12.6). */
@@ -89,8 +90,13 @@ function pick<T>(items: readonly T[], day: string, salt: string): T {
   return items[hash32(`${day}#${salt}`) % items.length]!;
 }
 
-const GAMES: readonly GameId[] = ['tictactoe', 'battleship'] as const;
+// Sudoku joins the pool (plan §2.9); scrabble does NOT (free models too weak +
+// dictionary download). Growing the pool from 2→3 shifts which challenge each
+// past date maps to (hash % length) — harmless (results are stored per day) but
+// the deploy must be atomic (one server serves front + API — it is).
+const GAMES: readonly GameId[] = ['tictactoe', 'battleship', 'sudoku'] as const;
 const BATTLESHIP_VARIANT_IDS: readonly string[] = Object.keys(BATTLESHIP_VARIANTS_CONFIG);
+const SUDOKU_VARIANT_IDS: readonly string[] = Object.keys(SUDOKU_VARIANTS_CONFIG);
 
 /** `YYYY-MM-DD` — anything else would silently produce a different challenge. */
 export function isValidDay(day: string): boolean {
@@ -106,7 +112,11 @@ export function dailyChallenge(day: string): DailyChallenge {
 
   const game = pick(GAMES, day, 'game');
   const variant =
-    game === 'battleship' ? pick(BATTLESHIP_VARIANT_IDS, day, 'variant') : 'standard';
+    game === 'battleship'
+      ? pick(BATTLESHIP_VARIANT_IDS, day, 'variant')
+      : game === 'sudoku'
+        ? pick(SUDOKU_VARIANT_IDS, day, 'variant')
+        : 'standard';
   const opponent = pick(DAILY_OPPONENTS, day, 'opponent');
 
   return { day, game, variant, opponent, humanSide: 'p1' };

@@ -4,6 +4,7 @@ import {
   type DailyOpponent,
   type Variant,
   BATTLESHIP_VARIANTS,
+  SUDOKU_VARIANTS,
   TICTACTOE_VARIANTS,
 } from '@arena/game-core';
 
@@ -21,6 +22,9 @@ import { useSettings } from '@/store/settings';
 function variantFor(game: string, variantId: string): Variant {
   if (game === 'battleship') {
     return BATTLESHIP_VARIANTS.find((v) => v.id === variantId) ?? BATTLESHIP_VARIANTS[0];
+  }
+  if (game === 'sudoku') {
+    return SUDOKU_VARIANTS.find((v) => v.id === variantId) ?? SUDOKU_VARIANTS[0];
   }
   return TICTACTOE_VARIANTS[0];
 }
@@ -109,7 +113,9 @@ export function DailyChallengeCard({
   const gameLabel = t.games[challenge.game];
   const variant = variantFor(challenge.game, challenge.variant);
   const label =
-    challenge.game === 'battleship' ? `${gameLabel} · ${variantLabel(t, variant.id)}` : gameLabel;
+    challenge.game === 'battleship' || challenge.game === 'sudoku'
+      ? `${gameLabel} · ${variantLabel(t, variant.id)}`
+      : gameLabel;
 
   // A retired `:free` id would otherwise let the player "win" against a model
   // that only ever forfeits random moves. Refuse the challenge instead of

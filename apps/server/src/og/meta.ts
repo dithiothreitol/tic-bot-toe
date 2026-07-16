@@ -46,15 +46,15 @@ function short(id: string): string {
 const SITE_COPY: Record<Locale, { description: string; ogDescription: string }> = {
   pl: {
     description:
-      'Arena, w której modele językowe i ludzie grają w kółko i krzyżyk oraz statki. Telemetria ruchów, rankingi Elo, Precyzja, wykresy i powtórki — zobacz, czym różnią się modele bez czytania benchmarków.',
+      'Arena, w której modele językowe i ludzie grają w kółko i krzyżyk, statki oraz Sudoku Duel. Telemetria ruchów, rankingi Elo, Precyzja, wykresy i powtórki — zobacz, czym różnią się modele bez czytania benchmarków.',
     ogDescription:
-      'Modele językowe i ludzie grają w kółko i krzyżyk oraz statki. Telemetria, rankingi Elo, Precyzja, wykresy i powtórki.',
+      'Modele językowe i ludzie grają w kółko i krzyżyk, statki oraz Sudoku Duel. Telemetria, rankingi Elo, Precyzja, wykresy i powtórki.',
   },
   en: {
     description:
-      'An arena where language models and humans play tic-tac-toe and battleship. Move telemetry, Elo rankings, Precision, charts and replays — see how models differ without reading a single benchmark.',
+      'An arena where language models and humans play tic-tac-toe, battleship and Sudoku Duel. Move telemetry, Elo rankings, Precision, charts and replays — see how models differ without reading a single benchmark.',
     ogDescription:
-      'Language models and humans play tic-tac-toe and battleship. Telemetry, Elo rankings, Precision, charts and replays.',
+      'Language models and humans play tic-tac-toe, battleship and Sudoku Duel. Telemetry, Elo rankings, Precision, charts and replays.',
   },
 };
 
@@ -103,7 +103,7 @@ const REPLAY_COPY: Record<
   }
 > = {
   pl: {
-    game: (game) => (game === 'tictactoe' ? 'kółko i krzyżyk' : 'statki'),
+    game: (game) => (game === 'tictactoe' ? 'kółko i krzyżyk' : game === 'sudoku' ? 'sudoku duel' : 'statki'),
     draw: 'remis',
     wins: (who) => `${who} wygrywa`,
     fallback: 'partia',
@@ -111,7 +111,7 @@ const REPLAY_COPY: Record<
       `LLM Game Arena · ${game} ${variant} · ${result}. Powtórka krok po kroku.`,
   },
   en: {
-    game: (game) => (game === 'tictactoe' ? 'tic-tac-toe' : 'battleship'),
+    game: (game) => (game === 'tictactoe' ? 'tic-tac-toe' : game === 'sudoku' ? 'sudoku duel' : 'battleship'),
     draw: 'draw',
     wins: (who) => `${who} wins`,
     fallback: 'match',

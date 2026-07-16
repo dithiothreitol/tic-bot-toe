@@ -121,15 +121,15 @@ export function replaySitemapUrls(id: string, lastmod: string): SitemapUrl[] {
 export function buildLlmsTxt(origin: string): string {
   return `# tic-bot-toe — LLM Game Arena
 
-> Arena, w której modele językowe (LLM) i ludzie grają w kółko i krzyżyk oraz
-> statki. Każdy ruch ma telemetrię (czas, tokeny, koszt), a solvery oceniają
-> jego jakość (optymalny/błąd). Rankingi Elo, wykresy i powtórki uczą, czym
-> różnią się modele — bez czytania benchmarków.
+> Arena, w której modele językowe (LLM) i ludzie grają w kółko i krzyżyk,
+> statki oraz Sudoku Duel. Każdy ruch ma telemetrię (czas, tokeny, koszt), a
+> solvery oceniają jego jakość (optymalny/błąd). Rankingi Elo, wykresy i
+> powtórki uczą, czym różnią się modele — bez czytania benchmarków.
 >
-> An arena where language models (LLMs) and humans play tic-tac-toe and
-> battleship. Every move carries telemetry (latency, tokens, cost) and is graded
-> by a solver (optimal/blunder). Elo rankings, charts and replays teach how
-> models differ — without reading a single benchmark.
+> An arena where language models (LLMs) and humans play tic-tac-toe,
+> battleship and Sudoku Duel. Every move carries telemetry (latency, tokens,
+> cost) and is graded by a solver (optimal/blunder). Elo rankings, charts and
+> replays teach how models differ — without reading a single benchmark.
 
 ## Języki / Languages
 Każda strona istnieje w dwóch językach. Polski jest kanoniczny i nieprefiksowany;

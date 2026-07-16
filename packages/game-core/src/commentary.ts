@@ -1,4 +1,5 @@
 import { type BattleshipState, battleship } from './battleship';
+import type { SudokuState } from './sudoku';
 import type { TicTacToeState } from './tictactoe';
 import type { GameId, Move, MoveQuality, PlayerSide, TicTacToeCell } from './types';
 
@@ -93,10 +94,25 @@ function describeBattleship(state: BattleshipState): string {
   ].join('\n');
 }
 
+/** The shared board + the score standing (there is no hidden info in sudoku). */
+function describeSudoku(state: SudokuState): string {
+  const n = state.size;
+  const rows: string[] = [];
+  for (let r = 0; r < n; r++) {
+    const cells: string[] = [];
+    for (let c = 0; c < n; c++) {
+      const v = state.board[r * n + c];
+      cells.push(v === null ? '.' : String(v));
+    }
+    rows.push(cells.join(' '));
+  }
+  return [`Scores: Player 1 ${state.scores.p1}, Player 2 ${state.scores.p2}`, ...rows].join('\n');
+}
+
 export function describeGodView(game: GameId, state: unknown): string {
-  return game === 'tictactoe'
-    ? describeTicTacToe(state as TicTacToeState)
-    : describeBattleship(state as BattleshipState);
+  if (game === 'tictactoe') return describeTicTacToe(state as TicTacToeState);
+  if (game === 'sudoku') return describeSudoku(state as SudokuState);
+  return describeBattleship(state as BattleshipState);
 }
 
 // ---------------------------------------------------------------------------
@@ -138,7 +154,7 @@ export function buildCommentaryPrompt(
   ].join('\n');
 
   const lines = [
-    `Game: ${req.game === 'tictactoe' ? 'tic-tac-toe' : 'battleship'}`,
+    `Game: ${req.game === 'tictactoe' ? 'tic-tac-toe' : req.game === 'sudoku' ? 'sudoku duel' : 'battleship'}`,
     `Board after the move (god view):`,
     describeGodView(req.game, req.state),
     '',

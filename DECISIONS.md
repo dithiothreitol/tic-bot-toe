@@ -3,6 +3,13 @@
 Jednozdaniowe decyzje podejmowane tam, gdzie SPEC.md nie rozstrzyga (zgodnie z
 regułą 5 promptu startowego). Najnowsze na górze.
 
+## Sudoku + Scrabble — Etap 3: serwer Sudoku + daily (plan §8)
+
+- **Serwer**: `result-schema` z.enum += `sudoku`; OG `render.ts` (`drawSudoku` — plansza z separatorami boksów, cyfry kolorowane wg gracza), `og/meta.ts`/`og/seo.ts` etykiety +Sudoku Duel; `commentary.ts` (game-core) `describeSudoku` (plansza + wynik) + `routes/commentary.ts` enum; klient `commentator.classifyLastMove` używa `evaluateMove` dla sudoku. `arena-totals.ts` bez zmian (brak mapy etykiet).
+- **Daily**: `sudoku` dołączony do puli `GAMES` z wyborem wariantu (`SUDOKU_VARIANT_IDS`); scrabble świadomie POZA pulą (§2.9). Pula 2→3 przesuwa historyczne mapowania (hash%len) — zaakceptowane (wyniki per dzień, wdrożenie atomowe). `DailyChallengeCard.variantFor`/label obsługują sudoku.
+- **Testy**: integracyjne (testcontainers) — zapis partii sudoku → ratingi rosną + Precyzja liczona serwerowo, ruch niespójny → 422; OG render sudoku (unit, PNG). daily.test rozszerzony o sudoku.
+- **Weryfikacja dev-stack (instrukcja #7)**: uruchomiony realny serwer :8090 na DB `tic_bot_toe` (grzybiarz-postgres:5435) — pełny przepływ potwierdzony end-to-end: POST partii classic6 → `ranked` (Elo 1000→1016/984) → `GET /api/leaderboard sudoku/classic6` (oba modele, optimalRate 0.89) → `GET /api/og/:id` (PNG 58 kB) → `GET /api/replay/:id` (sudoku, 38 ruchów).
+
 ## Sudoku + Scrabble — Etap 2: UI Sudoku (plan §7)
 
 - **`SudokuBoard`** (separatory boksów grubszą ramką, wskazówki neutralne/pogrubione, cyfry kolorowane wg gracza który je zdobył, ostatni ruch z ringiem i znacznikiem +1/−1), `SudokuGlyph`, kafel + selektor wariantu w `SetupScreen` (uogólniony na gry z >1 wariantem), gałąź `SudokuArena` w `GameRunner` (widok boga dla obu trybów — brak ukrytej informacji między graczami), `GameLog` z ✓/✗ per ruch, `AnalysisView` z planszą krok-po-kroku i ringiem jakości, `analyzeMatch` obsługuje sudoku przez `evaluateMove`. i18n pl+en.

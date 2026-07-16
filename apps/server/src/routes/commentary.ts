@@ -19,7 +19,7 @@ const move = z.union([z.number().finite(), z.string().max(20)]);
 
 const commentarySchema = z.object({
   locale: z.enum(['pl', 'en']).default('pl'),
-  game: z.enum(['tictactoe', 'battleship']),
+  game: z.enum(['tictactoe', 'battleship', 'sudoku']),
   moveIndex: z.number().int().nonnegative().max(500),
   player: z.enum(['p1', 'p2']),
   playerName: z.string().min(1).max(120),

@@ -6,12 +6,14 @@ import {
   type Move,
   type MoveQuality,
   type PlayerSide,
+  type SudokuState,
   type TicTacToeState,
   battleship,
   buildCommentaryPrompt,
   classifyBattleshipShot,
   classifyTicTacToeMove,
   coordToCell,
+  sudoku,
   symbolFor,
   trimToTwoSentences,
 } from '@arena/game-core';
@@ -121,6 +123,10 @@ export function classifyLastMove(
   if (game === 'tictactoe') {
     const s = stateBefore as TicTacToeState;
     return classifyTicTacToeMove(s.board, move as number, symbolFor(player));
+  }
+  if (game === 'sudoku') {
+    // The engine grades sudoku itself from the state before the move.
+    return sudoku.evaluateMove!(stateBefore as SudokuState, player, move as string).quality;
   }
   const s = stateBefore as BattleshipState;
   const cell = coordToCell(move as string, s.size);

@@ -6,7 +6,9 @@ import {
   type GameDefinition,
   type GameId,
   type Move,
+  type SudokuState,
   getGame,
+  sudoku,
 } from '@arena/game-core';
 import { eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -80,6 +82,40 @@ function playOut(
     moves,
     setup: def.serializeSetup(state),
   };
+}
+
+/**
+ * A DECISIVE sudoku match: p1 always plays the solution digit (+1 every time);
+ * p2 plays a rules-consistent but wrong digit when one exists (−1). p1 therefore
+ * wins clearly, so both ratings move off 1000. Mirrors a real p1-vs-p2 game — a
+ * valid, replayable move sequence the server can re-run.
+ */
+function playSudoku(variantId: string, seed: number, p1Id: string, p2Id: string): ResultPayload {
+  const variant = sudoku.variants.find((v) => v.id === variantId)!;
+  let state: SudokuState = sudoku.createInitialState(variant, { seed });
+  const moves: ResultMove[] = [];
+  const tele = { latencyMs: 4000, retries: 0, forfeit: false, promptTokens: 40, completionTokens: 4, costUsd: 0.0002 };
+  let guard = 0;
+  while (sudoku.status(state) === 'playing' && guard++ < 500) {
+    const side = sudoku.currentPlayer(state);
+    const size = state.size;
+    let move: string;
+    if (side === 'p1') {
+      const cell = state.board.findIndex((v) => v === null);
+      move = `r${Math.floor(cell / size) + 1}c${(cell % size) + 1}=${state.solution[cell]}`;
+    } else {
+      const legal = sudoku.legalMoves(state, side);
+      const wrong = legal.find((m) => {
+        const g = /r(\d+)c(\d+)=(\d)/.exec(m)!;
+        const cell = (Number(g[1]) - 1) * size + (Number(g[2]) - 1);
+        return state.solution[cell] !== Number(g[3]);
+      });
+      move = wrong ?? legal[0]!;
+    }
+    moves.push({ player: side, move, telemetry: { ...tele } });
+    state = sudoku.applyMove(state, side, move);
+  }
+  return { mode: 'model_vs_model', game: 'sudoku', variant: variantId, p1Id, p2Id, moves, setup: sudoku.serializeSetup(state) };
 }
 
 /**
@@ -298,6 +334,38 @@ describe('submitResult (real Postgres via testcontainers)', () => {
     const res = await submitResult(handle.db, newJti(), payload, null);
     expect(res.ok).toBe(true);
     if (res.ok) expect(['p1', 'p2']).toContain(res.winner);
+  });
+
+  it('accepts a sudoku match (seed-reconstructed) and moves both ratings', async () => {
+    const payload = playSudoku('mini', 3, 'openrouter:deducer', 'openrouter:guesser');
+    const res = await submitResult(handle.db, newJti(), payload, '1.2.3.4');
+    expect(res.ok).toBe(true);
+    if (res.ok) {
+      // p1 plays perfectly, p2 guesses → p1 wins, both ratings leave 1000.
+      expect(res.winner).toBe('p1');
+      expect(res.ratingChanges).toHaveLength(2);
+      const p1 = res.ratingChanges.find((r) => r.subjectId === 'openrouter:deducer')!;
+      const p2 = res.ratingChanges.find((r) => r.subjectId === 'openrouter:guesser')!;
+      expect(p1.after).toBeGreaterThan(1000);
+      expect(p2.after).toBeLessThan(1000);
+    }
+    // §12.2 Precyzja: the perfect deducer scores optimal moves server-side.
+    const deducer = (await handle.db.select().from(ratings)).find(
+      (r) => r.subjectId === 'openrouter:deducer',
+    )!;
+    expect(deducer.optimalMoves).toBeGreaterThan(0);
+  });
+
+  it('rejects a sudoku match with a rules-inconsistent move (422)', async () => {
+    const payload = playSudoku('mini', 4, 'openrouter:a', 'openrouter:b');
+    // Corrupt p2's move into the same digit p1 just placed in the same row → clash.
+    const first = /r(\d+)c(\d+)=(\d)/.exec(payload.moves[0]!.move as string)!;
+    const row = Number(first[1]);
+    const otherCol = (Number(first[2]) % 4) + 1;
+    payload.moves[1] = { ...payload.moves[1]!, move: `r${row}c${otherCol}=${first[3]}` };
+    const res = await submitResult(handle.db, newJti(), payload, null);
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.code).toBe(422);
   });
 });
 

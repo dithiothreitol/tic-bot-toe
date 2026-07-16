@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { BATTLESHIP_VARIANTS_CONFIG } from './battleship';
+import { SUDOKU_VARIANTS_CONFIG } from './sudoku';
 import {
   DAILY_OPPONENTS,
   dailyChallenge,
@@ -24,9 +25,11 @@ describe('dailyChallenge', () => {
       const c = dailyChallenge(day);
 
       expect(c.day).toBe(day);
-      expect(['tictactoe', 'battleship']).toContain(c.game);
+      expect(['tictactoe', 'battleship', 'sudoku']).toContain(c.game);
       if (c.game === 'battleship') {
         expect(Object.keys(BATTLESHIP_VARIANTS_CONFIG)).toContain(c.variant);
+      } else if (c.game === 'sudoku') {
+        expect(Object.keys(SUDOKU_VARIANTS_CONFIG)).toContain(c.variant);
       } else {
         expect(c.variant).toBe('standard');
       }
@@ -41,9 +44,10 @@ describe('dailyChallenge', () => {
     );
     const seen = new Set(days.map((d) => JSON.stringify(dailyChallenge(d))));
     expect(seen.size).toBeGreaterThan(4);
-    // Both games show up over two months.
+    // Several games show up over two months, all from the legal pool.
     const games = new Set(days.map((d) => dailyChallenge(d).game));
-    expect(games).toEqual(new Set(['tictactoe', 'battleship']));
+    expect(games.size).toBeGreaterThanOrEqual(2);
+    for (const g of games) expect(['tictactoe', 'battleship', 'sudoku']).toContain(g);
   });
 
   it('rejects anything that is not YYYY-MM-DD (a bad seed = a different challenge)', () => {

@@ -10,7 +10,9 @@ import {
   type BattleshipState,
   type GameId,
   type Move,
+  type PlayerSide,
   type SetupRecord,
+  type SudokuState,
   type TicTacToeState,
   battleship,
   getGame,
@@ -175,16 +177,56 @@ function drawBattleship(ctx: Ctx, state: BattleshipState, cx: number, cy: number
   }
 }
 
+/** Final sudoku grid: clues neutral, scored digits in the placer's colour, box seams thicker. */
+function drawSudoku(ctx: Ctx, state: SudokuState, cx: number, cy: number, size: number): void {
+  const n = state.size;
+  const cell = size / n;
+  const owners: (PlayerSide | null)[] = Array<PlayerSide | null>(n * n).fill(null);
+  for (const h of state.history) if (h.correct) owners[h.cell] = h.player;
+
+  // Grid lines (thicker on box boundaries).
+  for (let i = 1; i < n; i++) {
+    const thick = i % state.boxCols === 0;
+    ctx.strokeStyle = thick ? 'rgba(53,231,255,0.4)' : GRID;
+    ctx.lineWidth = thick ? 3 : 1;
+    ctx.beginPath();
+    ctx.moveTo(cx + i * cell, cy);
+    ctx.lineTo(cx + i * cell, cy + size);
+    ctx.stroke();
+  }
+  for (let i = 1; i < n; i++) {
+    const thick = i % state.boxRows === 0;
+    ctx.strokeStyle = thick ? 'rgba(53,231,255,0.4)' : GRID;
+    ctx.lineWidth = thick ? 3 : 1;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy + i * cell);
+    ctx.lineTo(cx + size, cy + i * cell);
+    ctx.stroke();
+  }
+
+  ctx.font = mono(Math.floor(cell * 0.56), true);
+  ctx.textAlign = 'center';
+  for (let i = 0; i < n * n; i++) {
+    const digit = state.board[i];
+    if (digit === null) continue;
+    const owner = owners[i];
+    ctx.fillStyle = state.givenMask[i] ? '#c9d3ee' : owner === 'p1' ? P1 : owner === 'p2' ? P2 : DIM;
+    const col = i % n;
+    const row = Math.floor(i / n);
+    ctx.fillText(String(digit), cx + col * cell + cell / 2, cy + row * cell + cell * 0.68);
+  }
+}
+
 /** The only words on the card — the rest is the board and the model ids. */
 const CARD_COPY: Record<Locale, { game: (g: GameId) => string; draw: string; wins: (w: string) => string; fallback: string }> = {
   pl: {
-    game: (g) => (g === 'tictactoe' ? 'Kółko i krzyżyk' : 'Statki'),
+    game: (g) => (g === 'tictactoe' ? 'Kółko i krzyżyk' : g === 'sudoku' ? 'Sudoku Duel' : 'Statki'),
     draw: 'remis',
     wins: (w) => `${w} wygrywa`,
     fallback: 'partia',
   },
   en: {
-    game: (g) => (g === 'tictactoe' ? 'Tic-tac-toe' : 'Battleship'),
+    game: (g) => (g === 'tictactoe' ? 'Tic-tac-toe' : g === 'sudoku' ? 'Sudoku Duel' : 'Battleship'),
     draw: 'draw',
     wins: (w) => `${w} wins`,
     fallback: 'match',
@@ -285,6 +327,8 @@ export function renderMatchOg(match: OgMatch, locale: Locale = 'pl'): Buffer {
     ctx.strokeRect(bx - 10, by - 10, boardSize + 20, boardSize + 20);
     if (match.game === 'tictactoe') {
       drawTicTacToe(ctx, state as TicTacToeState, bx, by, boardSize);
+    } else if (match.game === 'sudoku') {
+      drawSudoku(ctx, state as SudokuState, bx, by, boardSize);
     } else {
       drawBattleship(ctx, state as BattleshipState, bx, by, boardSize);
     }
