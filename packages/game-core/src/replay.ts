@@ -4,6 +4,7 @@
  * mismatched outcome. The server trusts nothing from the client.
  */
 import { battleship } from './battleship';
+import { sudoku } from './sudoku';
 import { ticTacToe } from './tictactoe';
 import type {
   GameDefinition,
@@ -31,6 +32,7 @@ export interface ReplayResult {
 function resolveGame(id: GameId): GameDefinition<unknown, Move> {
   if (id === 'tictactoe') return ticTacToe as unknown as GameDefinition<unknown, Move>;
   if (id === 'battleship') return battleship as unknown as GameDefinition<unknown, Move>;
+  if (id === 'sudoku') return sudoku as unknown as GameDefinition<unknown, Move>;
   throw new Error(`Unknown game: ${id as string}`);
 }
 

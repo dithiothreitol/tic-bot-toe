@@ -10,6 +10,7 @@ export * from './types';
 export * from './rng';
 export * from './tictactoe';
 export * from './battleship';
+export * from './sudoku';
 export * from './elo';
 export * from './replay';
 export * from './solvers';
@@ -18,6 +19,7 @@ export * from './commentary';
 
 import type { GameId } from './types';
 import { battleship } from './battleship';
+import { sudoku } from './sudoku';
 import { ticTacToe } from './tictactoe';
 
 /** Resolve a game engine by id. Return type narrows per game. */
@@ -27,6 +29,8 @@ export function getGame(id: GameId) {
       return ticTacToe;
     case 'battleship':
       return battleship;
+    case 'sudoku':
+      return sudoku;
     default:
       throw new Error(`Unknown game: ${id as string}`);
   }

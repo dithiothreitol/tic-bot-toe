@@ -44,11 +44,13 @@ export const en: Dict = {
   games: {
     tictactoe: 'Tic-tac-toe',
     battleship: 'Battleship',
+    sudoku: 'Sudoku Duel',
   },
 
   gameMeta: {
     tictactoe: '3×3 · perfect information',
     battleship: '6×6 · 8×8 · 10×10 · hidden information',
+    sudoku: '4×4 · 6×6 · 9×9 · deduction duel',
   },
 
   /** Keyed by the variant id from @arena/game-core (whose own labels are Polish). */
@@ -57,6 +59,9 @@ export const en: Dict = {
     small: 'Small 6×6',
     medium: 'Medium 8×8',
     classic: 'Classic 10×10',
+    mini: 'Mini 4×4',
+    classic6: 'Classic 6×6',
+    classic9: 'Classic 9×9',
   },
 
   quickStart: {

@@ -10,7 +10,7 @@
 // (plan §3, but sequenced per DECISIONS.md): 'sudoku' lands in Etap 1, 'scrabble'
 // in Etap 5. Widening it ahead of those breaks the exhaustive label maps in the
 // web app, so it stays minimal until each game is actually wired.
-export type GameId = 'tictactoe' | 'battleship';
+export type GameId = 'tictactoe' | 'battleship' | 'sudoku';
 
 /** Two sides. p1 always moves first. */
 export type PlayerSide = 'p1' | 'p2';
@@ -199,10 +199,40 @@ export interface BattleshipView extends PlayerViewBase {
   legalTargets: string[];
 }
 
+// ---------------------------------------------------------------------------
+// Sudoku Duel (full information — but the SOLUTION is NEVER in the view)
+// ---------------------------------------------------------------------------
+
+/** One resolved placement, visible to both sides — mistakes must cost publicly. */
+export interface SudokuAnnotatedEntry {
+  player: PlayerSide;
+  /** 1-indexed coordinate, e.g. "r4c7". */
+  cell: string;
+  digit: number;
+  /** true = matched the unique solution (+1); false = consistent but wrong (−1, reverted). */
+  correct: boolean;
+}
+
+export interface SudokuView extends PlayerViewBase {
+  game: 'sudoku';
+  size: number;
+  boxRows: number;
+  boxCols: number;
+  /** Current board (row-major, length size²); null = empty. Always a subset of the solution. */
+  board: (number | null)[];
+  /** Starting clues (immutable), row-major. */
+  givenMask: boolean[];
+  scores: { p1: number; p2: number };
+  /** Resolved placements with their outcome — the model must see that mistakes cost. */
+  annotatedHistory: SudokuAnnotatedEntry[];
+  /** Moves left before the engine's hard cap ends the game. */
+  movesRemaining: number;
+}
+
 /**
  * Union of every per-game view. `renderPrompt`/`parseMove` narrow on `view.game`.
  */
-export type PlayerView = TicTacToeView | BattleshipView;
+export type PlayerView = TicTacToeView | BattleshipView | SudokuView;
 
 // ---------------------------------------------------------------------------
 // Multi-game contract

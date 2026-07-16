@@ -3,6 +3,12 @@
 Jednozdaniowe decyzje podejmowane tam, gdzie SPEC.md nie rozstrzyga (zgodnie z
 regułą 5 promptu startowego). Najnowsze na górze.
 
+## Sudoku + Scrabble — Etap 1: silnik Sudoku Duel (plan §4)
+
+- **`sudoku.ts`** — pojedynek turowy na wspólnej planszy z jednoznacznym rozwiązaniem: generator seedowany (`generateSolution` backtracking + `digHoles` z odcięciem liczby rozwiązań na 2 = gwarancja jednoznaczności), scoring +1/−1 z cofnięciem błędnego wpisu, twardy limit `3× puste pola`, `validateMove`/`renderCorrection` (bez listy kandydatów), `evaluateMove` (naked/hidden single→optimal, poprawny niewymuszony→good, błędny→blunder). Warianty: `mini` 4×4 (6 wskazówek), `classic6` 6×6 (14), `classic9` 9×9 (34). Rejestracja w `getGame` + `replay`. `SudokuView` bez `solution`.
+- **Rejestracja w `daily` przesunięta do Etapu 3 (mikro-odstępstwo od §10 Etap 1)**: plan wymienia „rejestrację w daily" w Etapie 1, ale dodanie `sudoku` do puli `GAMES` bez obsługi wyboru wariantu w `dailyChallenge` (dziś losuje wariant tylko dla statków) dałoby wyzwania z nielegalnym wariantem `standard`. Pełna integracja daily (pula + wybór wariantu + karta + nota o atomowym wdrożeniu z §2.9) należy do Etapu 3, którego DoD wprost obejmuje „daily (pula + karta)". W Etapie 1 sudoku jest rozwiązywalne przez `getGame`/`replay` — to jest substancja rejestracji potrzebna do gry i walidacji.
+- **Etykiety i18n dodane wcześnie (games/gameMeta/variants w pl+en)**: wymagane, bo rozszerzenie `GameId` o `sudoku` psuje indeksowane mapy etykiet w web. Pełne teksty UI planszy/pickerów — Etap 2.
+
 ## Sudoku + Scrabble — Etap 0: kontrakt `GameDefinition` (plan §3)
 
 - **`GameId` rośnie per gra, nie z góry (odstępstwo od §3 planu)**: plan wymienia `GameId` = 4 gry w zakresie Etapu 0, ale rozszerzenie unii już teraz psuje `tsc` w `apps/web` — mapy etykiet indeksowane przez `GameId` (`DailyChallengeCard`, `GameRunner`, `LeaderboardPage`, `ReplayPage`) muszą być wyczerpujące. Decyzja (reguła #3): `GameId`, unia `PlayerView` i mapy etykiet rosną **w parze z silnikiem** — `'sudoku'` w Etapie 1, `'scrabble'` w Etapie 5. Etykiety i i18n gier należą i tak do Etapów 2/6 (oba pliki pl+en). Etap 0 zostaje w pełni wstecznie zgodny (zielone testy **i** typecheck).
