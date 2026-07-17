@@ -75,6 +75,41 @@ export function dailySubjectId(opponent: DailyOpponent): string {
   return `${opponent.provider}:${opponent.id}`;
 }
 
+/**
+ * The paid twin of a `:free` opponent — same weights, paid endpoint.
+ *
+ * The whole `:free` tier shares one aggressive rate limit, and a 429 storm
+ * turns the opponent into a forfeiting ghost: the server then (correctly)
+ * refuses the day, which is fair but brutal for the player's streak. The
+ * escape hatch is playing the SAME model on its paid id, billed to the
+ * player's own OpenRouter key. OpenRouter's naming makes the twin derivable
+ * (`<id>:free` ⇄ `<id>`), so there is no hand-maintained mapping to rot.
+ *
+ * `null` when there is nothing to swap to: WebLLM runs locally and never
+ * rate-limits, and a non-`:free` id is already paid.
+ */
+export function paidEquivalent(opponent: DailyOpponent): DailyOpponent | null {
+  if (opponent.provider !== 'openrouter' || !opponent.id.endsWith(':free')) return null;
+  return {
+    provider: 'openrouter',
+    id: opponent.id.slice(0, -':free'.length),
+    name: opponent.name.replace(/\s*\(free\)$/i, ''),
+  };
+}
+
+/**
+ * Every subject id that counts as "today's opponent": the pool entry plus its
+ * paid twin. Both the client (offering the swap) and the server (verifying a
+ * claimed match) go through this list, so a paid-twin win completes the same
+ * day the free win would.
+ */
+export function dailyAcceptedSubjectIds(challenge: DailyChallenge): string[] {
+  const ids = [dailySubjectId(challenge.opponent)];
+  const paid = paidEquivalent(challenge.opponent);
+  if (paid) ids.push(dailySubjectId(paid));
+  return ids;
+}
+
 /** FNV-1a — small, stable, and identical in every JS runtime. */
 function hash32(text: string): number {
   let h = 0x811c9dc5;

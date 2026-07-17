@@ -6,12 +6,14 @@ import {
   type GameId,
   dailyChallenge,
   dailySubjectId,
+  paidEquivalent,
   toDayString,
 } from '@arena/game-core';
 import { eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { buildApp } from './app';
+import { dailyRoute } from './routes/daily';
 import { newJti, signSession } from './auth/jwt';
 import { hashPlayerToken } from './auth/player';
 import { loadConfig } from './config';
@@ -358,6 +360,40 @@ describe('POST /api/daily/result (§12.6)', () => {
     expect(res.status).toBe(422);
     expect(await res.json()).toMatchObject({ error: 'not_won' });
     expect(await handle.db.select().from(dailyResults)).toHaveLength(0);
+  });
+
+  it('accepts a win over the PAID twin of a :free opponent (own key, no 429 pool)', async () => {
+    // Today's opponent may be WebLLM (no twin), so pin a date whose opponent IS
+    // a :free model and mount the route with that clock — `now` is injectable.
+    const day = (() => {
+      const start = Date.UTC(2026, 0, 1);
+      for (let i = 0; i < 400; i++) {
+        const d = toDayString(new Date(start + i * 86_400_000));
+        const c = dailyChallenge(d);
+        if (c.opponent.provider === 'openrouter' && c.opponent.id.endsWith(':free')) return d;
+      }
+      throw new Error('pool has no :free opponent — the premise of this test is gone');
+    })();
+    const c = dailyChallenge(day);
+    const paid = paidEquivalent(c.opponent)!;
+    const matchId = await insertMatch({
+      game: c.game,
+      variant: c.variant,
+      mode: 'human_vs_model',
+      p1Id: 'human',
+      p2Id: dailySubjectId(paid),
+      winner: 'p1',
+      createdAt: new Date(`${day}T12:00:00Z`),
+    });
+
+    const route = dailyRoute({ db: handle.db, now: () => new Date(`${day}T13:00:00Z`) });
+    const res = await route.request('/result', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-player-token': PLAYER_TOKEN },
+      body: JSON.stringify({ matchId }),
+    });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ completed: true, day });
   });
 
   it('rejects a win against the WRONG opponent', async () => {

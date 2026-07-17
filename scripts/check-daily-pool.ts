@@ -12,7 +12,12 @@
  * Exits non-zero when any OpenRouter entry is gone, so CI/cron can shout.
  * Never needs a key: /models is public.
  */
-import { DAILY_OPPONENTS, dailyChallenge, toDayString } from '../packages/game-core/src/daily';
+import {
+  DAILY_OPPONENTS,
+  dailyChallenge,
+  paidEquivalent,
+  toDayString,
+} from '../packages/game-core/src/daily';
 
 const DAYS_AHEAD = 30;
 
@@ -50,6 +55,16 @@ for (const opp of DAILY_OPPONENTS) {
       Number(m.pricing?.prompt ?? 0) === 0 && Number(m.pricing?.completion ?? 0) === 0;
     console.log(`  OK    ${opp.id}${free ? '' : '  ← UWAGA: JUŻ NIE JEST DARMOWY'}`);
     if (!free) dead += 1;
+  }
+  // The paid twin is the player's escape hatch from free-tier 429s. Its absence
+  // doesn't kill the day (the free entry still works), so it's informational.
+  const paid = paidEquivalent(opp);
+  if (paid) {
+    console.log(
+      byId.has(paid.id)
+        ? `        twin OK    ${paid.id}`
+        : `        twin BRAK  ${paid.id}  ← bez ratunku przy 429`,
+    );
   }
 }
 

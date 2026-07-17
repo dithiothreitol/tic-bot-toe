@@ -1,4 +1,4 @@
-import { dailyChallenge, dailySubjectId, streakFrom, toDayString } from '@arena/game-core';
+import { dailyAcceptedSubjectIds, dailyChallenge, streakFrom, toDayString } from '@arena/game-core';
 import { and, eq } from 'drizzle-orm';
 import { Hono } from 'hono';
 
@@ -114,10 +114,12 @@ export function dailyRoute(deps: { db: Database; now?: () => Date }): Hono {
       return c.json({ error: 'wrong_game' }, 422);
     }
 
-    // The person plays p1 (§12.6); the other side must be today's opponent.
+    // The person plays p1 (§12.6); the other side must be today's opponent —
+    // the pool entry or its paid twin (same model on the player's own key,
+    // out of reach of the free-tier 429 pool).
     const humanIsP1 = match.p1Id === 'human' || match.p1Id.startsWith('human:');
     if (!humanIsP1) return c.json({ error: 'wrong_side' }, 422);
-    if (match.p2Id !== dailySubjectId(challenge.opponent)) {
+    if (!dailyAcceptedSubjectIds(challenge).includes(match.p2Id)) {
       return c.json({ error: 'wrong_opponent' }, 422);
     }
 

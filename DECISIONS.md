@@ -394,3 +394,18 @@ Zweryfikowane end-to-end w prawdziwym Chrome na zbudowanej aplikacji, z serwerem
 - **Walidacja potwierdzona negatywnie**: gdy modele nie odpowiadały (klucz bez kredytów / model spoza katalogu), wszystkie ruchy były losowymi forfeitami → serwer **odmówił rankingu** (`ranked=false`, `no_real_moves`). Partia bez realnych decyzji nie rusza Elo — dokładnie jak przy zapisie z przeglądarki.
 
 **Uruchomienie na produkcji.** Prod Postgres nie jest wystawiony na host (tylko w sieci docker), więc seeder puszczono z maszyny właściciela przez **tunel SSH** do kontenera bazy, hasło pobrane z serwerowego `.env` bez wypisywania. Modele: tanie **płatne** (wymaga kredytów na koncie OpenRouter — bez nich płatne dają 402, a darmowe `:free` 429). Trzy modele × round-robin × 3 partie; kilka partii słusznie odrzucił dedup `moves_hash` (kółko i krzyżyk ma wąski zbiór optymalnych linii, więc zdyscyplinowane modele generują identyczne sekwencje ruchów). Przed finalnym seedem zrobiono `TRUNCATE matches/ratings/elo_history` — cała zawartość bazy pochodziła z pierwszych prób seedowania (potwierdzone: zero danych użytkowników), więc jeden spójny seed jest czystszy niż łatanie (usuwanie samych wierszy partii nie cofa przyrostowego Elo w `ratings`).
+
+## Wyzwanie dnia — płatny bliźniak jako ratunek przed 429
+
+Darmowa pula `:free` dzieli jeden agresywny limit OpenRoutera. Gdy limit się sypie, przeciwnik gra samymi wymuszonymi losowymi ruchami, serwer (słusznie) odmawia zaliczenia dnia (`opponent_never_played`) — i gracz traci serię nie ze swojej winy (zgłoszone przez gracza na Discordzie: „drugi model z rzędu i lipa, 429. Strika wyzerowało"). Rozwiązanie: przy karcie wyzwania można zagrać **płatnym bliźniakiem** — tym samym modelem na płatnym id, na własnym kluczu, poza pulą darmowych limitów.
+
+- **Mapowanie jest wyprowadzone, nie ręczne.** Konwencja OpenRoutera `<id>:free` ⇄ `<id>` daje `paidEquivalent()` w `game-core` — karta i serwer używają tej samej funkcji, więc nie ma tabeli odpowiedników, która by gniła.
+- **Serwer akceptuje oba id** (`dailyAcceptedSubjectIds`): wygrana nad bliźniakiem zalicza ten sam dzień. Cała reszta walidacji (dzisiejsza data, gra/wariant, człowiek na p1, realne ruchy przeciwnika) bez zmian.
+- **Bliźniak oferowany tylko, gdy żywy katalog go potwierdza** — ten sam standard dowodu co przy `retired`; z katalogu idzie też migawka jego ceny, więc telemetria kosztów mówi prawdę zamiast dziedziczyć zero z darmowej puli.
+- **Wycofany `:free` przestaje zabijać dzień:** gdy darmowy wariant zniknął z katalogu, karta zamiast „wróć jutro" proponuje bliźniaka (albo ustawienia, jeśli brak klucza). `pnpm daily:check` raportuje też dostępność bliźniaków (informacyjnie — brak bliźniaka nie psuje puli).
+
+**Kompromisy przyjęte świadomie:**
+
+- **Bliźniak rankinguje się jako osobny podmiot** (`openrouter:<id>` bez `:free`) — uczciwie: inny endpoint, inne limity, potencjalnie inna dyscyplina. Dzień wyzwania łączy oba, Elo nie.
+- **WebLLM bez bliźniaka** — działa lokalnie, nie ma 429; nie ma czego podmieniać.
+- **Domyślna ścieżka pozostaje darmowa** — bliźniak to drugi, mniejszy przycisk z notą o koszcie; kicker karty („zawsze darmowy przeciwnik") nadal opisuje domyślną umowę.

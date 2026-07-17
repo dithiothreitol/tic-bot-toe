@@ -6,6 +6,7 @@ import {
   BATTLESHIP_VARIANTS,
   SUDOKU_VARIANTS,
   TICTACTOE_VARIANTS,
+  paidEquivalent,
 } from '@arena/game-core';
 
 import { type DailyState, fetchDaily } from '@/api/community';
@@ -37,16 +38,23 @@ function specFor(
   if (opponent.provider === 'webllm') {
     return { kind: 'webllm', model: opponent.id, displayName: opponent.name };
   }
+  const entry = catalog?.find((m) => m.id === opponent.id);
   return {
     kind: 'openrouter',
     model: opponent.id,
     displayName: opponent.name,
     apiKey: apiKey ?? '',
-    // The pool is free-only (§12.6), so the snapshot is an honest zero.
-    price: { prompt: 0, completion: 0 },
+    // A pool entry is free (§12.6) — an honest zero. The paid twin (the
+    // player's opt-in escape from free-tier 429s) snapshots its catalog rates
+    // so the cost telemetry stays truthful.
+    price: opponent.id.endsWith(':free')
+      ? { prompt: 0, completion: 0 }
+      : entry
+        ? { prompt: entry.pricePromptPerToken, completion: entry.priceCompletionPerToken }
+        : undefined,
     // Free pools include reasoning models (e.g. deepseek-r1:free) that forfeit
     // every move under the terse token cap — give them room from the catalog flag.
-    reasoningModel: catalog?.find((m) => m.id === opponent.id)?.isReasoning,
+    reasoningModel: entry?.isReasoning,
   };
 }
 
@@ -125,6 +133,14 @@ export function DailyChallengeCard({
     catalog !== null &&
     !catalog.some((m) => m.id === opp.id);
 
+  // The paid twin — same model, paid endpoint, no free-tier 429 pool (the
+  // server accepts either id for the day). Offered only when the LIVE catalog
+  // confirms it exists: the same standard of proof as `retired`, and the
+  // catalog is also where its price snapshot comes from.
+  const paid = paidEquivalent(opp);
+  const paidTwin =
+    paid !== null && catalog !== null && catalog.some((m) => m.id === paid.id) ? paid : null;
+
   const blocked = retired
     ? t.daily.opponentRetired
     : opp.provider === 'webllm' && !webGpu
@@ -133,18 +149,14 @@ export function DailyChallengeCard({
         ? t.daily.needKey
         : null;
 
-  const start = () => {
-    if (blocked) {
-      if (opp.provider === 'openrouter') onOpenSettings();
-      return;
-    }
+  const start = (opponent: DailyOpponent) => {
     onStart({
       game: challenge.game,
       variant,
       mode: 'human_vs_model',
       p1: { kind: 'human', displayName: t.player.human },
-      p2: specFor(opp, useSettings.getState().openRouterKey, catalog),
-      names: { p1: t.player.human, p2: opp.name },
+      p2: specFor(opponent, useSettings.getState().openRouterKey, catalog),
+      names: { p1: t.player.human, p2: opponent.name },
       seed: randomSeed(),
       daily: true,
     });
@@ -188,17 +200,46 @@ export function DailyChallengeCard({
           </div>
         ) : blocked ? (
           <div className="flex max-w-64 flex-col gap-2">
-            <p className="text-xs text-warn">{blocked}</p>
-            {opp.provider === 'openrouter' && !retired && (
+            <p className="text-xs text-warn">
+              {retired && paidTwin ? t.daily.paidRescue : blocked}
+            </p>
+            {retired && paidTwin ? (
+              hasKey ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  title={t.daily.paidNote}
+                  onClick={() => start(paidTwin)}
+                >
+                  {t.daily.paidSwap}
+                </Button>
+              ) : (
+                <Button variant="outline" size="sm" onClick={onOpenSettings}>
+                  {t.actions.settings}
+                </Button>
+              )
+            ) : opp.provider === 'openrouter' && !retired ? (
               <Button variant="outline" size="sm" onClick={onOpenSettings}>
                 {t.actions.settings}
               </Button>
-            )}
+            ) : null}
           </div>
         ) : (
-          <Button variant="edu" onClick={start}>
-            {t.daily.play}
-          </Button>
+          <div className="flex flex-col items-stretch gap-1.5">
+            <Button variant="edu" onClick={() => start(opp)}>
+              {t.daily.play}
+            </Button>
+            {paidTwin && hasKey && (
+              <Button
+                variant="outline"
+                size="sm"
+                title={t.daily.paidNote}
+                onClick={() => start(paidTwin)}
+              >
+                {t.daily.paidSwap}
+              </Button>
+            )}
+          </div>
         )}
       </div>
     </HudPanel>

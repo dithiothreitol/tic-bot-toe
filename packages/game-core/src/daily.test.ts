@@ -4,8 +4,10 @@ import { BATTLESHIP_VARIANTS_CONFIG } from './battleship';
 import { SUDOKU_VARIANTS_CONFIG } from './sudoku';
 import {
   DAILY_OPPONENTS,
+  dailyAcceptedSubjectIds,
   dailyChallenge,
   dailySubjectId,
+  paidEquivalent,
   streakFrom,
   toDayString,
 } from './daily';
@@ -62,6 +64,60 @@ describe('dailyChallenge', () => {
     expect(dailySubjectId({ provider: 'openrouter', id: 'a/b:free', name: 'B' })).toBe(
       'openrouter:a/b:free',
     );
+  });
+});
+
+describe('paidEquivalent (paid twin of a :free opponent)', () => {
+  it('strips :free from the id and "(free)" from the name', () => {
+    expect(
+      paidEquivalent({
+        provider: 'openrouter',
+        id: 'meta-llama/llama-3.2-3b-instruct:free',
+        name: 'Llama 3.2 3B (free)',
+      }),
+    ).toEqual({
+      provider: 'openrouter',
+      id: 'meta-llama/llama-3.2-3b-instruct',
+      name: 'Llama 3.2 3B',
+    });
+  });
+
+  it('has no twin for WebLLM (local, never rate-limited) or an already-paid id', () => {
+    expect(paidEquivalent({ provider: 'webllm', id: 'Foo-MLC', name: 'Foo' })).toBeNull();
+    expect(paidEquivalent({ provider: 'openrouter', id: 'a/b', name: 'B' })).toBeNull();
+  });
+
+  it('every :free entry in the pool has a well-formed twin', () => {
+    for (const opp of DAILY_OPPONENTS) {
+      if (opp.provider !== 'openrouter') continue;
+      const paid = paidEquivalent(opp);
+      expect(paid).not.toBeNull();
+      expect(paid!.id.length).toBeGreaterThan(0);
+      expect(paid!.id).not.toContain(':free');
+      expect(paid!.name).not.toContain('(free)');
+    }
+  });
+});
+
+describe('dailyAcceptedSubjectIds', () => {
+  const challengeWith = (opponent: (typeof DAILY_OPPONENTS)[number]) =>
+    ({ day: '2026-07-12', game: 'tictactoe', variant: 'standard', opponent, humanSide: 'p1' }) as const;
+
+  it('accepts the pool entry AND its paid twin for a :free opponent', () => {
+    const opp = {
+      provider: 'openrouter',
+      id: 'meta-llama/llama-3.2-3b-instruct:free',
+      name: 'Llama 3.2 3B (free)',
+    } as const;
+    expect(dailyAcceptedSubjectIds(challengeWith(opp))).toEqual([
+      'openrouter:meta-llama/llama-3.2-3b-instruct:free',
+      'openrouter:meta-llama/llama-3.2-3b-instruct',
+    ]);
+  });
+
+  it('accepts only the pool entry for a WebLLM opponent', () => {
+    const opp = { provider: 'webllm', id: 'Foo-MLC', name: 'Foo' } as const;
+    expect(dailyAcceptedSubjectIds(challengeWith(opp))).toEqual(['webllm:Foo-MLC']);
   });
 });
 
