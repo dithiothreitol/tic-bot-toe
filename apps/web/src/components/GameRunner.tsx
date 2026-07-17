@@ -28,6 +28,7 @@ import { SudokuBoard } from '@/components/SudokuBoard';
 import { ensureLexicon, isLexiconReady } from '@/providers/lexicon';
 import { TimelineChart } from '@/components/charts/TimelineChart';
 import { GameLog } from '@/components/GameLog';
+import { ThoughtStream } from '@/components/ThoughtStream';
 import { ShipPlacement } from '@/components/ShipPlacement';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -67,7 +68,7 @@ import type { ChatTransport } from '@/providers/llm-runner';
 import { createOllamaTransport } from '@/providers/ollama';
 import { createOpenRouterTransport } from '@/providers/openrouter';
 import { createWebLlmTransport } from '@/providers/webllm';
-import { getOpenRouterKey } from '@/store/settings';
+import { getOpenRouterKey, useSettings } from '@/store/settings';
 import { type Dict, useLocale, useLocalePath, useT } from '@/i18n';
 import { randomToken } from '@/lib/id';
 import { formatCost, formatMs, formatTokens } from '@/lib/format';
@@ -759,6 +760,16 @@ export function GameRunner({
   }
 
   const live = status === 'playing' && outcome === null;
+  const showThoughts = useSettings((s) => s.showThoughts);
+  // The most recent move that carried a reasoning trace (Module A). Only models
+  // produce one, so the panel appears the moment the first trace arrives.
+  let latestThought: MoveLogEntry | null = null;
+  for (let i = log.length - 1; i >= 0; i--) {
+    if (log[i]!.thoughts) {
+      latestThought = log[i]!;
+      break;
+    }
+  }
 
   return (
     <div className="flex w-full flex-col gap-4">
@@ -846,6 +857,15 @@ export function GameRunner({
           />
         </HudPanel>
       </div>
+
+      {showThoughts && latestThought && (
+        <ThoughtStream
+          live={live}
+          thought={latestThought.thoughts}
+          modelName={latestThought.player === 'p1' ? config.names.p1 : config.names.p2}
+          moveNumber={latestThought.index + 1}
+        />
+      )}
 
       <TimelineChart log={log} live={live} />
 

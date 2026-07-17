@@ -242,6 +242,8 @@ export const en: Dict = {
     nickname: 'Nickname (optional)',
     nicknamePlaceholder: 'e.g. NoughtsMaster',
     sound: 'Sound',
+    showThoughts: 'Model thought stream',
+    showThoughtsHint: 'Show the model’s reasoning trace during games and replays.',
   },
 
   profile: {
@@ -271,6 +273,13 @@ export const en: Dict = {
     importConfirm:
       'Moving an identity in will abandon the one used in this browser (its matches stay in the ranking, but you lose access to them). Continue?',
     imported: 'Identity moved.',
+  },
+
+  thoughts: {
+    title: 'Thought stream',
+    waiting: 'The model is thinking…',
+    none: 'This move has no recorded reasoning trace.',
+    show: 'Show reasoning trace',
   },
 
   log: {

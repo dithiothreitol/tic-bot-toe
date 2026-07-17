@@ -149,6 +149,8 @@ export interface ReplayMoveRecord {
   player: PlayerSide;
   move: Move;
   telemetry: MoveTelemetry;
+  /** Reasoning trace (Module A) — present for model moves saved with a trace. */
+  thoughts?: string;
 }
 
 /** Full match row from GET /api/replay/:id (public, no JWT). */

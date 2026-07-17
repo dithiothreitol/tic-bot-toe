@@ -20,6 +20,8 @@ import { randomSecret } from '@/lib/id';
 export interface SettingsState {
   openRouterKey: string | null;
   soundEnabled: boolean;
+  /** Show the model's reasoning trace panel in games and replays (Module A). Default ON. */
+  showThoughts: boolean;
   nickname: string | null;
   playerToken: string;
   /**
@@ -33,6 +35,7 @@ export interface SettingsState {
   setOpenRouterKey: (key: string | null) => void;
   clearOpenRouterKey: () => void;
   setSoundEnabled: (enabled: boolean) => void;
+  setShowThoughts: (enabled: boolean) => void;
   setNickname: (nickname: string | null) => void;
   /** Adopt an identity exported from another browser (§10). */
   setPlayerToken: (token: string) => void;
@@ -49,6 +52,7 @@ export const useSettings = create<SettingsState>()(
     (set) => ({
       openRouterKey: null,
       soundEnabled: false,
+      showThoughts: true,
       nickname: null,
       playerToken: randomSecret(),
       localePref: null,
@@ -56,6 +60,7 @@ export const useSettings = create<SettingsState>()(
       setOpenRouterKey: (key) => set({ openRouterKey: clean(key) }),
       clearOpenRouterKey: () => set({ openRouterKey: null }),
       setSoundEnabled: (soundEnabled) => set({ soundEnabled }),
+      setShowThoughts: (showThoughts) => set({ showThoughts }),
       setNickname: (nickname) => set({ nickname: clean(nickname) }),
       // Switching identity drops the local nickname mirror; it is re-read from
       // the server for the adopted token.

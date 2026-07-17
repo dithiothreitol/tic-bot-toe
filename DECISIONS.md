@@ -3,6 +3,15 @@
 Jednozdaniowe decyzje podejmowane tam, gdzie SPEC.md nie rozstrzyga (zgodnie z
 regułą 5 promptu startowego). Najnowsze na górze.
 
+## Efekt WOW — Etap 5: Tok myślenia — UI (plan §3.2/§3.3, Etap 5)
+
+- **Wspólny komponent `ThoughtStream`** dla żywej gry (GameRunner) i powtórki (ReplayPage) — jeden panel, jedna prawda wizualna. Prezentacyjny, czysto tekstowy (React escapuje; ślad docięty już przy przechwytywaniu, Etap 4), auto-scroll do najnowszej treści, nagłówek „model · #ruch".
+- **Efekt maszyny do pisania (char-by-char) ODŁOŻONY do Etapu 10** — rozjazd względem §3.2. Prawdziwy typewriter „na żywo" wymaga strumieniowania SSE (`stream:true` + parser), co plan sam wydziela do §3.4/Etap 10. Zamiast pół-budować animację teraz, panel pokazuje pełny ślad per ruch + auto-scroll; typewriter wejdzie razem ze streamingiem.
+- **Powtórka to serce funkcji (DoD)**: panel śledzi stepper — `stepMove = moves[step-1]`, więc udostępniony link odtwarza dokładnie ten sam ślad przy każdym ruchu. Zweryfikowane Playwrightem: krok 1 → myśl ruchu 0, krok 2 → myśl ruchu 1 (i znika ruch 0). Panel widoczny tylko gdy partia faktycznie ma ślady (`hasThoughts`).
+- **Panel na żywo pojawia się z pierwszym śladem** (`showThoughts && latestThought`) — pokazuje ostatni ruch, który niósł ślad (tylko modele go produkują). Bez migania pustego panelu przed pierwszą myślą.
+- **Wskaźnik 🧠 w `GameLog`**: ruch ze śladem dostaje przycisk-przełącznik (aria „Pokaż tok myślenia"), rozwijający ślad inline; jeden naraz. Wskaźnik nie pojawia się dla ruchów bez śladu (człowiek/WebLLM).
+- **Toggle `showThoughts` w ustawieniach, domyślnie ON** (`store/settings`, persist). Nowe pole bez migracji — zustand merge'uje domyślną wartość na stary stan. Gate'uje oba panele (gra + powtórka).
+
 ## Efekt WOW — Etap 4: Tok myślenia — przechwycenie (plan §3, Etap 4)
 
 - **Flaga katalogowa JUŻ ISTNIEJE jako `isReasoning`** — rozjazd względem §3.1 („wyprowadź `supportsReasoning`"). `openrouter-catalog.detectsReasoning` od dawna czyta `supported_parameters` (`reasoning`/`include_reasoning`) i płynie przez `reasoningModel` (SetupScreen/DailyChallengeCard → players → config). Nie dublowałem sygnału: `reasoningCapture` w transporcie **domyślnie = `reasoningModel`** (`captureReasoning = reasoningCapture ?? reasoningModel`), więc modele rozumujące łapią ślad bez żadnej nowej hydrauliki przez `PlayerSpec`. Flaga `reasoningCapture` istnieje jako jawny override (używana w testach).

@@ -254,6 +254,8 @@ export const pl = {
     nickname: 'Pseudonim (opcjonalnie)',
     nicknamePlaceholder: 'np. KrzyżykowyMistrz',
     sound: 'Dźwięki',
+    showThoughts: 'Tok myślenia modelu',
+    showThoughtsHint: 'Pokazuj ślad rozumowania modelu w grze i powtórkach.',
   },
 
   profile: {
@@ -284,6 +286,13 @@ export const pl = {
     importConfirm:
       'Przeniesienie tożsamości porzuci tożsamość używaną w tej przeglądarce (jej partie zostaną w rankingu, ale stracisz do niej dostęp). Kontynuować?',
     imported: 'Tożsamość przeniesiona.',
+  },
+
+  thoughts: {
+    title: 'Tok myślenia',
+    waiting: 'Model myśli…',
+    none: 'Ten ruch nie ma zapisanego toku myślenia.',
+    show: 'Pokaż tok myślenia',
   },
 
   log: {

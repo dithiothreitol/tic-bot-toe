@@ -30,6 +30,8 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   const clearOpenRouterKey = useSettings((s) => s.clearOpenRouterKey);
   const soundEnabled = useSettings((s) => s.soundEnabled);
   const setSoundEnabled = useSettings((s) => s.setSoundEnabled);
+  const showThoughts = useSettings((s) => s.showThoughts);
+  const setShowThoughts = useSettings((s) => s.setShowThoughts);
 
   const [draftKey, setDraftKey] = useState(openRouterKey ?? '');
   const [testing, setTesting] = useState(false);
@@ -107,6 +109,14 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
           <div className="flex items-center justify-between">
             <Label htmlFor="sound">{t.settings.sound}</Label>
             <Switch id="sound" checked={soundEnabled} onCheckedChange={setSoundEnabled} />
+          </div>
+
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex flex-col gap-0.5">
+              <Label htmlFor="show-thoughts">{t.settings.showThoughts}</Label>
+              <span className="font-mono text-[10px] text-dim">{t.settings.showThoughtsHint}</span>
+            </div>
+            <Switch id="show-thoughts" checked={showThoughts} onCheckedChange={setShowThoughts} />
           </div>
         </div>
       </DialogContent>

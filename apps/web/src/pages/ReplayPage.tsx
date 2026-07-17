@@ -20,8 +20,10 @@ import { shortSubject } from '@/components/charts/theme';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { HudPanel, SectionLabel } from '@/components/ui/hud';
+import { ThoughtStream } from '@/components/ThoughtStream';
 import type { MoveLogEntry } from '@/game/orchestrator';
 import { useLocalePath, useT } from '@/i18n';
+import { useSettings } from '@/store/settings';
 import { formatMove } from '@/lib/format';
 import type { Commentary } from '@/providers/commentator';
 import { reconstructStates } from '@/lib/match-states';
@@ -94,7 +96,14 @@ function ReplayPlayer({ match }: { match: ReplayMatch }) {
     [match.moves],
   );
   const log: MoveLogEntry[] = useMemo(
-    () => match.moves.map((m, i) => ({ index: i, player: m.player, move: m.move, telemetry: m.telemetry })),
+    () =>
+      match.moves.map((m, i) => ({
+        index: i,
+        player: m.player,
+        move: m.move,
+        telemetry: m.telemetry,
+        ...(m.thoughts !== undefined ? { thoughts: m.thoughts } : {}),
+      })),
     [match.moves],
   );
   const analysis = useMemo(
@@ -133,6 +142,13 @@ function ReplayPlayer({ match }: { match: ReplayMatch }) {
   const p1 = shortSubject(match.p1Id);
   const p2 = shortSubject(match.p2Id);
   const nameOf = (side: PlayerSide) => (side === 'p1' ? p1 : p2);
+
+  // Reasoning trace (Module A). Show the panel only when the match actually
+  // carries traces; it follows the stepper, so a shared link replays the exact
+  // same thought at each move (the heart of the wow — plan §3.3).
+  const showThoughts = useSettings((s) => s.showThoughts);
+  const hasThoughts = match.moves.some((m) => m.thoughts);
+  const stepMove = step > 0 ? match.moves[step - 1] : null;
 
   const result =
     match.winner === 'draw'
@@ -237,6 +253,14 @@ function ReplayPlayer({ match }: { match: ReplayMatch }) {
           </span>
         </div>
       </HudPanel>
+
+      {showThoughts && hasThoughts && (
+        <ThoughtStream
+          thought={stepMove?.thoughts ?? null}
+          modelName={stepMove ? nameOf(stepMove.player) : undefined}
+          moveNumber={step > 0 ? step : null}
+        />
+      )}
 
       <TimelineChart log={log} />
 

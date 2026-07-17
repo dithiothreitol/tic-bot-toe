@@ -1,4 +1,4 @@
-import { Fragment } from 'react';
+import { Fragment, useState } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { SectionLabel } from '@/components/ui/hud';
@@ -37,6 +37,8 @@ export function CommentBubble({ text }: { text: string }) {
 export function GameLog({ moves, names, commentary = [], correctness, className }: GameLogProps) {
   const t = useT();
   const byMove = new Map(commentary.map((c) => [c.moveIndex, c]));
+  // Which move's reasoning trace is expanded inline (🧠). One at a time.
+  const [openThought, setOpenThought] = useState<number | null>(null);
   return (
     <div className={cn('flex flex-col gap-2', className)}>
       <div className="flex items-center justify-between">
@@ -85,7 +87,26 @@ export function GameLog({ moves, names, commentary = [], correctness, className 
                   {m.telemetry.error && ` · ${t.log.reason[m.telemetry.error]}`}
                 </Badge>
               )}
+              {m.thoughts && (
+                <button
+                  type="button"
+                  aria-label={t.thoughts.show}
+                  aria-expanded={openThought === m.index}
+                  title={t.thoughts.show}
+                  onClick={() => setOpenThought((cur) => (cur === m.index ? null : m.index))}
+                  className="text-xs transition-opacity hover:opacity-70"
+                >
+                  🧠
+                </button>
+              )}
             </li>
+            {m.thoughts && openThought === m.index && (
+              <li className="ml-4 border-l-2 border-border bg-card-inset/50 px-2 py-1.5">
+                <p className="whitespace-pre-wrap break-words font-mono text-[11px] leading-relaxed text-muted-foreground">
+                  {m.thoughts}
+                </p>
+              </li>
+            )}
             {byMove.has(m.index) && <CommentBubble text={byMove.get(m.index)!.text} />}
             </Fragment>
           ))}
