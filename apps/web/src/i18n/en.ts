@@ -378,6 +378,7 @@ export const en: Dict = {
     noDisciplineRank: 'Not enough data to rank discipline.',
     cleanFirstTry: 'Clean first try',
     cleanFirstTrySince: (date: string) => `Measured since ${date}`,
+    recentFailures: 'Recent fails',
   },
 
   explain: {
@@ -523,6 +524,23 @@ export const en: Dict = {
     compare: 'Compare',
     models: 'Models',
     intuition: 'Intuition',
+    failures: 'Fails',
+  },
+
+  museum: {
+    kicker: 'Fail museum',
+    title: 'Fail museum',
+    lead: 'Illegal and unreadable moves that models tried to play — straight from saved matches. "Hallucination" here means the everyday thing: a rule-breaking move or an invented word, not the academic sense.',
+    filterAll: 'All',
+    empty: 'Nothing to show — models are playing remarkably clean (or there are too few matches).',
+    inventedWords: 'Words that do not exist',
+    attempted: 'Tried to play',
+    said: 'Replied',
+    reason: 'Reason',
+    replay: 'See the match',
+    kindIllegal: 'illegal move',
+    kindUnparseable: 'unreadable',
+    loadError: 'Could not fetch the museum.',
   },
 
   replay: {

@@ -16,7 +16,7 @@ import { newJti, signSession } from './auth/jwt';
 import { hashPlayerToken } from './auth/player';
 import { loadConfig } from './config';
 import { type DbHandle, createDb } from './db/client';
-import { dailyResults, matches, players, predictions, ratings } from './db/schema';
+import { dailyResults, failureGallery, matches, players, predictions, ratings } from './db/schema';
 
 /**
  * Integration tests for the community endpoints (SPEC §12.5/§12.6) against a
@@ -484,5 +484,36 @@ describe('GET /api/hallucinations (Module B, Etap 1)', () => {
     expect(data[0]!.forfeitRate).toBeCloseTo(0.2);
     // capturedMoves defaulted to 0 → the honest answer is "no data", not 100%.
     expect(data[0]!.cleanFirstTryRate).toBeNull();
+  });
+});
+
+/** The „muzeum wpadek" feed (Module B, plan §4.3, Etap 3). */
+describe('GET /api/failures (museum feed)', () => {
+  it('returns the feed newest-first and filters by game and subject', async () => {
+    const m1 = await insertMatch({ game: 'scrabble', variant: 'pl', mode: 'model_vs_model', p1Id: 'openrouter:x', p2Id: 'openrouter:y', winner: 'p1' });
+    const m2 = await insertMatch({ game: 'tictactoe', variant: 'standard', mode: 'model_vs_model', p1Id: 'openrouter:x', p2Id: 'openrouter:z', winner: 'p1' });
+    await handle.db.insert(failureGallery).values([
+      { matchId: m1, subjectId: 'openrouter:x', game: 'scrabble', variant: 'pl', kind: 'illegal', attempted: 'KWIZŁO', reason: 'not a word', excerpt: 'H8>KWIZŁO', moveIndex: 2 },
+      { matchId: m2, subjectId: 'openrouter:z', game: 'tictactoe', variant: 'standard', kind: 'unparseable', attempted: null, reason: null, excerpt: 'let me think', moveIndex: 1 },
+    ]);
+
+    const all = (await (await app().request('/api/failures')).json()) as Array<{ game: string }>;
+    expect(all).toHaveLength(2);
+    expect(all[0]!.game).toBe('tictactoe'); // newest (higher id) first
+
+    const scrabble = (await (await app().request('/api/failures?game=scrabble')).json()) as Array<{ attempted: string; matchId: string }>;
+    expect(scrabble).toHaveLength(1);
+    expect(scrabble[0]!.attempted).toBe('KWIZŁO');
+    expect(scrabble[0]!.matchId).toBe(m1);
+
+    const bySubject = (await (await app().request('/api/failures?subjectId=openrouter:z')).json()) as Array<{ kind: string }>;
+    expect(bySubject).toHaveLength(1);
+    expect(bySubject[0]!.kind).toBe('unparseable');
+  });
+
+  it('caps the limit and returns [] on an empty gallery', async () => {
+    const res = await app().request('/api/failures?limit=999');
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual([]);
   });
 });

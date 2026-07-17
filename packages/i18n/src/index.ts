@@ -19,7 +19,14 @@ export function isLocale(value: unknown): value is Locale {
   return value === 'pl' || value === 'en';
 }
 
-export type RouteKey = 'arena' | 'rankings' | 'compare' | 'intuition' | 'model' | 'replay';
+export type RouteKey =
+  | 'arena'
+  | 'rankings'
+  | 'compare'
+  | 'intuition'
+  | 'failures'
+  | 'model'
+  | 'replay';
 
 /** Path segment under the locale root. Empty string = the locale root itself. */
 const SEGMENTS: Record<Locale, Record<RouteKey, string>> = {
@@ -28,6 +35,7 @@ const SEGMENTS: Record<Locale, Record<RouteKey, string>> = {
     rankings: 'rankingi',
     compare: 'porownaj',
     intuition: 'intuicja',
+    failures: 'muzeum-wpadek',
     model: 'model',
     replay: 'replay',
   },
@@ -36,6 +44,7 @@ const SEGMENTS: Record<Locale, Record<RouteKey, string>> = {
     rankings: 'rankings',
     compare: 'compare',
     intuition: 'intuition',
+    failures: 'fail-museum',
     model: 'model',
     replay: 'replay',
   },

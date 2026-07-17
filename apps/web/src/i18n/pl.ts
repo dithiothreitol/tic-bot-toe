@@ -391,6 +391,7 @@ export const pl = {
     noDisciplineRank: 'Za mało danych, aby uszeregować dyscyplinę.',
     cleanFirstTry: 'Czysto za 1. razem',
     cleanFirstTrySince: (date: string) => `Liczone od ${date}`,
+    recentFailures: 'Ostatnie wpadki',
   },
 
   /**
@@ -543,6 +544,23 @@ export const pl = {
     compare: 'Porównaj',
     models: 'Modele',
     intuition: 'Intuicja',
+    failures: 'Wpadki',
+  },
+
+  museum: {
+    kicker: 'Muzeum wpadek',
+    title: 'Muzeum wpadek',
+    lead: 'Nielegalne i niezrozumiałe ruchy, które modele próbowały zagrać — prosto z zapisanych partii. „Halucynacja" znaczy tu potocznie: ruch niezgodny z zasadami albo zmyślone słowo, nie halucynacja w sensie akademickim.',
+    filterAll: 'Wszystkie',
+    empty: 'Brak wpadek do pokazania — modele grają wyjątkowo czysto (albo za mało partii).',
+    inventedWords: 'Słowa, które nie istnieją',
+    attempted: 'Próbował zagrać',
+    said: 'Odpowiedział',
+    reason: 'Powód',
+    replay: 'Zobacz partię',
+    kindIllegal: 'nielegalny ruch',
+    kindUnparseable: 'nie do odczytania',
+    loadError: 'Nie udało się pobrać muzeum.',
   },
 
   replay: {

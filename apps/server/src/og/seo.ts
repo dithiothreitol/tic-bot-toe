@@ -95,6 +95,7 @@ const STATIC_PAGES: { key: RouteKey; changefreq: SitemapUrl['changefreq']; prior
   { key: 'arena', changefreq: 'daily', priority: 1.0 },
   { key: 'rankings', changefreq: 'hourly', priority: 0.9 },
   { key: 'compare', changefreq: 'daily', priority: 0.7 },
+  { key: 'failures', changefreq: 'daily', priority: 0.6 },
 ];
 
 /** The static, always-present routes (replays are appended from the DB). */

@@ -6,6 +6,7 @@ import { type GameId, BATTLESHIP_VARIANTS } from '@arena/game-core';
 
 import {
   type EloHistoryPoint,
+  type FailureRow,
   type HallucinationRow,
   type LeaderboardRow,
   apiGet,
@@ -100,6 +101,7 @@ export function ModelCardPage() {
   const [population, setPopulation] = useState<LeaderboardRow[]>([]);
   const [data, setData] = useState<ModelCardResponse | null>(null);
   const [halluc, setHalluc] = useState<HallucinationRow[]>([]);
+  const [failures, setFailures] = useState<FailureRow[]>([]);
   const [eloPoints, setEloPoints] = useState<EloHistoryPoint[]>([]);
   const [catalog, setCatalog] = useState<CatalogModel[]>([]);
   const [loading, setLoading] = useState(true);
@@ -122,13 +124,17 @@ export function ModelCardPage() {
         `/api/elo-history?subjectId=${encodeURIComponent(subjectId)}&${qs}`,
       ),
       apiGet<HallucinationRow[]>(`/api/hallucinations?${qs}`),
+      apiGet<FailureRow[]>(
+        `/api/failures?subjectId=${encodeURIComponent(subjectId)}&game=${game}&limit=5`,
+      ),
     ])
-      .then(([rows, card, elo, hall]) => {
+      .then(([rows, card, elo, hall, fails]) => {
         if (!alive) return;
         setPopulation(rows);
         setData(card);
         setEloPoints(elo);
         setHalluc(hall);
+        setFailures(fails);
       })
       .catch(() => {
         if (alive) toast.error(t.modelCard.loadError);
@@ -313,6 +319,26 @@ export function ModelCardPage() {
               <p className="font-mono text-[10px] text-dim">
                 {t.modelCard.cleanFirstTrySince(new Date(hallRow.since).toLocaleDateString())}
               </p>
+            )}
+            {failures.length > 0 && (
+              <div className="flex flex-col gap-1.5 border-t border-border pt-3">
+                <span className="font-mono text-[10px] uppercase tracking-wider text-dim">
+                  {t.modelCard.recentFailures}
+                </span>
+                <ul className="flex flex-col gap-1">
+                  {failures.map((f, i) => (
+                    <li key={`${f.matchId}-${i}`} className="truncate font-mono text-xs">
+                      <Link to={path('replay', f.matchId)} className="text-muted-foreground hover:text-p1">
+                        “{f.attempted ?? f.excerpt}”
+                        <span className="text-dim">
+                          {' '}
+                          — {f.reason ?? (f.kind === 'illegal' ? t.museum.kindIllegal : t.museum.kindUnparseable)}
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
           </HudPanel>
 

@@ -9,6 +9,7 @@ import { securityHeaders } from './middleware/security';
 import { eloHistoryRoute, headToHeadRoute } from './routes/analytics';
 import { commentaryRoute } from './routes/commentary';
 import { dailyRoute } from './routes/daily';
+import { failuresRoute } from './routes/failures';
 import { hallucinationsRoute } from './routes/hallucinations';
 import { healthRoute } from './routes/health';
 import { leaderboardRoute } from './routes/leaderboard';
@@ -124,6 +125,8 @@ export function buildApp(deps: AppDeps): Hono {
     api.route('/head-to-head', headToHeadRoute({ db: deps.db }));
     // Discipline ranking (Module B) — forfeit rate per model, whole history.
     api.route('/hallucinations', hallucinationsRoute({ db: deps.db }));
+    // „Muzeum wpadek" feed (Module B) — illegal/unparseable model attempts.
+    api.route('/failures', failuresRoute({ db: deps.db }));
     api.route('/matches', matchesRoute({ db: deps.db }));
     api.route('/replay', replayRoute({ db: deps.db }));
     api.route('/og', ogRoute({ db: deps.db }));

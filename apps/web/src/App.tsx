@@ -33,6 +33,7 @@ import {
 import { cn } from '@/lib/utils';
 import { ArenaPage } from '@/pages/ArenaPage';
 import { ComparePage } from '@/pages/ComparePage';
+import { FailureMuseumPage } from '@/pages/FailureMuseumPage';
 import { IntuitionPage } from '@/pages/IntuitionPage';
 import { LeaderboardPage } from '@/pages/LeaderboardPage';
 import { ModelCardPage } from '@/pages/ModelCardPage';
@@ -148,6 +149,9 @@ function Nav({ className }: { className?: string }) {
       <NavLink to={path('intuition')} className={navClass}>
         {t.nav.intuition}
       </NavLink>
+      <NavLink to={path('failures')} className={navClass}>
+        {t.nav.failures}
+      </NavLink>
     </nav>
   );
 }
@@ -247,6 +251,7 @@ function localeRoutes(locale: Locale): ReactNode {
       <Route path={routeSegment(locale, 'rankings')} element={<LeaderboardPage />} />
       <Route path={routeSegment(locale, 'compare')} element={<ComparePage />} />
       <Route path={routeSegment(locale, 'intuition')} element={<IntuitionPage />} />
+      <Route path={routeSegment(locale, 'failures')} element={<FailureMuseumPage />} />
       {/* Splat: subject ids carry slashes (openrouter:meta-llama/llama-3). */}
       <Route path={`${routeSegment(locale, 'model')}/*`} element={<ModelCardPage />} />
       <Route path={`${routeSegment(locale, 'replay')}/:id`} element={<ReplayPage />} />

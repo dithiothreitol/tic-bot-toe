@@ -40,6 +40,9 @@ describe('translatePath', () => {
     expect(translatePath('/en/rankings', 'pl')).toBe('/rankingi');
     expect(translatePath('/porownaj', 'en')).toBe('/en/compare');
     expect(translatePath('/en/intuition', 'pl')).toBe('/intuicja');
+    // Fail museum (Etap 3) — distinct segments per language.
+    expect(translatePath('/muzeum-wpadek', 'en')).toBe('/en/fail-museum');
+    expect(translatePath('/en/fail-museum', 'pl')).toBe('/muzeum-wpadek');
   });
 
   it('preserves params — a shared replay link stays the same match', () => {

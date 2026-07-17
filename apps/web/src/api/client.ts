@@ -115,6 +115,19 @@ export interface HallucinationRow {
   since: string | null;
 }
 
+/** One entry in the „muzeum wpadek" feed (Module B, plan §4.3). */
+export interface FailureRow {
+  subjectId: string;
+  game: string;
+  variant: string;
+  kind: 'illegal' | 'unparseable';
+  attempted: string | null;
+  reason: string | null;
+  excerpt: string | null;
+  matchId: string;
+  createdAt: string;
+}
+
 /** One Elo checkpoint (SPEC §9.3.4). */
 export interface EloHistoryPoint {
   eloAfter: number;

@@ -3,6 +3,15 @@
 Jednozdaniowe decyzje podejmowane tam, gdzie SPEC.md nie rozstrzyga (zgodnie z
 regułą 5 promptu startowego). Najnowsze na górze.
 
+## Efekt WOW — Etap 3: Muzeum wpadek (plan §4, Etap 3)
+
+- **Endpoint `/api/failures`** (publiczny read, jak `analytics.ts`) czyta zdenormalizowaną `failure_gallery` z Etapu 2 — feed najnowsze-pierwsze, filtry `game`/`subjectId`, `limit` domyślnie 40, twardy sufit 100. Zwraca tablicę `{subjectId, game, variant, kind, attempted, reason, excerpt, matchId, createdAt}` (createdAt ISO). Transport nigdy tam nie trafił (Etap 2), więc muzeum z definicji pokazuje tylko `illegal`/`unparseable`.
+- **Bezpieczeństwo renderu (ryzyko #5)**: karty renderują wyłącznie tekst (`attempted`/`excerpt`/`reason`), React escapuje, zero markdown/linkify, długości docięte już przy przechwytywaniu (Etap 2, capy D4). Możliwość moderacji: `DELETE FROM failure_gallery WHERE match_id = …` (odnotowane; ręczne, bez UI w tym wydaniu).
+- **Nazewnictwo (ryzyko #10)**: lead strony wprost mówi, że „halucynacja" znaczy tu potocznie (nielegalny ruch / zmyślone słowo), nie w sensie akademickim — inaczej ucierpiałaby wiarygodność areny. Nav używa krótkiej etykiety „Wpadki"/„Fails"; pełny tytuł strony to „Muzeum wpadek"/„Fail museum".
+- **Sekcja „Słowa, które nie istnieją"** liczona po stronie klienta z feedu (scrabble + `kind=illegal` + `attempted`, deduplikacja) — bez osobnego endpointu; pokazuje się tylko gdy są takie wpadki.
+- **Segmenty URL per język (D11)**: `muzeum-wpadek` (pl) / `fail-museum` (en) w pakiecie `@arena/i18n`; strona wchodzi do sitemap (`STATIC_PAGES`, priority 0.6) i dostaje hreflang za darmo z tej samej tabeli. Mini-lista ostatnich wpadek modelu dodana do sekcji „Halucynacje" na karcie modelu (`/api/failures?subjectId=&game=`).
+- **Smoke UI przez realny render Playwright, nie kruchy test jednostkowy strony** (brak harnessu render stron w repo, jak w Etapach 1–2). Zweryfikowane na żywo: `/muzeum-wpadek` renderuje 2 realne wpadki z Etapu 2 (nielegalny „2" + powód, nieczytelne „let me think…"), link „Zobacz partię" → `/api/replay/:id` = 200, zero błędów strony. Automatycznie pokryte: endpoint (feed/filtry/limit — 2 testy integracyjne), route i18n, wpis sitemap.
+
 ## Efekt WOW — Etap 2: przechwytywanie rejections + muzeum wpadek + D5b (plan §4, Etap 2)
 
 - **Trzecia kolumna `captured_moves` ponad „dwie" z §4.2** — konieczna, nie kosmetyczna. §4.2 wymienia `rejected_attempts` i `moves_with_rejections`, ale sam `cleanFirstTryRate` = odsetek ruchów bez halucynacji potrzebuje UCZCIWEGO mianownika. Dzielenie przez `totalMoves` liczyłoby historię sprzed Etapu 2 (gdzie nic nie przechwytywano) jako bezbłędną → fałszywe „100% czysto" (dokładnie ryzyko #3). `captured_moves` liczy tylko ruchy widziane od Etapu 2; stare wiersze mają 0 → `cleanFirstTryRate = null` (nie 100%). To realizacja D5b, nie odstępstwo.

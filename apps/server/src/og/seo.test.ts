@@ -45,7 +45,10 @@ describe('buildSitemap', () => {
   it('lists every static page in both languages', () => {
     const paths = STATIC_SITEMAP_URLS.map((u) => u.path);
     expect(paths).toEqual(
-      expect.arrayContaining(['/', '/rankingi', '/porownaj', '/en', '/en/rankings', '/en/compare']),
+      expect.arrayContaining([
+        '/', '/rankingi', '/porownaj', '/muzeum-wpadek',
+        '/en', '/en/rankings', '/en/compare', '/en/fail-museum',
+      ]),
     );
   });
 
