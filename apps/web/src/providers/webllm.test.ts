@@ -1,11 +1,13 @@
 import { TICTACTOE_VARIANTS, ticTacToe } from '@arena/game-core';
 
 import {
+  WEBLLM_MODELS,
   type WebLlmEngine,
   type WebLlmEngineFactory,
   createWebLlmPlayer,
   createWebLlmTransport,
   isWebGpuAvailable,
+  smallestWebLlmModel,
 } from './webllm';
 
 function fakeEngine(content: string): WebLlmEngine {
@@ -29,6 +31,16 @@ describe('isWebGpuAvailable', () => {
     Object.defineProperty(navigator, 'gpu', { value: undefined, configurable: true });
     expect(isWebGpuAvailable()).toBe(false);
     Object.defineProperty(navigator, 'gpu', { value: original, configurable: true });
+  });
+});
+
+describe('smallestWebLlmModel (home-page demo, D9)', () => {
+  it('picks the model with the lowest download size', () => {
+    const picked = smallestWebLlmModel();
+    const minMb = Math.min(...WEBLLM_MODELS.map((m) => m.downloadMb));
+    expect(picked.downloadMb).toBe(minMb);
+    // Every model carries a positive size for the "~N GB" warning.
+    expect(WEBLLM_MODELS.every((m) => m.downloadMb > 0)).toBe(true);
   });
 });
 

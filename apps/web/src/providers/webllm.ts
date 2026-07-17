@@ -14,13 +14,24 @@ import { type ChatTransport, type LlmMoveConfig, moveMaxTokens, runLlmMove } fro
 export interface WebLlmModel {
   mlcId: string;
   name: string;
+  /**
+   * Approximate weight-download size in MB (q4f16_1 quant). Used ONLY for the
+   * home-page demo's "this will download ~N GB" warning (D9) — a heads-up, not a
+   * load-bearing number, so a rough figure is fine.
+   */
+  downloadMb: number;
 }
 
 export const WEBLLM_MODELS: WebLlmModel[] = [
-  { mlcId: 'Llama-3.2-3B-Instruct-q4f16_1-MLC', name: 'Llama 3.2 3B' },
-  { mlcId: 'Phi-3.5-mini-instruct-q4f16_1-MLC', name: 'Phi 3.5 mini' },
-  { mlcId: 'Qwen2.5-3B-Instruct-q4f16_1-MLC', name: 'Qwen2.5 3B' },
+  { mlcId: 'Llama-3.2-3B-Instruct-q4f16_1-MLC', name: 'Llama 3.2 3B', downloadMb: 1800 },
+  { mlcId: 'Phi-3.5-mini-instruct-q4f16_1-MLC', name: 'Phi 3.5 mini', downloadMb: 2200 },
+  { mlcId: 'Qwen2.5-3B-Instruct-q4f16_1-MLC', name: 'Qwen2.5 3B', downloadMb: 1900 },
 ];
+
+/** The lightest model to download — the home-page demo picks this one (D9). */
+export function smallestWebLlmModel(): WebLlmModel {
+  return [...WEBLLM_MODELS].sort((a, b) => a.downloadMb - b.downloadMb)[0]!;
+}
 
 export function isWebGpuAvailable(): boolean {
   return (

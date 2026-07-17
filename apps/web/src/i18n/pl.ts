@@ -737,6 +737,28 @@ export const pl = {
     downloading: 'Pobieranie modelu do przeglądarki…',
   },
 
+  /** Demo WebLLM na stronie głównej (Moduł E). */
+  demo: {
+    kicker: 'Demo w przeglądarce',
+    title: 'Dwa AI zagrają ze sobą u Ciebie — bez klucza, bez chmury, offline',
+    lead: 'Mały model językowy uruchomiony w Twojej przeglądarce (WebGPU) gra sam ze sobą w kółko i krzyżyk: strona „rozważna" (niska temperatura) kontra „ryzykant" (wysoka). Nic nie wychodzi do chmury.',
+    noWebgpu:
+      'Twoja przeglądarka nie wspiera WebGPU — demo działa na Chrome/Edge (desktop) z włączonym WebGPU. Możesz za to zagrać modelem OpenRouter albo Ollamą powyżej.',
+    start: (size: string) => `Odpal demo (~${size} GB pobrania)`,
+    downloading: 'Pobieram model do przeglądarki (jednorazowo, potem z pamięci)…',
+    cautious: 'Rozważny',
+    bold: 'Ryzykant',
+    cautiousTag: 'niska temperatura',
+    boldTag: 'wysoka temperatura',
+    playing: 'Grają…',
+    resultWin: (name: string) => `Wygrywa: ${name}`,
+    resultDraw: 'Remis',
+    again: 'Jeszcze raz',
+    playYourself: 'Zagraj z nim sam',
+    error: 'Nie udało się uruchomić modelu. Odśwież stronę i spróbuj ponownie.',
+    note: 'Ta partia nie jest zapisywana ani rankingowana — to pokaz na żywo.',
+  },
+
   /** Honest footer: what runs where, and where the numbers come from. */
   footerNote:
     'Modele grają przez OpenRouter (Twój klucz, wysyłany wyłącznie do openrouter.ai), WebLLM (lokalnie w przeglądarce, bez klucza) albo Ollamę. Partie toczą się u Ciebie, więc wyniki zapisane do rankingu serwer odtwarza i weryfikuje po swojej stronie.',

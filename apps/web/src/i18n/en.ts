@@ -712,6 +712,27 @@ export const en: Dict = {
     downloading: 'Downloading the model into your browser…',
   },
 
+  demo: {
+    kicker: 'In-browser demo',
+    title: 'Two AIs will play each other in your browser — no key, no cloud, offline',
+    lead: 'A small language model running in your browser (WebGPU) plays itself at tic-tac-toe: a "cautious" side (low temperature) versus a "reckless" one (high). Nothing leaves for the cloud.',
+    noWebgpu:
+      'Your browser does not support WebGPU — the demo needs Chrome/Edge (desktop) with WebGPU enabled. You can still play an OpenRouter model or Ollama above.',
+    start: (size: string) => `Run the demo (~${size} GB download)`,
+    downloading: 'Downloading the model into your browser (once — then served from cache)…',
+    cautious: 'Cautious',
+    bold: 'Reckless',
+    cautiousTag: 'low temperature',
+    boldTag: 'high temperature',
+    playing: 'Playing…',
+    resultWin: (name: string) => `Winner: ${name}`,
+    resultDraw: 'Draw',
+    again: 'Again',
+    playYourself: 'Play it yourself',
+    error: 'Could not start the model. Refresh the page and try again.',
+    note: 'This match is never saved or ranked — it is a live showcase.',
+  },
+
   footerNote:
     'Models play through OpenRouter (your key, sent only to openrouter.ai), WebLLM (locally in your browser, no key) or Ollama. Matches run on your machine, so any result saved to the ranking is replayed and verified on our side.',
 };

@@ -3,6 +3,7 @@ import { useLocation } from 'react-router';
 
 import { useShell } from '@/App';
 import { DailyChallengeCard } from '@/components/DailyChallengeCard';
+import { DemoBattle } from '@/components/DemoBattle';
 import { type MatchConfig, GameRunner } from '@/components/GameRunner';
 import { LiveStats } from '@/components/LiveStats';
 import { QuickStartSection } from '@/components/QuickStartSection';
@@ -64,7 +65,12 @@ export function ArenaPage() {
           {/* §12.6 — remounts on return to setup, so the streak refreshes itself. */}
           <DailyChallengeCard onStart={start} onOpenSettings={openSettings} />
 
-          <SetupScreen onStart={start} onOpenSettings={openSettings} />
+          <div id="arena-setup">
+            <SetupScreen onStart={start} onOpenSettings={openSettings} />
+          </div>
+
+          {/* Module E — two AIs play in the browser, no key, offline (D9). */}
+          <DemoBattle />
 
           <QuickStartSection />
 

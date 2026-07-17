@@ -3,6 +3,14 @@
 Jednozdaniowe decyzje podejmowane tam, gdzie SPEC.md nie rozstrzyga (zgodnie z
 regułą 5 promptu startowego). Najnowsze na górze.
 
+## Efekt WOW — Etap 8: Demo WebLLM na stronie głównej (plan §7, Etap 8)
+
+- **Jeden silnik, obie strony (D9).** `DemoBattle` tworzy DWÓCH graczy `createWebLlmPlayer` z tym SAMYM `mlcId` — `engineCache` (klucz = mlcId) sprawia, że pobranie i model w VRAM są JEDNE, a nie dwa naraz (ryzyko OOM na średnim laptopie, risk #6). Różne osobowości robi temperatura: 0.2 („rozważny") vs 0.9 („ryzykant"). Gra: kółko i krzyżyk (najkrótsze partie).
+- **Najmniejszy model + jawny rozmiar pobrania.** Dodałem pole `downloadMb` do `WEBLLM_MODELS` i `smallestWebLlmModel()` (D9). Rozmiary są PRZYBLIŻONE — służą tylko ostrzeżeniu „~N GB pobrania" na przycisku, nie są load-bearing. Start WYŁĄCZNIE za kliknięciem; bez `navigator.gpu` karta pokazuje czytelny komunikat zamiast przycisku (DoD).
+- **Reużycie sprawdzonej ścieżki, zero nowej hydrauliki gry.** Partia idzie przez `runMatch` z orchestratora (ten sam kod co realne mecze), render przez `Board3x3` + `GameLog`, progres pobierania przez istniejący store `model-load` (globalny `ModelLoadBar` + inline pasek w karcie). Panel myśli (Moduł A) pominięty — WebLLM zwykle nie zwraca `reasoning`, więc byłby pusty.
+- **Mecz nie jest zapisywany** (bez flow Turnstile) — tylko bump licznika live przez istniejący `reportFinish(id, 'model_vs_model', 'tictactoe', tokens)`, jak każda skończona partia. Po zakończeniu: „Jeszcze raz" + „Zagraj z nim sam" (patch `useSetupPrefs` → preselekcja WebLLM jako p2 + `scrollIntoView` na `#arena-setup`).
+- **Weryfikacja WebGPU — realne ograniczenie.** Pełna ścieżka „klik → pobranie ~2 GB → partia" wymaga przeglądarki z WebGPU; headless Playwright/CI go nie ma (plan sam każe oznaczać e2e jako `skip` bez GPU). Dlatego: gate'y pokryte testami jednostkowymi (obecność/brak `navigator.gpu`, karta render obu gałęzi), a ścieżka gry reużywa `runMatch` już pokryty testami. Live w running-app zweryfikowany na gałęzi „brak WebGPU" (czytelny komunikat, zero błędów, integracja z ArenaPage).
+
 ## Efekt WOW — Etap 7: Tryb Turinga (plan §6, Etap 7)
 
 - **`puzzleToken` (podpisany JWT) JEST mechanizmem anty-abuse, nie login.** `POST /guess` NIE wymaga sesji JWT (rozjazd względem predictions.ts, które ją wymaga) — bo to `puzzleToken` niesie `matchId` i gwarantuje, że zgadujesz partię wydaną przez `/next`, a `matchId` (który zdradza id modeli/zwycięzcę) pozostaje ukryty do momentu odpowiedzi (D8). Tożsamość to pseudonimowy `x-player-token` (hash), jak w predictions. Dodanie Turnstile/sesji do zabawy byłoby zbędnym tarciem.
