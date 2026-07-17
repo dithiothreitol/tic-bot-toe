@@ -110,11 +110,57 @@ export interface MoveTelemetry {
   costUsd?: number;
 }
 
+/**
+ * Persistence caps for the controlled §16 exception (plan „efekt wow" §2, D1/D4).
+ *
+ * The arena normally persists NOTHING a model or a human wrote (SPEC §16); these
+ * bound the one exception — a trimmed reasoning trace (Module A) and short
+ * excerpts of REJECTED model output (Module B). The client trims to these before
+ * a save. The server enforces its OWN, independent ceilings (zod + a pre-insert
+ * trim) so a hand-crafted payload can't smuggle more in — do NOT import these
+ * constants web→server; the server keeps its numbers locally on purpose.
+ */
+export const THOUGHTS_MAX_CHARS = 1500;
+export const REJECTION_REASON_MAX_CHARS = 200;
+export const REJECTION_ATTEMPTED_MAX_CHARS = 40;
+export const REJECTION_RAW_MAX_CHARS = 240;
+/** One rejection per attempt at most: the first try plus `maxRetries` (=3) corrections. */
+export const MAX_REJECTIONS_PER_MOVE = 4;
+
+export type MoveRejectionKind = 'illegal' | 'unparseable' | 'transport';
+
+/**
+ * One rejected attempt at a single move (Module B — the „hallucination museum").
+ * - `illegal`: a move was parsed but the engine refused it (`reason`/`attempted` set).
+ * - `unparseable`: no move could be recovered from the reply (`raw` excerpt only).
+ * - `transport`: the provider call itself failed — no `raw` (nothing was returned
+ *   to quote); the cause already rides on `MoveTelemetry.error` at forfeit.
+ */
+export interface MoveRejectionRecord {
+  kind: MoveRejectionKind;
+  /** Engine's short English rejection reason — `illegal` only. */
+  reason?: string;
+  /** The concrete move the engine refused; for scrabble the notation carrying the invented word. */
+  attempted?: string;
+  /** Short excerpt of the model's own rejected output. NEVER present for `transport`. */
+  raw?: string;
+}
+
 export interface MoveResult {
   move: Move;
   telemetry: MoveTelemetry;
   /** Raw model text — kept in memory only, NEVER persisted (SPEC §16). */
   raw?: string;
+  /**
+   * Reasoning trace for this move (Module A — „tok myślenia"). Present only when
+   * the provider surfaced one; trimmed to THOUGHTS_MAX_CHARS. Persisted only on
+   * an explicit save (controlled §16 exception, D1). The runner starts populating
+   * it in a later stage; the field lands here first (plan §10 Etap 0) so it
+   * survives the whole save→replay path the moment there is data to carry.
+   */
+  thoughts?: string;
+  /** Rejected attempts at this move (Module B). Same staging note as `thoughts`. */
+  rejections?: MoveRejectionRecord[];
 }
 
 /**

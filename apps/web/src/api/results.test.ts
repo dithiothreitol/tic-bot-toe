@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MatchOutcome } from '@/game/orchestrator';
 import { useSettings } from '@/store/settings';
 
-import { saveResult } from './results';
+import { buildResultPayload, saveResult } from './results';
 
 // A valid session is already in hand, so saveResult never opens Turnstile.
 vi.mock('@/store/session', () => ({
@@ -54,6 +54,39 @@ describe('saveResult identity header (SPEC §10)', () => {
   it('does NOT send X-Player-Token in model_vs_model (no person involved)', async () => {
     await saveResult(outcome('model_vs_model', 'openrouter:a'));
     expect(headersOf()['x-player-token']).toBeUndefined();
+  });
+});
+
+describe('buildResultPayload carries Module A/B fields (D4)', () => {
+  function outcomeWithMoves(): MatchOutcome {
+    return {
+      ...outcome('model_vs_model', 'openrouter:a'),
+      moves: [
+        {
+          index: 0,
+          player: 'p1',
+          move: 0,
+          telemetry: { latencyMs: 100, retries: 1, forfeit: false },
+          thoughts: 'center is strong',
+          rejections: [{ kind: 'illegal', reason: 'occupied', attempted: '4' }],
+        },
+        {
+          index: 1,
+          player: 'p2',
+          move: 1,
+          telemetry: { latencyMs: 90, retries: 0, forfeit: false },
+        },
+      ],
+    } as unknown as MatchOutcome;
+  }
+
+  it('copies thoughts/rejections when present and omits them when absent', () => {
+    const payload = buildResultPayload(outcomeWithMoves());
+    expect(payload.moves[0]!.thoughts).toBe('center is strong');
+    expect(payload.moves[0]!.rejections).toHaveLength(1);
+    // A move without a trace must not gain the keys — keeps legacy payloads clean.
+    expect(payload.moves[1]).not.toHaveProperty('thoughts');
+    expect(payload.moves[1]).not.toHaveProperty('rejections');
   });
 });
 

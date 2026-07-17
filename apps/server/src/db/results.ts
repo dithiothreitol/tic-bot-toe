@@ -4,6 +4,7 @@ import {
   type GameId,
   type Move,
   type MoveQuality,
+  type MoveRejectionRecord,
   type ReplayMove,
   analyzeMatch,
   movesHash,
@@ -29,6 +30,10 @@ export interface ResultMove {
   move: Move;
   telemetry: ResultMoveTelemetry;
   eval?: unknown;
+  /** Reasoning trace (Module A) — trimmed + stripped from the human side before insert. */
+  thoughts?: string;
+  /** Rejected attempts (Module B) — stripped from the human side before insert. */
+  rejections?: MoveRejectionRecord[];
 }
 export interface ResultPayload {
   mode: 'model_vs_model' | 'human_vs_model';
@@ -70,6 +75,14 @@ export type SubmitResult =
 
 const MAX_TOKENS_PER_MOVE = 5000;
 const MAX_COST_PER_MATCH = 1;
+/**
+ * Server-side ceiling for a persisted reasoning trace (Module A, D4). Kept as a
+ * local number, NOT imported from game-core's THOUGHTS_MAX_CHARS (1500): the
+ * client trims to its own limit and this is the server's independent, slightly
+ * looser backstop — the layers are deliberately decoupled (D1). zod already
+ * rejects anything past 2000, so this trim is the belt to that suspenders.
+ */
+const STORED_THOUGHTS_MAX_CHARS = 2000;
 /**
  * Physical floor for a real OpenRouter round trip (openrouter only; local
  * providers exempt).
@@ -383,6 +396,36 @@ function humanSideOf(payload: ResultPayload): 'p1' | 'p2' | null {
 }
 
 /**
+ * Sanitize the per-move Module A/B fields before they are stored in
+ * `matches.moves` (D1 — the controlled §16 exception). Two rules, both hard:
+ *
+ *  1. A reasoning trace is trimmed to STORED_THOUGHTS_MAX_CHARS (belt to zod's
+ *     suspenders — zod already rejects past 2000, this survives if that ever
+ *     loosens).
+ *  2. The HUMAN side never keeps `thoughts` or `rejections`. A person produces no
+ *     model reasoning and does not run the retry loop, so their presence means a
+ *     hand-crafted payload — we do not reject it (the move itself is still valid),
+ *     we simply drop the fields. §16 forbids persisting anything a human typed.
+ *
+ * Pure and exported so it is unit-testable without a database. Returns a new
+ * array; the caller's payload is left untouched (a later pass over the payload
+ * still sees the original fields).
+ */
+export function sanitizeStoredMoves(
+  moves: ResultMove[],
+  humanSide: 'p1' | 'p2' | null,
+): ResultMove[] {
+  return moves.map((m) => {
+    if (m.player === humanSide) {
+      const { thoughts: _t, rejections: _r, ...rest } = m;
+      return rest;
+    }
+    if (m.thoughts === undefined) return m;
+    return { ...m, thoughts: m.thoughts.slice(0, STORED_THOUGHTS_MAX_CHARS) };
+  });
+}
+
+/**
  * Wall-clock a genuine person needs for `moveCount` moves, per the start token.
  * Exported for tests — this threshold is the whole point of the pacing layer.
  */
@@ -552,7 +595,10 @@ export async function submitResult(
           p1Id: subject.p1,
           p2Id: subject.p2,
           winner,
-          moves: payload.moves,
+          // Module A/B fields are trimmed here and stripped from the human side
+          // before they ever hit jsonb (D1); telemetry aggregation above still
+          // ran over the untouched payload.
+          moves: sanitizeStoredMoves(payload.moves, humanSide),
           setup: payload.setup ?? null,
           commentary: payload.commentary ?? null,
           priceSnapshot: payload.priceSnapshot ?? null,

@@ -186,6 +186,48 @@ describe('submitResult (real Postgres via testcontainers)', () => {
     expect(rows).toHaveLength(2);
   });
 
+  it('round-trips Module A/B fields into matches.moves, trimming the trace (D1/D4)', async () => {
+    const payload = playOut('tictactoe', 'standard', 0, 4000, 'openrouter:a', 'openrouter:b');
+    payload.moves[0] = {
+      ...payload.moves[0]!,
+      thoughts: 'x'.repeat(5000),
+      rejections: [{ kind: 'illegal', reason: 'occupied', attempted: '4' }],
+    };
+    const res = await submitResult(handle.db, newJti(), payload, '1.2.3.4');
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+
+    const [row] = await handle.db.select().from(matches).where(eq(matches.id, res.matchId));
+    const stored = row!.moves as ResultMove[];
+    // The trace survives the save→read path but is trimmed to the server ceiling.
+    expect(stored[0]!.thoughts).toHaveLength(2000);
+    expect(stored[0]!.rejections).toHaveLength(1);
+    // A move without the fields stays clean (legacy shape preserved).
+    expect(stored[1]).not.toHaveProperty('thoughts');
+  });
+
+  it('strips Module A/B fields from the human side before storage (D1)', async () => {
+    const player = await resolvePlayer(handle.db, 'a'.repeat(40));
+    const payload = playHuman(1);
+    // Smuggle a trace onto the human (p1) side and onto the model (p2) side.
+    payload.moves = payload.moves.map((m) =>
+      m.player === 'p1'
+        ? { ...m, thoughts: 'humans do not think in tokens', rejections: [{ kind: 'transport' }] }
+        : { ...m, thoughts: 'model reasoning' },
+    );
+    const res = await submitResult(handle.db, newJti(), payload, '5.6.7.8', humanOpts(player));
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+
+    const [row] = await handle.db.select().from(matches).where(eq(matches.id, res.matchId));
+    const stored = row!.moves as ResultMove[];
+    const humanMove = stored.find((m) => m.player === 'p1')!;
+    const modelMove = stored.find((m) => m.player === 'p2')!;
+    expect(humanMove).not.toHaveProperty('thoughts');
+    expect(humanMove).not.toHaveProperty('rejections');
+    expect(modelMove.thoughts).toBe('model reasoning');
+  });
+
   it('rejects an illegal move (422)', async () => {
     const payload = playOut('tictactoe', 'standard', 0, 4000, 'a', 'b');
     payload.moves[2] = { ...payload.moves[2]!, move: payload.moves[0]!.move }; // occupied

@@ -3,6 +3,7 @@ import {
   type GameId,
   type GameStatus,
   type Move,
+  type MoveRejectionRecord,
   type MoveTelemetry,
   type Player,
   type PlayerSide,
@@ -34,6 +35,10 @@ export interface MoveLogEntry {
   player: PlayerSide;
   move: Move;
   telemetry: MoveTelemetry;
+  /** Reasoning trace (Module A), copied from MoveResult — undefined until a later stage populates it. */
+  thoughts?: string;
+  /** Rejected attempts at this move (Module B). Same staging note as `thoughts`. */
+  rejections?: MoveRejectionRecord[];
 }
 
 export interface MatchSnapshot {
@@ -174,6 +179,10 @@ export async function runMatch(opts: RunMatchOptions): Promise<MatchOutcome> {
       player: side,
       move: result.move,
       telemetry: result.telemetry,
+      // Carried through only when present, so entries for moves without a trace
+      // stay byte-identical to before (jsonb drops undefined; snapshots unchanged).
+      ...(result.thoughts !== undefined ? { thoughts: result.thoughts } : {}),
+      ...(result.rejections !== undefined ? { rejections: result.rejections } : {}),
     };
     moves.push(entry);
     opts.onMove?.(entry, snapshot());

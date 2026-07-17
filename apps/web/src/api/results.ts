@@ -1,4 +1,4 @@
-import type { Move, MoveTelemetry } from '@arena/game-core';
+import type { Move, MoveRejectionRecord, MoveTelemetry } from '@arena/game-core';
 
 import { ApiError, type SaveResultResponse, apiPost } from '@/api/client';
 import type { MatchOutcome } from '@/game/orchestrator';
@@ -11,7 +11,15 @@ interface ResultPayload {
   variant: string;
   p1Id: string;
   p2Id: string;
-  moves: Array<{ player: 'p1' | 'p2'; move: Move; telemetry: MoveTelemetry }>;
+  moves: Array<{
+    player: 'p1' | 'p2';
+    move: Move;
+    telemetry: MoveTelemetry;
+    /** Reasoning trace (Module A) — persisted only on this explicit save (§16 exception, D1). */
+    thoughts?: string;
+    /** Rejected attempts (Module B). */
+    rejections?: MoveRejectionRecord[];
+  }>;
   setup?: unknown;
   lab: boolean;
   priceSnapshot?: unknown;
@@ -44,6 +52,10 @@ export function buildResultPayload(
       player: m.player,
       move: m.move,
       telemetry: m.telemetry,
+      // Only sent when the runner produced them; the server trims/strips again
+      // (defense in depth) and drops both from the human side (D1).
+      ...(m.thoughts !== undefined ? { thoughts: m.thoughts } : {}),
+      ...(m.rejections !== undefined ? { rejections: m.rejections } : {}),
     })),
     setup: outcome.setup,
     lab: opts.lab ?? false,

@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { bodyLimit } from 'hono/body-limit';
 
 import type { Config } from './config';
 import type { Database } from './db/client';
@@ -86,6 +87,17 @@ export function buildApp(deps: AppDeps): Hono {
   api.route('/live', liveRoute({ registry: live, db: deps.db, now: deps.now }));
 
   if (deps.db) {
+    // Cap the whole document before parsing (D12). Per-field zod caps bound each
+    // Module A/B string, but a payload could still stack many capped fields
+    // across ~60 scrabble moves — this is the ceiling on the sum. Rejected before
+    // the rate-limit accounting so an oversized body cannot burn a slot.
+    api.use(
+      '/result',
+      bodyLimit({
+        maxSize: 2 * 1024 * 1024,
+        onError: (c) => c.json({ error: 'payload_too_large' }, 413),
+      }),
+    );
     api.use(
       '/result',
       rateLimit('result', 60, { trustedProxy: deps.config.trustedProxy, now: deps.now }),

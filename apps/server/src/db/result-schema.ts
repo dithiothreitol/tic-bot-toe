@@ -22,10 +22,29 @@ const telemetry = z.object({
 /** `Move` is `number | string` in game-core; the engine replay validates the value. */
 const move = z.union([z.number().finite(), z.string().max(20)]);
 
+/**
+ * One rejected attempt at a move (Module B, D4). Hard `.max()` on every string is
+ * the wire-level half of the controlled §16 exception: a hand-crafted payload
+ * cannot smuggle a long blob in through these fields. The client trims well below
+ * these ceilings; anything over them fails validation outright (400), it is not
+ * silently truncated. `transport` carries no `raw` — there is nothing to quote.
+ */
+const rejection = z.object({
+  kind: z.enum(['illegal', 'unparseable', 'transport']),
+  reason: z.string().max(200).optional(),
+  attempted: z.string().max(40).optional(),
+  raw: z.string().max(240).optional(),
+});
+
 const resultMove = z.object({
   player: z.enum(['p1', 'p2']),
   move,
   eval: z.object({ quality: z.enum(['optimal', 'good', 'weak', 'blunder']) }).optional(),
+  // Reasoning trace (Module A, D4). Client trims to 1500; zod rejects past 2000.
+  // The server ALSO trims to 2000 before insert and strips the human side (D1) —
+  // this schema is only the first of those independent layers.
+  thoughts: z.string().max(2000).optional(),
+  rejections: z.array(rejection).max(4).optional(),
 });
 
 export const resultPayloadSchema = z.object({
