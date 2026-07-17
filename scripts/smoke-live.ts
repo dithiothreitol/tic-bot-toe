@@ -23,9 +23,14 @@ import 'dotenv/config';
 
 import {
   type GameAnalysis,
-  TICTACTOE_VARIANTS,
+  type GameDefinition,
+  type GameId,
+  type Move,
+  type SetupRecord,
+  type Variant,
   analyzeMatch,
-  ticTacToe,
+  getGame,
+  registerLexicon,
 } from '@arena/game-core';
 
 import { runMatch } from '@/game/orchestrator';
@@ -47,6 +52,30 @@ if (!KEY) {
 
 const SERVER = process.env.SMOKE_SERVER ?? 'http://localhost:8093';
 const JWT_SECRET = process.env.JWT_SECRET ?? 'dev-insecure-secret-change-me';
+
+// Which game to smoke (plan §9: also sudoku `mini` and scrabble `en`).
+//   SMOKE_GAME=sudoku SMOKE_VARIANT=mini pnpm smoke:live
+//   SMOKE_GAME=scrabble SMOKE_VARIANT=en pnpm smoke:live
+const GAME = (process.env.SMOKE_GAME ?? 'tictactoe') as GameId;
+const def = getGame(GAME) as unknown as GameDefinition<unknown, Move>;
+const VARIANT = process.env.SMOKE_VARIANT ?? def.variants[0]!.id;
+const variantObj: Variant = def.variants.find((v) => v.id === VARIANT) ?? def.variants[0]!;
+
+function safetyFor(game: GameId): number {
+  if (game === 'battleship') return 200;
+  if (game === 'sudoku') return 500;
+  if (game === 'scrabble') return 200;
+  return 9;
+}
+
+function configFromSetup(setup: SetupRecord | null | undefined) {
+  if (!setup) return {};
+  return {
+    seed: typeof setup.seed === 'number' ? setup.seed : undefined,
+    extraShotOnHit: typeof setup.extraShotOnHit === 'boolean' ? setup.extraShotOnHit : undefined,
+    placements: setup.placements,
+  };
+}
 
 // A cheap paid model (proves the COST path) vs a free one (proves the zero-cost path).
 const P1_MODEL = process.env.SMOKE_P1 ?? 'openai/gpt-4o-mini';
@@ -102,8 +131,18 @@ async function priceOf(id: string): Promise<{ prompt: number; completion: number
 
 async function main(): Promise<void> {
   console.log('=== SMOKE: prawdziwa partia, prawdziwe modele ===\n');
+  console.log(`  Gra: ${GAME} / ${VARIANT}`);
   console.log(`  P1: ${P1_MODEL}`);
   console.log(`  P2: ${P2_MODEL}\n`);
+
+  // Scrabble needs its dictionary registered before any move can be validated.
+  if (GAME === 'scrabble') {
+    const { loadLexiconNode } = await import('@arena/lexicons/node');
+    for (const lang of ['pl', 'en'] as const) {
+      registerLexicon(lang, await loadLexiconNode(lang));
+    }
+    console.log('  słowniki pl+en załadowane\n');
+  }
 
   const [p1Price, p2Price] = await Promise.all([priceOf(P1_MODEL), priceOf(P2_MODEL)]);
 
@@ -116,12 +155,13 @@ async function main(): Promise<void> {
   const t0 = Date.now();
   const outcome = await runMatch({
     mode: 'model_vs_model',
-    game: 'tictactoe',
-    variant: TICTACTOE_VARIANTS[0]!,
+    game: GAME,
+    variant: variantObj,
     players,
-    safetyMaxMoves: 9,
+    safetyMaxMoves: safetyFor(GAME),
   });
   const durationMs = Date.now() - t0;
+  smokeSetup = (outcome.setup as SetupRecord | null) ?? null;
 
   console.log('=== RUCHY (telemetria z prawdziwych wywołań) ===');
   console.log('  #  gracz  ruch  czas      tokeny(we+wy)  koszt        poprawki  wymuszony');
@@ -142,11 +182,11 @@ async function main(): Promise<void> {
       `koszt partii: ${fmtCost(totalCost)} | poprawki: ${retries} | wymuszone: ${forfeits}`,
   );
 
-  // 2. REAL solver grading of real moves.
+  // 2. REAL solver grading of real moves (scrabble has none — analysis is empty).
   const analysis: GameAnalysis = analyzeMatch(
-    'tictactoe',
-    'standard',
-    null,
+    GAME,
+    VARIANT,
+    outcome.setup,
     outcome.moves.map((m) => ({ player: m.player, move: m.move })),
   );
   const pct = (r: number) => `${Math.round(r * 100)}%`;
@@ -172,12 +212,12 @@ async function main(): Promise<void> {
   const entry = outcome.moves[idx]!;
   const stateBefore = replayTo(outcome.moves, idx);
   const req: CommentRequest = {
-    game: 'tictactoe',
+    game: GAME,
     moveIndex: idx,
     player: entry.player,
     playerName: entry.player === 'p1' ? P1_MODEL : P2_MODEL,
     move: entry.move,
-    quality: classifyLastMove('tictactoe', stateBefore, entry.player, entry.move),
+    quality: classifyLastMove(GAME, stateBefore, entry.player, entry.move),
     state: replayTo(outcome.moves, idx + 1),
     isFinal: idx === outcome.moves.length - 1,
     winnerName: outcome.winner === 'p1' ? P1_MODEL : outcome.winner === 'p2' ? P2_MODEL : null,
@@ -220,11 +260,14 @@ async function main(): Promise<void> {
 }
 
 /** Board state after the first `n` moves (the engine is the source of truth). */
-function replayTo(moves: { player: 'p1' | 'p2'; move: number | string }[], n: number): unknown {
-  let s = ticTacToe.createInitialState(TICTACTOE_VARIANTS[0]!, {});
-  for (let i = 0; i < n; i++) s = ticTacToe.applyMove(s, moves[i]!.player, moves[i]!.move as number);
+function replayTo(moves: { player: 'p1' | 'p2'; move: Move }[], n: number): unknown {
+  let s = def.createInitialState(variantObj, configFromSetup(smokeSetup));
+  for (let i = 0; i < n; i++) s = def.applyMove(s, moves[i]!.player, moves[i]!.move);
   return s;
 }
+
+/** Setup of the match being smoked — set once the match runs (for replayTo). */
+let smokeSetup: SetupRecord | null = null;
 
 async function submitToServer(
   outcome: Awaited<ReturnType<typeof runMatch>>,

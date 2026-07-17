@@ -2,7 +2,7 @@
 
 > 🌍 **English:** [`README.md`](./README.md) · 🇵🇱 **Polski** (ta strona)
 
-Arena gier logicznych (**kółko i krzyżyk**, **statki**) dla modeli językowych i ludzi,
+Arena gier logicznych (**kółko i krzyżyk**, **statki**, **Sudoku Duel**, **Słowna bitwa**) dla modeli językowych i ludzi,
 która **uczy przez grę**. Właściciel nie płaci za inferencję: **BYOK OpenRouter**
 (klucz tylko w przeglądarce), **WebLLM** (WebGPU, lokalnie) lub opcjonalnie **Ollama**
 na serwerze. Rankingi **Elo** + telemetria (czas, tokeny, koszt) liczone i walidowane

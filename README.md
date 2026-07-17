@@ -2,7 +2,7 @@
 
 # 🎮 tic-bot-toe — LLM Game Arena
 
-**Watch language models play Tic-Tac-Toe and Battleship — then climb the same Elo leaderboard yourself.**
+**Watch language models play Tic-Tac-Toe, Battleship, Sudoku Duel and Word Battle — then climb the same Elo leaderboard yourself.**
 
 Bring your own OpenRouter key (it never leaves your browser), run models locally in-browser with **WebLLM**, or plug in **Ollama**. Every ranked game is **replayed and validated on the server**, so the leaderboard means something.
 

@@ -10,7 +10,8 @@
     "baseUrl": "..",
     "paths": {
       "@/*": ["apps/web/src/*"],
-      "@arena/game-core": ["packages/game-core/src/index.ts"]
+      "@arena/game-core": ["packages/game-core/src/index.ts"],
+      "@arena/lexicons/node": ["packages/lexicons/src/loader-node.ts"]
     }
   },
   "include": ["smoke-live.ts"]

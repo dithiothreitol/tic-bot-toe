@@ -3,6 +3,15 @@
 Jednozdaniowe decyzje podejmowane tam, gdzie SPEC.md nie rozstrzyga (zgodnie z
 regułą 5 promptu startowego). Najnowsze na górze.
 
+## Sudoku + Scrabble — Etap 8: szlif (plan §8/§9)
+
+- **`smoke:live` sparametryzowane po grze** (`SMOKE_GAME`/`SMOKE_VARIANT`): działa dla wszystkich 4 gier (dla scrabble ładuje słowniki), zamiast twardego kodowania kółka. Umożliwia manualny smoke z §9 („jedna partia sudoku mini i scrabble en"). Uruchomienie wymaga klucza OpenRouter i ma preegzystujące ograniczenie `import.meta.env` (skrypt importuje moduły web pod tsx) — niezwiązane z tą zmianą; przegląd forfeit-rate + ewentualne zamrożenie promptów to krok manualny właściciela przed publicznym startem.
+- **`model-copy` (pl+en)**: opis modelu średniego uogólniony na 4 gry (proste: kółko/sudoku; trudniejsze: statki/gra słowna) zamiast wymieniania dwóch.
+- **Snapshot promptów bez przecieków**: już pokryty testami jednostkowymi — sudoku prompt bez enumeracji kandydatów (`sudoku.test.ts`), widok scrabble bez stojaka przeciwnika/worka (`scrabble.test.ts`). Skrypt `assets:prompts` dotyczy promptów obrazów, nie gier — poza zakresem.
+- **`seed-ranking`** pominięty (plan: niski priorytet / opcjonalny).
+- README (EN+PL): lista gier zaktualizowana o Sudoku Duel i Słowną bitwę.
+- **Wszystkie 9 etapów (0–8) zamknięte.** Typecheck 5 pakietów + testy (game-core 161, web 127, server 82 unit + integracyjne, lexicons 11, i18n 11) zielone.
+
 ## Sudoku + Scrabble — Etap 7: serwer Scrabble + deploy (plan §8)
 
 - **Boot leksykonów**: `index.ts` ładuje i rejestruje `pl`+`en` przez `@arena/lexicons/node` (`LEXICON_DIR` z configu, default = dist pakietu). Best-effort — błąd wyłącza tylko zapis scrabble, nie serwer. **Brama 503**: `POST /api/result` dla `game='scrabble'` gdy brak obu leksykonów → `503 lexicon_unavailable` (transient, nie 422). `result-schema` z.enum += `scrabble`; `routes/commentary` enum += scrabble.

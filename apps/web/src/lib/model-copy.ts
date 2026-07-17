@@ -132,7 +132,7 @@ const PL: CopyPack = {
     small:
       'Małe modele odpowiadają błyskawicznie i kosztują grosze, ale w grach logicznych częściej przeoczą wygraną lub nie zablokują przeciwnika.',
     medium:
-      'Model średniej wielkości: zwykle solidnie radzi sobie z kółkiem i krzyżykiem, a w statkach bywa nierówny.',
+      'Model średniej wielkości: zwykle solidny w prostszych grach (kółko, sudoku), a w trudniejszych (statki, gra słowna) bywa nierówny.',
     large:
       'Duże modele grają najrówniej i rzadko psują format odpowiedzi — to zwykle czołówka rankingu Precyzji.',
   },
@@ -193,7 +193,7 @@ const EN: CopyPack = {
     small:
       'Small models answer in a blink and cost pennies, but in logic games they more often miss a win or fail to block the opponent.',
     medium:
-      'A mid-size model: usually solid at tic-tac-toe, and uneven at battleship.',
+      'A mid-size model: usually solid at the simpler games (tic-tac-toe, sudoku), and uneven at the harder ones (battleship, the word game).',
     large:
       'Large models play the most consistently and rarely break the answer format — usually the top of the Precision ranking.',
   },
