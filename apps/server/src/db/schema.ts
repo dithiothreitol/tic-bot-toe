@@ -183,6 +183,32 @@ export const arenaTotals = pgTable('arena_totals', {
 });
 
 /**
+ * Turing mode — „Kto jest botem?" (Module D, D8). One row per guess a person made
+ * on a match: which side they thought was the human, and whether they were right
+ * (scored server-side against the match's reserved `human`/`human:` id). PK
+ * `(player_token, match_id)` enforces one guess per person per match — the second
+ * attempt is a 409. `player_token` is the SHA-256 of the bearer secret (never the
+ * raw token), same as predictions; the detective leaderboard joins `players` for
+ * the authoritative nickname rather than trusting a denormalized copy.
+ */
+export const turingGuesses = pgTable(
+  'turing_guesses',
+  {
+    playerToken: text('player_token').notNull(),
+    matchId: uuid('match_id')
+      .notNull()
+      .references(() => matches.id),
+    guess: text('guess').notNull(),
+    correct: boolean('correct').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.playerToken, t.matchId] }),
+    check('turing_guesses_guess_chk', sql`${t.guess} IN ('p1','p2')`),
+  ],
+);
+
+/**
  * „Muzeum wpadek" (Module B, D6). One row per illegal/unparseable attempt an LLM
  * made in a saved match — denormalized so the museum feed (Etap 3) and per-model
  * filters need no jsonb scan over `matches.moves`, and moderation can purge by

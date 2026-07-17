@@ -23,6 +23,7 @@ import { playerRoute } from './routes/player';
 import { predictionRoute, predictionsLeaderboardRoute } from './routes/predictions';
 import { psychologyRoute } from './routes/psychology';
 import { resultRoute } from './routes/result';
+import { turingRoute } from './routes/turing';
 import { verifyRoute } from './routes/verify';
 
 export interface AppDeps {
@@ -130,6 +131,13 @@ export function buildApp(deps: AppDeps): Hono {
     api.route('/failures', failuresRoute({ db: deps.db }));
     // Model psychology (Module C) — behavioural heatmaps, cached in-process (D7).
     api.route('/psychology', psychologyRoute({ db: deps.db, now: deps.now }));
+    // Turing mode (Module D) — „Kto jest botem?": guess/next/leaderboard. `/guess`
+    // is a write, so it is rate-limited like the other write endpoints.
+    api.use(
+      '/turing/guess',
+      rateLimit('turing', 120, { trustedProxy: deps.config.trustedProxy, now: deps.now }),
+    );
+    api.route('/turing', turingRoute({ db: deps.db, config: deps.config }));
     api.route('/matches', matchesRoute({ db: deps.db }));
     api.route('/replay', replayRoute({ db: deps.db }));
     api.route('/og', ogRoute({ db: deps.db }));

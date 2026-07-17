@@ -458,6 +458,11 @@ export const en: Dict = {
       "Today's opponent runs in the browser (WebGPU), and your browser does not support it.",
     opponentRetired:
       "Today's opponent has disappeared from the OpenRouter catalog — the challenge cannot be played fairly today. Come back tomorrow for a new opponent.",
+    paidSwap: 'Play the paid twin',
+    paidNote:
+      'The same model without the free-pool limits (429) — tokens billed to your OpenRouter key.',
+    paidRescue:
+      'The free variant is gone from the OpenRouter catalog — you can play the paid twin on your own key.',
     loadError: 'Could not fetch the daily challenge.',
     lostHint: 'Not this time — try again, the challenge is valid until the end of the day.',
     free: 'always a free opponent',
@@ -546,6 +551,34 @@ export const en: Dict = {
     models: 'Models',
     intuition: 'Intuition',
     failures: 'Fails',
+    turing: 'Turing',
+  },
+
+  turing: {
+    kicker: 'Turing mode',
+    title: 'Who is the bot?',
+    lead: 'Watch a human-vs-model match — no names, no timings, no hints. Guess which player is the human. See for yourself whether models play recognisably differently than we do.',
+    question: 'Which player is the human?',
+    playerA: 'Player A',
+    playerB: 'Player B',
+    guessHuman: (label: string) => `${label} is the human`,
+    correct: 'Nailed it!',
+    wrong: 'Missed.',
+    revealWasHuman: (label: string) => `The human was ${label}.`,
+    revealModel: (model: string) => `Model on the other side: ${model}`,
+    viewReplay: 'See the full match',
+    next: 'Next puzzle',
+    streak: (n: number) => `Streak: ${n}`,
+    bestStreak: (n: number) => `Best streak: ${n}`,
+    empty: 'No puzzles yet — this needs more human-vs-model matches. Play one and come back.',
+    loadError: 'Could not fetch a puzzle.',
+    loading: 'Drawing a puzzle…',
+    leaderboard: 'Detective ranking',
+    leaderboardEmpty: 'Nobody has 10 guesses yet — be the first detective.',
+    colDetective: 'Detective',
+    colAccuracy: 'Accuracy',
+    colGuesses: 'Guesses',
+    nicknameNote: 'You are playing without a nickname — set one in settings to enter the detective ranking.',
   },
 
   museum: {

@@ -38,6 +38,7 @@ import { IntuitionPage } from '@/pages/IntuitionPage';
 import { LeaderboardPage } from '@/pages/LeaderboardPage';
 import { ModelCardPage } from '@/pages/ModelCardPage';
 import { ReplayPage } from '@/pages/ReplayPage';
+import { TuringPage } from '@/pages/TuringPage';
 import { useSettings } from '@/store/settings';
 
 const navClass = ({ isActive }: { isActive: boolean }) =>
@@ -152,6 +153,9 @@ function Nav({ className }: { className?: string }) {
       <NavLink to={path('failures')} className={navClass}>
         {t.nav.failures}
       </NavLink>
+      <NavLink to={path('turing')} className={navClass}>
+        {t.nav.turing}
+      </NavLink>
     </nav>
   );
 }
@@ -252,6 +256,7 @@ function localeRoutes(locale: Locale): ReactNode {
       <Route path={routeSegment(locale, 'compare')} element={<ComparePage />} />
       <Route path={routeSegment(locale, 'intuition')} element={<IntuitionPage />} />
       <Route path={routeSegment(locale, 'failures')} element={<FailureMuseumPage />} />
+      <Route path={routeSegment(locale, 'turing')} element={<TuringPage />} />
       {/* Splat: subject ids carry slashes (openrouter:meta-llama/llama-3). */}
       <Route path={`${routeSegment(locale, 'model')}/*`} element={<ModelCardPage />} />
       <Route path={`${routeSegment(locale, 'replay')}/:id`} element={<ReplayPage />} />

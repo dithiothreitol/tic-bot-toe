@@ -31,6 +31,7 @@ export interface StartClaims {
 }
 
 const START_TYP = 'start';
+const TURING_TYP = 'turing';
 
 function keyFrom(secret: string): Uint8Array {
   return new TextEncoder().encode(secret);
@@ -103,6 +104,47 @@ export async function verifyStartToken(
     }
     const sub = typeof payload.sub === 'string' ? payload.sub : null;
     return { jti: payload.jti, iat: payload.iat, sub };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Turing puzzle token (Module D, D8). Carries the `matchId` of the puzzle served
+ * by `GET /api/turing/next` — signed so the client cannot forge which match it is
+ * answering, and so `matchId` (which leaks the model ids) stays hidden until the
+ * guess is scored. Short-lived. Deliberately carries NO `jti`: it is not
+ * one-time (the per-match uniqueness is the `turing_guesses` PK), and the absence
+ * of `jti` also makes `verifySession`/`verifyStartToken` reject it outright — the
+ * three token kinds cannot be cross-used.
+ */
+export interface PuzzleClaims {
+  matchId: string;
+}
+
+export async function signPuzzleToken(
+  secret: string,
+  ttlSeconds: number,
+  matchId: string,
+): Promise<string> {
+  return new SignJWT({ typ: TURING_TYP, mid: matchId })
+    .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
+    .setIssuedAt()
+    .setExpirationTime(`${ttlSeconds}s`)
+    .sign(keyFrom(secret));
+}
+
+export async function verifyPuzzleToken(
+  secret: string,
+  token: string,
+): Promise<PuzzleClaims | null> {
+  try {
+    const { payload } = await jwtVerify(token, keyFrom(secret), {
+      algorithms: ['HS256'],
+    });
+    if (payload.typ !== TURING_TYP) return null;
+    if (typeof payload.mid !== 'string') return null;
+    return { matchId: payload.mid };
   } catch {
     return null;
   }

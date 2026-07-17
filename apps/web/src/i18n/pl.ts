@@ -479,6 +479,11 @@ export const pl = {
       'Dzisiejszy przeciwnik działa w przeglądarce (WebGPU), a Twoja przeglądarka go nie obsługuje.',
     opponentRetired:
       'Dzisiejszy przeciwnik zniknął z katalogu OpenRoutera — wyzwania nie da się dziś rozegrać uczciwie. Wróć jutro po nowego przeciwnika.',
+    paidSwap: 'Zagraj płatnym odpowiednikiem',
+    paidNote:
+      'Ten sam model bez limitów darmowej puli (429) — tokeny idą z Twojego klucza OpenRouter.',
+    paidRescue:
+      'Darmowy wariant zniknął z katalogu OpenRoutera — możesz zagrać płatnym odpowiednikiem na własnym kluczu.',
     loadError: 'Nie udało się pobrać wyzwania dnia.',
     lostHint: 'Tym razem nie wyszło — spróbuj jeszcze raz, wyzwanie jest ważne do końca dnia.',
     free: 'zawsze darmowy przeciwnik',
@@ -569,6 +574,35 @@ export const pl = {
     models: 'Modele',
     intuition: 'Intuicja',
     failures: 'Wpadki',
+    turing: 'Turing',
+  },
+
+  /** Tryb Turinga — „Kto jest botem?" (Moduł D). */
+  turing: {
+    kicker: 'Tryb Turinga',
+    title: 'Kto jest botem?',
+    lead: 'Obejrzyj partię człowiek kontra model — bez nazw, bez czasów, bez żadnych podpowiedzi. Zgadnij, który z graczy to człowiek. Przekonaj się, czy modele grają rozpoznawalnie inaczej niż my.',
+    question: 'Który gracz to człowiek?',
+    playerA: 'Gracz A',
+    playerB: 'Gracz B',
+    guessHuman: (label: string) => `${label} to człowiek`,
+    correct: 'Trafione!',
+    wrong: 'Pudło.',
+    revealWasHuman: (label: string) => `Człowiekiem był ${label}.`,
+    revealModel: (model: string) => `Model po drugiej stronie: ${model}`,
+    viewReplay: 'Zobacz pełną partię',
+    next: 'Następna zagadka',
+    streak: (n: number) => `Seria: ${n}`,
+    bestStreak: (n: number) => `Rekord serii: ${n}`,
+    empty: 'Brak zagadek — potrzeba więcej partii człowiek kontra model. Zagraj jakąś i wróć.',
+    loadError: 'Nie udało się pobrać zagadki.',
+    loading: 'Losuję zagadkę…',
+    leaderboard: 'Ranking detektywów',
+    leaderboardEmpty: 'Nikt nie ma jeszcze 10 prób — zostań pierwszym detektywem.',
+    colDetective: 'Detektyw',
+    colAccuracy: 'Skuteczność',
+    colGuesses: 'Prób',
+    nicknameNote: 'Grasz bez nicka — ustaw go w ustawieniach, aby wejść do rankingu detektywów.',
   },
 
   museum: {

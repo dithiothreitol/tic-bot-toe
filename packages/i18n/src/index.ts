@@ -25,6 +25,7 @@ export type RouteKey =
   | 'compare'
   | 'intuition'
   | 'failures'
+  | 'turing'
   | 'model'
   | 'replay';
 
@@ -36,6 +37,7 @@ const SEGMENTS: Record<Locale, Record<RouteKey, string>> = {
     compare: 'porownaj',
     intuition: 'intuicja',
     failures: 'muzeum-wpadek',
+    turing: 'turing',
     model: 'model',
     replay: 'replay',
   },
@@ -45,6 +47,7 @@ const SEGMENTS: Record<Locale, Record<RouteKey, string>> = {
     compare: 'compare',
     intuition: 'intuition',
     failures: 'fail-museum',
+    turing: 'turing',
     model: 'model',
     replay: 'replay',
   },

@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
-import { newJti, signSession, signStartToken, verifySession, verifyStartToken } from './jwt';
+import {
+  newJti,
+  signPuzzleToken,
+  signSession,
+  signStartToken,
+  verifyPuzzleToken,
+  verifySession,
+  verifyStartToken,
+} from './jwt';
 
 describe('session JWT', () => {
   it('round-trips and preserves the jti', async () => {
@@ -46,5 +54,32 @@ describe('match-start token (§15.3 pacing)', () => {
 
     const { token: session } = await signSession('secret', 60);
     expect(await verifyStartToken('secret', session)).toBeNull();
+  });
+});
+
+describe('turing puzzle token (Module D, D8)', () => {
+  it('round-trips and carries the matchId', async () => {
+    const token = await signPuzzleToken('secret', 1800, 'match-123');
+    const claims = await verifyPuzzleToken('secret', token);
+    expect(claims?.matchId).toBe('match-123');
+  });
+
+  it('rejects a token signed with a different secret', async () => {
+    const token = await signPuzzleToken('secret-1', 1800, 'm');
+    expect(await verifyPuzzleToken('secret-2', token)).toBeNull();
+  });
+
+  // The puzzle token hides the matchId until a guess is scored — it must never be
+  // usable as a session or start token, and neither of those may pass as a puzzle
+  // token (the matchId gate would be bypassed).
+  it('is isolated from the session and start token kinds', async () => {
+    const puzzle = await signPuzzleToken('secret', 1800, 'm');
+    expect(await verifySession('secret', puzzle)).toBeNull();
+    expect(await verifyStartToken('secret', puzzle)).toBeNull();
+
+    const { token: session } = await signSession('secret', 60);
+    const { token: start } = await signStartToken('secret', 2700);
+    expect(await verifyPuzzleToken('secret', session)).toBeNull();
+    expect(await verifyPuzzleToken('secret', start)).toBeNull();
   });
 });
