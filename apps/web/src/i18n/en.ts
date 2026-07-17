@@ -388,6 +388,14 @@ export const en: Dict = {
     cleanFirstTry: 'Clean first try',
     cleanFirstTrySince: (date: string) => `Measured since ${date}`,
     recentFailures: 'Recent fails',
+    psychology: 'Psychology',
+    psychologyLead: 'Does the model have habits? The spread of its decisions across every saved match.',
+    psychologySample: (n: number) => `Based on ${n} ${n === 1 ? 'match' : 'matches'}`,
+    psychologyEmpty: 'Too few matches for patterns — at least 10 are needed in this mode.',
+    psychFirstMove: 'First move',
+    psychAllMoves: 'All moves',
+    psychAllShots: 'All shots',
+    psychFirstShot: 'First shot',
   },
 
   explain: {

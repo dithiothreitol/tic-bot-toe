@@ -128,6 +128,37 @@ export interface FailureRow {
   createdAt: string;
 }
 
+/** tic-tac-toe behavioural distributions (Module C, plan §5). Arrays are length 9. */
+export interface TicTacToePsychology {
+  game: 'tictactoe';
+  n: number;
+  firstMoveCounts: number[];
+  firstMoveWins: number[];
+  moveCounts: number[];
+}
+
+/** battleship shot distributions (Module C). Arrays are length `size²`, row-major. */
+export interface BattleshipPsychology {
+  game: 'battleship';
+  n: number;
+  size: number;
+  shotCounts: number[];
+  firstShotCounts: number[];
+}
+
+export type PsychologyPayload = TicTacToePsychology | BattleshipPsychology;
+
+/** GET /api/psychology — one subject's behavioural heatmaps (Module C). */
+export interface PsychologyResponse {
+  subjectId: string;
+  game: GameId;
+  variant: string;
+  mode: string;
+  n: number;
+  /** null when the game has no Module C view yet (sudoku/scrabble). */
+  payload: PsychologyPayload | null;
+}
+
 /** One Elo checkpoint (SPEC §9.3.4). */
 export interface EloHistoryPoint {
   eloAfter: number;

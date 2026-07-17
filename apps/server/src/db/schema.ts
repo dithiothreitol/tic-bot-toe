@@ -70,6 +70,11 @@ export const matches = pgTable(
     uniqueIndex('matches_dedup').on(t.movesHash),
     index('matches_lb').on(t.mode, t.game, t.variant, t.createdAt.desc()),
     index('matches_player_day').on(t.playerId, t.createdAt),
+    // Psychology aggregation (Module C, D7): the endpoint pulls a subject's last
+    // ≤500 matches in a game via `p1_id = s OR p2_id = s`. One index per side so
+    // each OR branch is served without a seq scan over the whole table.
+    index('matches_p1').on(t.p1Id, t.game),
+    index('matches_p2').on(t.p2Id, t.game),
     check('matches_mode_chk', sql`${t.mode} IN ('model_vs_model','human_vs_model')`),
     check('matches_winner_chk', sql`${t.winner} IN ('p1','p2','draw')`),
   ],

@@ -3,7 +3,14 @@ import { toast } from 'sonner';
 
 import { type GameId, BATTLESHIP_VARIANTS } from '@arena/game-core';
 
-import { type HeadToHead, type LeaderboardRow, apiGet } from '@/api/client';
+import {
+  type HeadToHead,
+  type LeaderboardRow,
+  type PsychologyPayload,
+  type PsychologyResponse,
+  apiGet,
+} from '@/api/client';
+import { BehaviorHeatmap, MIN_PSYCH_SAMPLE } from '@/components/charts/BehaviorHeatmap';
 import { RadarCard } from '@/components/charts/RadarCard';
 import { shortSubject } from '@/components/charts/theme';
 import { HudPanel, SectionLabel } from '@/components/ui/hud';
@@ -34,6 +41,8 @@ export function ComparePage() {
   const [aId, setAId] = useState<string | null>(null);
   const [bId, setBId] = useState<string | null>(null);
   const [h2h, setH2h] = useState<HeadToHead | null>(null);
+  const [psychA, setPsychA] = useState<PsychologyResponse | null>(null);
+  const [psychB, setPsychB] = useState<PsychologyResponse | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -68,6 +77,33 @@ export function ComparePage() {
       .catch(() => {
         if (alive) setH2h(null);
       });
+    return () => {
+      alive = false;
+    };
+  }, [aId, bId, sameModel, mode, game, variant]);
+
+  // Behavioural heatmaps for each pick (Module C), mode/game/variant-scoped like
+  // everything else on the page. Fetched independently — one model may have a
+  // sample while the other doesn't. Cleared when a slot is empty or A===B.
+  useEffect(() => {
+    let alive = true;
+    const load = (id: string | null, set: (r: PsychologyResponse | null) => void) => {
+      if (!id || sameModel) {
+        set(null);
+        return;
+      }
+      apiGet<PsychologyResponse>(
+        `/api/psychology?subjectId=${encodeURIComponent(id)}&mode=${mode}&game=${game}&variant=${variant}`,
+      )
+        .then((r) => {
+          if (alive) set(r);
+        })
+        .catch(() => {
+          if (alive) set(null);
+        });
+    };
+    load(aId, setPsychA);
+    load(bId, setPsychB);
     return () => {
       alive = false;
     };
@@ -177,6 +213,84 @@ export function ComparePage() {
           )}
         </HudPanel>
       </div>
+
+      {!sameModel && (psychA?.payload || psychB?.payload) && (
+        <HudPanel className="flex flex-col gap-3 p-5">
+          <SectionLabel>{t.modelCard.psychology}</SectionLabel>
+          <p className="max-w-prose text-sm text-muted-foreground">
+            {t.modelCard.psychologyLead}
+          </p>
+          <div className="grid gap-6 sm:grid-cols-2">
+            <CompareHeatmap
+              t={t}
+              label={rowA ? shortSubject(rowA.subjectId) : t.charts.compare.pickA}
+              payload={psychA?.payload ?? null}
+              n={psychA?.n ?? 0}
+              accent="p1"
+            />
+            <CompareHeatmap
+              t={t}
+              label={rowB ? shortSubject(rowB.subjectId) : t.charts.compare.pickB}
+              payload={psychB?.payload ?? null}
+              n={psychB?.n ?? 0}
+              accent="p2"
+            />
+          </div>
+        </HudPanel>
+      )}
+    </div>
+  );
+}
+
+/**
+ * One subject's "signature" heatmap for the compare view: the opening spread —
+ * first move (tic-tac-toe) or all shots (battleship). Empty state below the
+ * sample floor so a thin history isn't read as a real pattern.
+ */
+function CompareHeatmap({
+  t,
+  label,
+  payload,
+  n,
+  accent,
+}: {
+  t: ReturnType<typeof useT>;
+  label: string;
+  payload: PsychologyPayload | null;
+  n: number;
+  accent: 'p1' | 'p2';
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <span className="truncate font-mono text-xs uppercase tracking-wider text-dim">{label}</span>
+      {payload === null || n < MIN_PSYCH_SAMPLE ? (
+        <p className="font-mono text-[11px] text-dim">{t.modelCard.psychologyEmpty}</p>
+      ) : (
+        <>
+          <span className="font-mono text-[10px] uppercase tracking-wider text-dim">
+            {payload.game === 'tictactoe' ? t.modelCard.psychFirstMove : t.modelCard.psychAllShots}
+          </span>
+          <div style={{ width: payload.game === 'tictactoe' ? 120 : 200 }}>
+            {payload.game === 'tictactoe' ? (
+              <BehaviorHeatmap
+                values={payload.firstMoveCounts}
+                cols={3}
+                showValues
+                accent={accent}
+                ariaLabel={`${label} — ${t.modelCard.psychFirstMove}`}
+              />
+            ) : (
+              <BehaviorHeatmap
+                values={payload.shotCounts}
+                cols={payload.size}
+                accent={accent}
+                ariaLabel={`${label} — ${t.modelCard.psychAllShots}`}
+              />
+            )}
+          </div>
+          <span className="font-mono text-[10px] text-dim">{t.modelCard.psychologySample(n)}</span>
+        </>
+      )}
     </div>
   );
 }

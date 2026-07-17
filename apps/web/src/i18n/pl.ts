@@ -401,6 +401,15 @@ export const pl = {
     cleanFirstTry: 'Czysto za 1. razem',
     cleanFirstTrySince: (date: string) => `Liczone od ${date}`,
     recentFailures: 'Ostatnie wpadki',
+    psychology: 'Psychologia',
+    psychologyLead: 'Czy model ma nawyki? Rozkład decyzji ze wszystkich zapisanych partii.',
+    // „Na podstawie" wymusza dopełniacz — „partii" jest poprawne dla każdego n.
+    psychologySample: (n: number) => `Na podstawie ${n} partii`,
+    psychologyEmpty: 'Za mało partii na wzorce — potrzeba co najmniej 10 w tym trybie.',
+    psychFirstMove: 'Pierwszy ruch',
+    psychAllMoves: 'Wszystkie ruchy',
+    psychAllShots: 'Wszystkie strzały',
+    psychFirstShot: 'Pierwszy strzał',
   },
 
   /**

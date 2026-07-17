@@ -9,9 +9,11 @@ import {
   type FailureRow,
   type HallucinationRow,
   type LeaderboardRow,
+  type PsychologyResponse,
   apiGet,
 } from '@/api/client';
 import { ExplainNumbers } from '@/components/ExplainNumbers';
+import { PsychologySection } from '@/components/charts/BehaviorHeatmap';
 import { EloHistory } from '@/components/charts/EloHistory';
 import { RadarCard } from '@/components/charts/RadarCard';
 import { shortSubject } from '@/components/charts/theme';
@@ -102,6 +104,7 @@ export function ModelCardPage() {
   const [data, setData] = useState<ModelCardResponse | null>(null);
   const [halluc, setHalluc] = useState<HallucinationRow[]>([]);
   const [failures, setFailures] = useState<FailureRow[]>([]);
+  const [psych, setPsych] = useState<PsychologyResponse | null>(null);
   const [eloPoints, setEloPoints] = useState<EloHistoryPoint[]>([]);
   const [catalog, setCatalog] = useState<CatalogModel[]>([]);
   const [loading, setLoading] = useState(true);
@@ -127,14 +130,18 @@ export function ModelCardPage() {
       apiGet<FailureRow[]>(
         `/api/failures?subjectId=${encodeURIComponent(subjectId)}&game=${game}&limit=5`,
       ),
+      apiGet<PsychologyResponse>(
+        `/api/psychology?subjectId=${encodeURIComponent(subjectId)}&${qs}`,
+      ),
     ])
-      .then(([rows, card, elo, hall, fails]) => {
+      .then(([rows, card, elo, hall, fails, ps]) => {
         if (!alive) return;
         setPopulation(rows);
         setData(card);
         setEloPoints(elo);
         setHalluc(hall);
         setFailures(fails);
+        setPsych(ps);
       })
       .catch(() => {
         if (alive) toast.error(t.modelCard.loadError);
@@ -341,6 +348,8 @@ export function ModelCardPage() {
               </div>
             )}
           </HudPanel>
+
+          <PsychologySection t={t} payload={psych?.payload ?? null} n={psych?.n ?? 0} />
 
           <div className="grid gap-4 lg:grid-cols-2">
             <RadarCard

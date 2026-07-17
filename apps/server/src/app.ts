@@ -21,6 +21,7 @@ import { ogRoute } from './routes/og';
 import { ollamaRoute } from './routes/ollama';
 import { playerRoute } from './routes/player';
 import { predictionRoute, predictionsLeaderboardRoute } from './routes/predictions';
+import { psychologyRoute } from './routes/psychology';
 import { resultRoute } from './routes/result';
 import { verifyRoute } from './routes/verify';
 
@@ -127,6 +128,8 @@ export function buildApp(deps: AppDeps): Hono {
     api.route('/hallucinations', hallucinationsRoute({ db: deps.db }));
     // „Muzeum wpadek" feed (Module B) — illegal/unparseable model attempts.
     api.route('/failures', failuresRoute({ db: deps.db }));
+    // Model psychology (Module C) — behavioural heatmaps, cached in-process (D7).
+    api.route('/psychology', psychologyRoute({ db: deps.db, now: deps.now }));
     api.route('/matches', matchesRoute({ db: deps.db }));
     api.route('/replay', replayRoute({ db: deps.db }));
     api.route('/og', ogRoute({ db: deps.db }));

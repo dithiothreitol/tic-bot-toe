@@ -3,6 +3,17 @@
 Jednozdaniowe decyzje podejmowane tam, gdzie SPEC.md nie rozstrzyga (zgodnie z
 regułą 5 promptu startowego). Najnowsze na górze.
 
+## Efekt WOW — Etap 6: Psychologia modeli (plan §5, Etap 6)
+
+- **Zakres zawężony do tic-tac-toe + battleship** — rozjazd względem §5.1, które wymienia też sudoku i scrabble. Powód, nie lenistwo: (1) `ModelCardPage`/`ComparePage` udostępniają w zakładkach TYLKO te dwie gry, więc payload sudoku/scrabble byłby martwym kodem bez UI; (2) heatmapy TTT + battleship to wprost DoD Etapu 6. Deferował bym scrabble (topWords łatwe z notacji, ale bez slotu UI na karcie) i sudoku razem z UI tych gier.
+- **Sudoku wymaga replayu, nie tylko ruchu** — kluczowy powód odłożenia. „Poprawność" placementu (errorRate/avgPoints z §5.1) nie jest w ruchu wire (`r4c7=3`); zależy od rozwiązania łamigłówki. Uczciwie policzyć ją można tylko pełnym replayem partii przeciw solucji z `setup` — to cięższy podsystem, lepiej dołożyć przy analizie Etapu 10. TTT/battleship agregują się WPROST ze `matches.moves`, bez replayu.
+- **Agregacja czysto z `matches.moves`, zero replayu** (`lib/psychology.ts`, pure, testowalny bez DB): TTT → `firstMoveCounts[9]`, `firstMoveWins[9]` (mianownik win-rate, liczony z `winner`), `moveCounts[9]`; battleship → `shotCounts[N²]` + `firstShotCounts[N²]` (przez `coordToCell`, złe/poza-planszą współrzędne pomijane). `n` = liczba partii w próbie.
+- **Filtr `mode` DODANY do zapytania** — rozjazd względem §5.1 (query bez mode). Karta modelu ma przełącznik mvm/hvm i wszystko inne jest mode-scoped; heatmapa musi śledzić ten przełącznik, inaczej byłaby jedyną sekcją ignorującą tryb. Domyślnie `model_vs_model`. Wchodzi w klucz cache.
+- **Cache w procesie per instancja `buildApp`** (`Map`, TTL 10 min, `deps.now`) — nie moduł-globalny, żeby każdy test dostał świeży cache; produkcyjnie i tak jeden proces = jeden cache. Zimny start po deployu = pierwszy request wolniejszy, świadomy trade-off bez Redisa (D7, risk #9). TTL zweryfikowany testem integracyjnym ze sterowanym zegarem (n=1 w cache → n=2 po 11 min).
+- **Migracja = tylko 2 indeksy** `matches_p1 (p1_id, game)` / `matches_p2 (p2_id, game)` (D7, migracja `0004`) — obsługują `p1_id = s OR p2_id = s` (każda gałąź OR bez seq scanu). Jedyna migracja Etapu 6.
+- **Empty state przy n < 10** (`MIN_PSYCH_SAMPLE`, DoD) — cienka historia to szum, nie wzorzec; `PsychologySection` i `CompareHeatmap` pokazują wtedy zachętę zamiast siatki. Karta modelu: dwie siatki (pierwszy ruch / wszystkie ruchy lub wszystkie / pierwszy strzał). Porównanie: „sygnaturowa" heatmapa per model obok siebie (pierwszy ruch TTT / wszystkie strzały battleship), akcent p1/p2.
+- **`BehaviorHeatmap` = własna lekka siatka** (grid + intensywność opacity, bez stanu gry — jak zalecał §5.2), `role="img"` + aria-label dla dostępności i testów. Prezentacyjny, `t` wstrzykiwane (leaf, bez hooka). Copy pl/en z zastrzeżeniem o wielkości próby (`Na podstawie N partii`).
+
 ## Efekt WOW — Etap 5: Tok myślenia — UI (plan §3.2/§3.3, Etap 5)
 
 - **Wspólny komponent `ThoughtStream`** dla żywej gry (GameRunner) i powtórki (ReplayPage) — jeden panel, jedna prawda wizualna. Prezentacyjny, czysto tekstowy (React escapuje; ślad docięty już przy przechwytywaniu, Etap 4), auto-scroll do najnowszej treści, nagłówek „model · #ruch".
