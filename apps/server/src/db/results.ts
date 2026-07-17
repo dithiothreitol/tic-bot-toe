@@ -15,7 +15,7 @@ import { and, eq, sql } from 'drizzle-orm';
 
 import type { PlayerRecord } from '../auth/player';
 import type { Database } from './client';
-import { eloHistory, matches, players, ratings, usedJti } from './schema';
+import { eloHistory, failureGallery, matches, players, ratings, usedJti } from './schema';
 
 export interface ResultMoveTelemetry {
   latencyMs: number;
@@ -159,6 +159,17 @@ interface SideAgg {
   decidedLatencySum: number;
   /** Optimal moves per §12.2, computed server-side (never trusted from client). */
   optimal: number;
+  /** Illegal/unparseable attempts this side made (transport excluded — D5). */
+  rejectedAttempts: number;
+  /** Moves that carried at least one such attempt (numerator of "not clean"). */
+  movesWithRejections: number;
+}
+
+/** Illegal/unparseable attempts on a move — the hallucination ones (transport is infra, D5). */
+function hallucinatedRejections(m: ResultMove): number {
+  return (m.rejections ?? []).filter(
+    (r) => r.kind === 'illegal' || r.kind === 'unparseable',
+  ).length;
 }
 
 function aggregate(payload: ResultPayload, side: 'p1' | 'p2', id: string): SideAgg {
@@ -177,6 +188,8 @@ function aggregate(payload: ResultPayload, side: 'p1' | 'p2', id: string): SideA
     cost: mv.reduce((s, m) => s + (m.telemetry.costUsd ?? 0), 0),
     forfeits: mv.filter((m) => m.telemetry.forfeit).length,
     optimal: 0, // filled from server-side analysis in submitResult
+    rejectedAttempts: mv.reduce((s, m) => s + hallucinatedRejections(m), 0),
+    movesWithRejections: mv.filter((m) => hallucinatedRejections(m) > 0).length,
   };
 }
 
@@ -362,6 +375,11 @@ async function upsertRating(
       tokensSum: skipTelemetry ? 0 : agg.tokens,
       costUsdSum: skipTelemetry ? '0' : String(agg.cost),
       optimalMoves: agg.optimal,
+      // Hallucination aggregates (D5b). `capturedMoves` starts counting here, so a
+      // model's pre-Etap-2 history is never mistaken for a clean record.
+      rejectedAttempts: agg.rejectedAttempts,
+      movesWithRejections: agg.movesWithRejections,
+      capturedMoves: agg.moveCount,
     })
     .onConflictDoUpdate({
       target: [ratings.subjectId, ratings.mode, ratings.game, ratings.variant],
@@ -383,6 +401,9 @@ async function upsertRating(
           ? sql`${ratings.costUsdSum}`
           : sql`${ratings.costUsdSum} + ${agg.cost}`,
         optimalMoves: sql`${ratings.optimalMoves} + ${agg.optimal}`,
+        rejectedAttempts: sql`${ratings.rejectedAttempts} + ${agg.rejectedAttempts}`,
+        movesWithRejections: sql`${ratings.movesWithRejections} + ${agg.movesWithRejections}`,
+        capturedMoves: sql`${ratings.capturedMoves} + ${agg.moveCount}`,
       },
     });
 }
@@ -423,6 +444,65 @@ export function sanitizeStoredMoves(
     if (m.thoughts === undefined) return m;
     return { ...m, thoughts: m.thoughts.slice(0, STORED_THOUGHTS_MAX_CHARS) };
   });
+}
+
+/**
+ * For scrabble, strip the coordinate+direction prefix off a rejected PLACE so the
+ * gallery stores the invented WORD itself (`H8>KWIZŁO` → `KWIZŁO`) — the whole
+ * point of the museum. Other games (and non-PLACE notations like PASS/EXCH) keep
+ * the raw attempt. Case is preserved: a blank is a lowercase letter.
+ */
+export function displayAttempted(game: GameId, attempted: string): string {
+  if (game !== 'scrabble') return attempted;
+  const m = /^[A-Oa-o](?:[1-9]|1[0-5])[>v](.+)$/.exec(attempted);
+  return m ? m[1]! : attempted;
+}
+
+interface FailureRow {
+  matchId: string;
+  subjectId: string;
+  game: GameId;
+  variant: string;
+  kind: 'illegal' | 'unparseable';
+  attempted: string | null;
+  reason: string | null;
+  excerpt: string | null;
+  moveIndex: number;
+}
+
+/**
+ * Build the `failure_gallery` rows for a saved match (Module B, D6): one per
+ * illegal/unparseable attempt an LLM side made. The HUMAN side is skipped (§16 —
+ * a person's move never enters the museum) and `transport` rejections are dropped
+ * (infra, not a hallucination). `subjectId` is the id of the side that tried.
+ */
+function buildFailureRows(
+  payload: ResultPayload,
+  subject: { p1: string; p2: string },
+  humanSide: 'p1' | 'p2' | null,
+  matchId: string,
+): FailureRow[] {
+  const rows: FailureRow[] = [];
+  for (let i = 0; i < payload.moves.length; i++) {
+    const m = payload.moves[i]!;
+    if (m.player === humanSide) continue;
+    const subjectId = m.player === 'p1' ? subject.p1 : subject.p2;
+    for (const rej of m.rejections ?? []) {
+      if (rej.kind !== 'illegal' && rej.kind !== 'unparseable') continue;
+      rows.push({
+        matchId,
+        subjectId,
+        game: payload.game,
+        variant: payload.variant,
+        kind: rej.kind,
+        attempted: rej.attempted ? displayAttempted(payload.game, rej.attempted) : null,
+        reason: rej.reason ?? null,
+        excerpt: rej.raw ?? null,
+        moveIndex: i,
+      });
+    }
+  }
+  return rows;
 }
 
 /**
@@ -615,6 +695,15 @@ export async function submitResult(
         .returning({ id: matches.id });
       if (inserted.length === 0) throw new Abort(409, 'duplicate');
       const matchId = inserted[0].id;
+
+      // Failure gallery (Module B, D6). Non-lab only — a prompt-lab appendix can
+      // deliberately provoke bad moves, which would misrepresent the model in the
+      // museum. Independent of ranked/ghost: it records what the model TRIED,
+      // even in a match that never moved a rating.
+      if (!lab) {
+        const failures = buildFailureRows(payload, subject, humanSide, matchId);
+        if (failures.length > 0) await tx.insert(failureGallery).values(failures);
+      }
 
       // lab=true never touches ratings / elo_history (§13).
       if (lab) {

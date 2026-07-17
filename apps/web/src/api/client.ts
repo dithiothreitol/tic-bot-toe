@@ -106,6 +106,13 @@ export interface HallucinationRow {
   totalMoves: number;
   forfeitMoves: number;
   forfeitRate: number;
+  /** D5b — only meaningful for moves captured since Etap 2. */
+  capturedMoves: number;
+  rejectedAttempts: number;
+  movesWithRejections: number;
+  /** null until this model has captured moves (never a pre-capture fake 100%). */
+  cleanFirstTryRate: number | null;
+  since: string | null;
 }
 
 /** One Elo checkpoint (SPEC §9.3.4). */

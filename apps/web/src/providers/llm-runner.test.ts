@@ -274,6 +274,50 @@ describe('runLlmMove', () => {
   });
 });
 
+describe('runLlmMove — rejection capture (Module B, D4)', () => {
+  it('captures an unparseable reply as an excerpt, no reason/attempted', async () => {
+    const { view, legal } = viewAndLegal();
+    const { transport } = scriptedTransport([{ text: 'no move here' }, { text: '{"move": 0}' }]);
+    const result = await runLlmMove(view, legal, { transport });
+    expect(result.move).toBe(0);
+    expect(result.rejections).toHaveLength(1);
+    expect(result.rejections![0]).toMatchObject({ kind: 'unparseable', raw: 'no move here' });
+    expect(result.rejections![0].reason).toBeUndefined();
+    expect(result.rejections![0].attempted).toBeUndefined();
+  });
+
+  it('captures a transport failure as kind "transport" with no excerpt', async () => {
+    const { view, legal } = viewAndLegal();
+    const { transport } = scriptedTransport([new Error('network down'), { text: '{"move": 2}' }]);
+    const result = await runLlmMove(view, legal, { transport });
+    expect(result.move).toBe(2);
+    expect(result.rejections).toEqual([{ kind: 'transport' }]);
+  });
+
+  it('leaves rejections undefined on a clean first-try move', async () => {
+    const { view, legal } = viewAndLegal();
+    const { transport } = scriptedTransport([{ text: '{"move": 4}' }]);
+    const result = await runLlmMove(view, legal, { transport });
+    expect(result.rejections).toBeUndefined();
+  });
+
+  it('caps captured rejections at 4 (maxRetries+1) on a full forfeit', async () => {
+    const { view, legal } = viewAndLegal();
+    const { transport } = scriptedTransport([{ text: 'garbage' }]); // repeats → 4 attempts
+    const result = await runLlmMove(view, legal, { transport, rng: () => 0 });
+    expect(result.telemetry.forfeit).toBe(true);
+    expect(result.rejections).toHaveLength(4);
+    expect(result.rejections!.every((r) => r.kind === 'unparseable')).toBe(true);
+  });
+
+  it('trims a long excerpt to the 240-char cap', async () => {
+    const { view, legal } = viewAndLegal();
+    const { transport } = scriptedTransport([{ text: 'z'.repeat(500) }, { text: '{"move": 1}' }]);
+    const result = await runLlmMove(view, legal, { transport });
+    expect(result.rejections![0]!.raw).toHaveLength(240);
+  });
+});
+
 describe('classifyTransportError', () => {
   it('maps HTTP statuses from provider error messages', () => {
     expect(classifyTransportError(new Error('OpenRouter 429: rate'))).toBe('rate_limited');

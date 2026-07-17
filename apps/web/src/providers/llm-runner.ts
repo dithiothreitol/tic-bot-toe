@@ -1,12 +1,17 @@
 import {
   type GameDefinition,
+  MAX_REJECTIONS_PER_MOVE,
   type Move,
   type MoveErrorReason,
   type MoveRejection,
+  type MoveRejectionRecord,
   type MoveResult,
   type MoveTelemetry,
   type MoveValidation,
   type PlayerView,
+  REJECTION_ATTEMPTED_MAX_CHARS,
+  REJECTION_RAW_MAX_CHARS,
+  REJECTION_REASON_MAX_CHARS,
   getGame,
 } from '@arena/game-core';
 
@@ -210,6 +215,16 @@ export async function runLlmMove(
   // timeout …) instead of masquerading as a random "algo" move.
   let lastTransportError: unknown = null;
 
+  // Rejected attempts at THIS move (Module B, D4): illegal / unparseable replies
+  // and transport failures, in order. Bounded by attempt count (≤ maxRetries+1),
+  // capped defensively. Rides along on the returned MoveResult — success carries
+  // the tries the model self-corrected past; a forfeit carries them all.
+  const rejections: MoveRejectionRecord[] = [];
+  const pushRejection = (r: MoveRejectionRecord): void => {
+    if (rejections.length < MAX_REJECTIONS_PER_MOVE) rejections.push(r);
+  };
+  const trimRaw = (s: string): string => s.trim().slice(0, REJECTION_RAW_MAX_CHARS);
+
   // Attempt 0 is the first try; `retries` corrective retries follow (max 3 →
   // up to 4 calls). retries lands in 0..maxRetries, matching MoveTelemetry.
   for (let retries = 0; retries <= maxRetries; retries++) {
@@ -221,8 +236,11 @@ export async function runLlmMove(
       completion = await config.transport(messages, controller.signal);
     } catch (err) {
       // Network / timeout / abort — a failed attempt; keep retrying, but keep
-      // the reason for the forfeit telemetry.
+      // the reason for the forfeit telemetry. Recorded as a `transport` rejection
+      // (no excerpt — nothing came back), kept OUT of the hallucination metric:
+      // an infra failure is not the model inventing a move (D5).
       lastTransportError = err;
+      pushRejection({ kind: 'transport' });
     } finally {
       clearTimeout(timer);
       acc.latencyMs += Math.max(0, now() - start);
@@ -256,6 +274,7 @@ export async function runLlmMove(
           move: parsed,
           telemetry: finalizeTelemetry(acc, retries, false, config.price),
           raw: completion.text,
+          ...(rejections.length ? { rejections: [...rejections] } : {}),
         };
       }
 
@@ -264,6 +283,21 @@ export async function runLlmMove(
       // not. Games may render their own correction (no full legal-list dump).
       const rejection: MoveRejection | undefined =
         validity && !validity.ok ? validity : undefined;
+
+      // Capture the rejected attempt for the museum + discipline metric (Module
+      // B, D4). Illegal: the engine's reason + what the model tried (for scrabble
+      // the notation carries the invented word); unparseable: only an excerpt.
+      if (parsed === null) {
+        pushRejection({ kind: 'unparseable', raw: trimRaw(completion.text) });
+      } else {
+        pushRejection({
+          kind: 'illegal',
+          reason: rejection?.reason.slice(0, REJECTION_REASON_MAX_CHARS),
+          attempted: String(parsed).slice(0, REJECTION_ATTEMPTED_MAX_CHARS),
+          raw: trimRaw(completion.text),
+        });
+      }
+
       const correctionMsg = def.renderCorrection
         ? def.renderCorrection(view, rejection)
         : correction(legal);
@@ -297,5 +331,6 @@ export async function runLlmMove(
   return {
     move: forfeitMove,
     telemetry: finalizeTelemetry(acc, maxRetries, true, config.price, reason),
+    ...(rejections.length ? { rejections: [...rejections] } : {}),
   };
 }

@@ -14,7 +14,7 @@ import {
   scrabble,
   sudoku,
 } from '@arena/game-core';
-import { eq, sql } from 'drizzle-orm';
+import { asc, eq, sql } from 'drizzle-orm';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { buildApp } from './app';
@@ -22,7 +22,7 @@ import { newJti, signSession, signStartToken } from './auth/jwt';
 import { type PlayerRecord, resolvePlayer } from './auth/player';
 import { loadConfig } from './config';
 import { type DbHandle, createDb } from './db/client';
-import { matches, players, ratings } from './db/schema';
+import { failureGallery, matches, players, ratings } from './db/schema';
 import {
   type ResultMove,
   type ResultPayload,
@@ -226,6 +226,46 @@ describe('submitResult (real Postgres via testcontainers)', () => {
     expect(humanMove).not.toHaveProperty('thoughts');
     expect(humanMove).not.toHaveProperty('rejections');
     expect(modelMove.thoughts).toBe('model reasoning');
+  });
+
+  it('records LLM rejections into the gallery and ratings aggregates (D5b/D6)', async () => {
+    const payload = playOut('tictactoe', 'standard', 0, 4000, 'openrouter:a', 'openrouter:b');
+    // p1's first move: one illegal attempt + one transport failure. Transport is
+    // infra, not a hallucination — it must neither appear nor count (D5).
+    payload.moves[0] = {
+      ...payload.moves[0]!,
+      rejections: [
+        { kind: 'illegal', reason: 'occupied', attempted: '4', raw: '{"cell":4}' },
+        { kind: 'transport' },
+      ],
+    };
+    // p2's first move: one unparseable reply.
+    payload.moves[1] = {
+      ...payload.moves[1]!,
+      rejections: [{ kind: 'unparseable', raw: 'let me think' }],
+    };
+
+    const res = await submitResult(handle.db, newJti(), payload, '1.2.3.4');
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+
+    const gallery = await handle.db.select().from(failureGallery).orderBy(asc(failureGallery.id));
+    expect(gallery).toHaveLength(2); // transport excluded
+    const illegal = gallery.find((g) => g.kind === 'illegal')!;
+    expect(illegal.subjectId).toBe('openrouter:a');
+    expect(illegal.attempted).toBe('4');
+    expect(illegal.reason).toBe('occupied');
+    expect(illegal.excerpt).toBe('{"cell":4}');
+    expect(illegal.moveIndex).toBe(0);
+    const unparseable = gallery.find((g) => g.kind === 'unparseable')!;
+    expect(unparseable.subjectId).toBe('openrouter:b');
+    expect(unparseable.attempted).toBeNull();
+
+    const rows = await handle.db.select().from(ratings);
+    const a = rows.find((r) => r.subjectId === 'openrouter:a')!;
+    expect(a.rejectedAttempts).toBe(1); // transport excluded
+    expect(a.movesWithRejections).toBe(1);
+    expect(a.capturedMoves).toBe(a.totalMoves); // denominator started this match
   });
 
   it('rejects an illegal move (422)', async () => {

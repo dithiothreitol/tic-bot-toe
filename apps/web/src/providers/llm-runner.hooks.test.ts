@@ -113,4 +113,19 @@ describe('runLlmMove — GameDefinition hooks', () => {
     // parseMove failed, so validateMove was only called for the successful retry.
     expect(calls.validate).toEqual(['GOOD']);
   });
+
+  it('captures an illegal move with the engine reason and what was attempted (Module B, D4)', async () => {
+    const { transport } = scriptedTransport([{ text: 'play: BADWORD' }, { text: 'play: GOOD' }]);
+    const result = await runLlmMove(view, legal, { transport });
+
+    expect(result.move).toBe('GOOD');
+    // The parsed-but-rejected attempt is recorded — this is the museum's gold.
+    expect(result.rejections).toHaveLength(1);
+    expect(result.rejections![0]).toMatchObject({
+      kind: 'illegal',
+      attempted: 'BADWORD',
+      reason: '"BADWORD" is not a valid word',
+      raw: 'play: BADWORD',
+    });
+  });
 });

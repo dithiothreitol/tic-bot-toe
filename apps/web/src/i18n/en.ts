@@ -373,9 +373,11 @@ export const en: Dict = {
     play: 'Play against',
     hallucinations: 'Hallucinations',
     hallucinationsLead:
-      'How often the model lost the format and failed to produce a legal move. For now it shows "forced moves" — the metric available across the whole history.',
+      'How often the model lost the format and failed to produce a legal move. "Forced moves" covers the whole history; "clean first try" only matches saved since attempt-logging shipped.',
     disciplineRank: (pos: number, total: number) => `#${pos} of ${total} for discipline`,
     noDisciplineRank: 'Not enough data to rank discipline.',
+    cleanFirstTry: 'Clean first try',
+    cleanFirstTrySince: (date: string) => `Measured since ${date}`,
   },
 
   explain: {

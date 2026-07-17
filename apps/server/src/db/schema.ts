@@ -94,6 +94,17 @@ export const ratings = pgTable(
     tokensSum: bigint('tokens_sum', { mode: 'number' }).notNull().default(0),
     costUsdSum: numeric('cost_usd_sum', { precision: 12, scale: 6 }).notNull().default('0'),
     optimalMoves: integer('optimal_moves').notNull().default(0),
+    /**
+     * Hallucination aggregates (Module B, D5b). Populated only from Etap 2 on —
+     * old rows stay 0, so `capturedMoves` (moves seen since capture began) is the
+     * ONLY honest denominator for a "clean first try" rate: dividing by
+     * `totalMoves` would count pre-capture history as flawless and lie (risk #3).
+     * `rejectedAttempts` = illegal/unparseable tries (transport excluded, D5);
+     * `movesWithRejections` = moves that had at least one such try.
+     */
+    rejectedAttempts: integer('rejected_attempts').notNull().default(0),
+    movesWithRejections: integer('moves_with_rejections').notNull().default(0),
+    capturedMoves: integer('captured_moves').notNull().default(0),
   },
   (t) => [primaryKey({ columns: [t.subjectId, t.mode, t.game, t.variant] })],
 );
@@ -165,3 +176,36 @@ export const arenaTotals = pgTable('arena_totals', {
   tokens: bigint('tokens', { mode: 'number' }).notNull().default(0),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
+
+/**
+ * „Muzeum wpadek" (Module B, D6). One row per illegal/unparseable attempt an LLM
+ * made in a saved match — denormalized so the museum feed (Etap 3) and per-model
+ * filters need no jsonb scan over `matches.moves`, and moderation can purge by
+ * `match_id`. Only MODEL failures land here: never a human's move (§16), never a
+ * `transport` failure (infra, not a hallucination). `attempted` holds the move
+ * the engine refused (for scrabble, the invented word); `excerpt` a short slice
+ * of the model's own output; `reason` the engine's rejection phrase.
+ */
+export const failureGallery = pgTable(
+  'failure_gallery',
+  {
+    id: bigserial('id', { mode: 'number' }).primaryKey(),
+    matchId: uuid('match_id')
+      .notNull()
+      .references(() => matches.id),
+    subjectId: text('subject_id').notNull(),
+    game: text('game').notNull(),
+    variant: text('variant').notNull(),
+    kind: text('kind').notNull(),
+    attempted: text('attempted'),
+    reason: text('reason'),
+    excerpt: text('excerpt'),
+    moveIndex: integer('move_index').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('failure_gallery_game').on(t.game, t.createdAt.desc()),
+    index('failure_gallery_subject').on(t.subjectId, t.createdAt.desc()),
+    check('failure_gallery_kind_chk', sql`${t.kind} IN ('illegal','unparseable')`),
+  ],
+);

@@ -385,10 +385,12 @@ export const pl = {
     play: 'Zagraj przeciwko',
     hallucinations: 'Halucynacje',
     hallucinationsLead:
-      'Jak często model gubił format i nie podawał legalnego ruchu. Na razie pokazujemy „ruchy wymuszone" — metrykę dostępną dla całej historii.',
+      'Jak często model gubił format i nie podawał legalnego ruchu. „Ruchy wymuszone" liczymy z całej historii; „czysto za 1. razem" tylko z partii zapisanych od wdrożenia rejestracji prób.',
     disciplineRank: (pos: number, total: number) =>
       `${pos}. miejsce z ${total} pod względem dyscypliny`,
     noDisciplineRank: 'Za mało danych, aby uszeregować dyscyplinę.',
+    cleanFirstTry: 'Czysto za 1. razem',
+    cleanFirstTrySince: (date: string) => `Liczone od ${date}`,
   },
 
   /**

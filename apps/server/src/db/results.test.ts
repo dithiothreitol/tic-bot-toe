@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { type ResultMove, sanitizeStoredMoves } from './results';
+import { type ResultMove, displayAttempted, sanitizeStoredMoves } from './results';
 
 /**
  * `sanitizeStoredMoves` is the pre-insert half of the controlled §16 exception
@@ -55,5 +55,20 @@ describe('sanitizeStoredMoves (D1)', () => {
     const input = [move({ player: 'p1', thoughts: 'x'.repeat(5000) })];
     sanitizeStoredMoves(input, null);
     expect(input[0]!.thoughts).toHaveLength(5000);
+  });
+});
+
+describe('displayAttempted (scrabble word extraction, D6)', () => {
+  it('strips the coordinate+direction prefix so the museum stores the word', () => {
+    expect(displayAttempted('scrabble', 'H8>KWIZŁO')).toBe('KWIZŁO');
+    expect(displayAttempted('scrabble', 'A1vFOO')).toBe('FOO');
+    expect(displayAttempted('scrabble', 'O15>bar')).toBe('bar'); // blank = lowercase, preserved
+  });
+
+  it('keeps non-place scrabble notations and other games verbatim', () => {
+    expect(displayAttempted('scrabble', 'PASS')).toBe('PASS');
+    expect(displayAttempted('scrabble', 'EXCH:AB')).toBe('EXCH:AB');
+    expect(displayAttempted('tictactoe', '4')).toBe('4');
+    expect(displayAttempted('battleship', 'C5')).toBe('C5');
   });
 });

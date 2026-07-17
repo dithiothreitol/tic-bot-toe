@@ -153,6 +153,9 @@ export function ModelCardPage() {
     const idx = halluc.findIndex((h) => h.subjectId === subjectId);
     return idx >= 0 ? t.modelCard.disciplineRank(idx + 1, halluc.length) : null;
   }, [halluc, subjectId, t]);
+  // This model's D5b row — the "clean first try" metric, shown only once it has
+  // captured moves (never a pre-capture fake 100%).
+  const hallRow = halluc.find((h) => h.subjectId === subjectId) ?? null;
 
   const onGameChange = (g: GameId) => {
     setGame(g);
@@ -292,10 +295,25 @@ export function ModelCardPage() {
                   {Math.round(card.forfeitRate * 100)}%
                 </span>
               </div>
+              {hallRow && hallRow.cleanFirstTryRate !== null && (
+                <div className="flex flex-col gap-0.5">
+                  <span className="font-mono text-[10px] uppercase tracking-wider text-dim">
+                    {t.modelCard.cleanFirstTry}
+                  </span>
+                  <span className="font-mono text-3xl font-bold text-edu">
+                    {Math.round(hallRow.cleanFirstTryRate * 100)}%
+                  </span>
+                </div>
+              )}
               <p className="font-mono text-xs text-dim">
                 {disciplineRank ?? t.modelCard.noDisciplineRank}
               </p>
             </div>
+            {hallRow && hallRow.cleanFirstTryRate !== null && hallRow.since && (
+              <p className="font-mono text-[10px] text-dim">
+                {t.modelCard.cleanFirstTrySince(new Date(hallRow.since).toLocaleDateString())}
+              </p>
+            )}
           </HudPanel>
 
           <div className="grid gap-4 lg:grid-cols-2">
