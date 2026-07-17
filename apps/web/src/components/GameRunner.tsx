@@ -290,6 +290,10 @@ export function GameRunner({
   const [lexReady, setLexReady] = useState(() => scrabbleLang === null || isLexiconReady(scrabbleLang));
   const [lexError, setLexError] = useState<string | null>(null);
   const [lexProgress, setLexProgress] = useState(0);
+  // Bumped by "Retry": lexReady stays false through a failure, so the load effect
+  // needs a changing dependency to re-fire (ensureLexicon clears its in-flight
+  // entry on error, so a fresh call really re-fetches).
+  const [lexAttempt, setLexAttempt] = useState(0);
   const needsLexicon = scrabbleLang !== null && !lexReady;
 
   useEffect(() => {
@@ -308,7 +312,7 @@ export function GameRunner({
     return () => {
       alive = false;
     };
-  }, [scrabbleLang, lexReady]);
+  }, [scrabbleLang, lexReady, lexAttempt]);
 
   useEffect(() => {
     if (needsPlacement || needsPrediction || needsLexicon) return;
@@ -707,7 +711,8 @@ export function GameRunner({
               <Button
                 onClick={() => {
                   setLexError(null);
-                  setLexReady(false);
+                  setLexProgress(0);
+                  setLexAttempt((n) => n + 1);
                 }}
               >
                 {t.scrabble.retry}
@@ -1187,7 +1192,7 @@ function SudokuArena({
       )}
 
       <p className="font-mono text-[10px] uppercase tracking-wider text-dim">
-        {t.sudoku.movesLeft}: {Math.max(0, 3 * state.givenMask.filter((g) => !g).length - state.history.length)}
+        {t.sudoku.movesLeft}: {sudoku.viewFor(state, toMove).movesRemaining}
       </p>
     </div>
   );

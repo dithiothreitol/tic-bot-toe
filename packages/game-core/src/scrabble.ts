@@ -151,13 +151,6 @@ function canonical(pm: ParsedMove): string {
 // Deterministic bag
 // --------------------------------------------------------------------------
 
-/** The `index`-th value of the seed's PRNG stream (0-based). */
-function randAt(seed: number, index: number): number {
-  const g = mulberry32(seed);
-  for (let i = 0; i < index; i++) g();
-  return g();
-}
-
 function fullBag(variant: ScrabbleVariant): string[] {
   const out: string[] = [];
   for (const spec of tilesFor(variant)) {
@@ -516,9 +509,14 @@ export const scrabble: GameDefinition<ScrabbleState, string, ScrabbleView> = {
       const k = returned.length;
       const drawn = state.bag.slice(state.bag.length - k);
       const working = state.bag.slice(0, state.bag.length - k);
+      // Reinsert the returned tiles at seeded positions. Advance ONE generator to
+      // the current stream offset, then continue it — identical values to the old
+      // per-tile re-seed, but O(rngUses + k) instead of O(k · rngUses).
+      const g = mulberry32(state.seed);
+      for (let i = 0; i < state.rngUses; i++) g();
       let uses = state.rngUses;
       for (const t of returned) {
-        const pos = Math.floor(randAt(state.seed, uses) * (working.length + 1));
+        const pos = Math.floor(g() * (working.length + 1));
         working.splice(pos, 0, t);
         uses += 1;
       }

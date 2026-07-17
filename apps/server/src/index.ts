@@ -46,14 +46,16 @@ if (config.databaseUrl) {
 // words (plan §8.2). Until they are ready, POST /api/result refuses scrabble
 // with 503 (routes/result). Best-effort — a failure only disables scrabble
 // saving, never the rest of the server. `LEXICON_DIR` overrides the path.
-for (const lang of ['pl', 'en'] as const) {
-  try {
-    registerLexicon(lang, await loadLexiconNode(lang, config.lexiconDir));
-    console.log(`[server] ${lang} lexicon loaded`);
-  } catch (e) {
-    console.warn(`[server] ${lang} lexicon unavailable — scrabble saving disabled:`, (e as Error).message);
-  }
-}
+await Promise.all(
+  (['pl', 'en'] as const).map(async (lang) => {
+    try {
+      registerLexicon(lang, await loadLexiconNode(lang, config.lexiconDir));
+      console.log(`[server] ${lang} lexicon loaded`);
+    } catch (e) {
+      console.warn(`[server] ${lang} lexicon unavailable — scrabble saving disabled:`, (e as Error).message);
+    }
+  }),
+);
 
 const app = buildApp({ config, db: dbHandle?.db });
 

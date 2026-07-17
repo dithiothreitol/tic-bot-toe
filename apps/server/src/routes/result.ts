@@ -39,10 +39,15 @@ export function resultRoute(deps: { db: Database; config: Config; now?: () => nu
     if (!parsed.success) return c.json({ error: 'bad_payload' }, 400);
     const payload = parsed.data as ResultPayload;
 
-    // Scrabble replay validates words against the dictionaries. Until the server
-    // has loaded both (plan §6.3/§8.2), refuse scrabble results with 503 — a
-    // transient "not ready", not a permanent rejection.
-    if (payload.game === 'scrabble' && !(hasLexicon('pl') && hasLexicon('en'))) {
+    // Scrabble replay validates words against the dictionary for THIS match's
+    // language (plan §6.3/§8.2). Refuse only when the language it actually needs
+    // is not loaded — a transient "not ready", not a permanent rejection. An
+    // unknown variant is left to normal replay, which rejects it properly.
+    if (
+      payload.game === 'scrabble' &&
+      (payload.variant === 'pl' || payload.variant === 'en') &&
+      !hasLexicon(payload.variant)
+    ) {
       return c.json({ error: 'lexicon_unavailable' }, 503);
     }
 

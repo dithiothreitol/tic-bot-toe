@@ -85,6 +85,7 @@ export function ScrabbleArena({
   interactive,
   toMove,
   mode,
+  humanSide,
   names,
   onPlay,
 }: {
@@ -129,8 +130,8 @@ export function ScrabbleArena({
   const usedRack = new Set(userTiles.map((u) => u.rackIndex));
   const lastCells = lastMoveCells(state);
 
-  // --- God view (LLM vs LLM): board + both racks -------------------------
-  if (mode === 'model_vs_model' || !interactive) {
+  // --- God view (LLM vs LLM spectating): board + both racks --------------
+  if (mode === 'model_vs_model') {
     return (
       <div className="flex w-full flex-col items-center gap-3">
         <ScoreRow names={names} scores={state.scores} bag={state.bag.length} />
@@ -139,6 +140,20 @@ export function ScrabbleArena({
           <ScrabbleRack rack={state.racks.p1} variant={variant} accent="p1" title={names.p1} />
           <ScrabbleRack rack={state.racks.p2} variant={variant} accent="p2" title={names.p2} />
         </div>
+      </div>
+    );
+  }
+
+  // --- Human vs model, opponent's turn: board + the human's OWN rack only.
+  // The opponent's rack is hidden info (SPEC §5) — never render it to a player.
+  if (!interactive) {
+    const mine = humanSide ?? 'p1';
+    const myRack = scrabble.viewFor(state, mine).rack;
+    return (
+      <div className="flex w-full flex-col items-center gap-3">
+        <ScoreRow names={names} scores={state.scores} bag={state.bag.length} />
+        <ScrabbleBoard board={state.board} lastCells={lastCells} />
+        <ScrabbleRack rack={myRack} variant={variant} accent={mine} title={names[mine]} />
       </div>
     );
   }

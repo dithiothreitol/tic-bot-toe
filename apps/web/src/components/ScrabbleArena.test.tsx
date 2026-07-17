@@ -74,6 +74,25 @@ describe('ScrabbleArena — human builder', () => {
     expect(onPlay).toHaveBeenCalledWith('PASS');
   });
 
+  it('hides the opponent rack while the model is moving (human vs model)', () => {
+    render(
+      <ScrabbleArena
+        // p1 is the human (distinct tiles); p2 (the model) holds A–G.
+        state={emptyState(['Q', 'W', 'K', 'J', 'X', 'Y', 'Z'])}
+        interactive={false}
+        toMove="p2"
+        mode="human_vs_model"
+        humanSide="p1"
+        names={{ p1: 'You', p2: 'Bot' }}
+        onPlay={() => {}}
+      />,
+    );
+    // The human's own tiles stay visible…
+    expect(screen.getByRole('button', { name: 'Q' })).toBeInTheDocument();
+    // …but the opponent's hidden tiles (A–G) never render (SPEC §5).
+    expect(screen.queryByRole('button', { name: 'A' })).not.toBeInTheDocument();
+  });
+
   it('shows the god view (both racks) in model-vs-model', () => {
     render(
       <ScrabbleArena
