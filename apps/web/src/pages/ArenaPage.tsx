@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useLocation } from 'react-router';
 
 import { useShell } from '@/App';
 import { DailyChallengeCard } from '@/components/DailyChallengeCard';
@@ -16,6 +17,17 @@ export function ArenaPage() {
   const { openSettings } = useShell();
   const [screen, setScreen] = useState<'setup' | 'game'>('setup');
   const [config, setConfig] = useState<MatchConfig | null>(null);
+
+  // Home / "Arena" nav / the logo all point at THIS route. A match runs inside
+  // local state (no URL change), so a same-route navigation wouldn't reset it and
+  // the logo would appear to do nothing. `location.key` changes on every such
+  // navigation — and while this page stays mounted, that only happens on a
+  // same-route click — so we treat it as an explicit "go home" and reset to setup.
+  const { key } = useLocation();
+  useEffect(() => {
+    setScreen('setup');
+    setConfig(null);
+  }, [key]);
 
   const start = (c: MatchConfig) => {
     setConfig(c);
