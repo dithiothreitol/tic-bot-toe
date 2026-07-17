@@ -10,3 +10,9 @@
 **/.env
 **/.env.*
 !**/.env.example
+
+# Committed word-game dictionaries live under a dist/ dir but are REAL artifacts
+# the image needs: the Vite build folds them into the web bundle (/lexicons/*.dawg)
+# and the server reads the same files to validate scrabble. Keep them despite **/dist.
+!packages/lexicons/dist
+!packages/lexicons/dist/*.dawg
