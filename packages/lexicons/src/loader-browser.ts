@@ -19,7 +19,9 @@ export interface LoadLexiconOptions {
   signal?: AbortSignal;
 }
 
-const CACHE_NAME = 'arena-lexicons-v1';
+// v2: v1 could be poisoned with an SPA index.html accidentally served for a
+// missing .dawg (a 200 of HTML). Bumping the name abandons those entries.
+const CACHE_NAME = 'arena-lexicons-v2';
 
 // The Cache API is browser-only and this package is typed against @types/node
 // (which has `fetch`/`Response` but not `caches`). Reach it structurally so the
@@ -49,14 +51,30 @@ export async function loadLexiconBrowser(
   if (!response.ok) {
     throw new Error(`Failed to load ${language} lexicon: HTTP ${response.status}`);
   }
-  if (!cached && cache) {
-    // Store a clone for next time (best-effort — a private-mode failure is fine).
-    void cache.put(url, response.clone()).catch(() => {});
-  }
 
   const total = Number(response.headers.get('content-length')) || null;
   const bytes = await readWithProgress(response, total, opts.onProgress);
-  return decodeLexicon(bytes);
+
+  // Decode BEFORE caching: a bad body (e.g. an SPA index.html served for a
+  // missing file) is a 200, so caching it first would wedge every future load.
+  // decodeLexicon throws on a bad magic/format, so only valid dictionaries cache.
+  const lexicon = decodeLexicon(bytes);
+
+  if (!cached && cache) {
+    // Store the validated bytes for next time (best-effort — private-mode is fine).
+    // `bytes` owns its whole buffer here (both read paths allocate exactly), so
+    // `.buffer` is the exact dictionary; ArrayBuffer is a valid body under both
+    // the DOM and Node type libs (Uint8Array's generic is not).
+    void cache
+      .put(
+        url,
+        new Response(bytes.buffer as ArrayBuffer, {
+          headers: { 'content-type': 'application/octet-stream' },
+        }),
+      )
+      .catch(() => {});
+  }
+  return lexicon;
 }
 
 /** Read the body, emitting progress if a stream reader is available. */
