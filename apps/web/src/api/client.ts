@@ -128,6 +128,9 @@ export interface FailureRow {
   createdAt: string;
 }
 
+// The Module C DTOs below MIRROR apps/server/src/routes/psychology.ts +
+// lib/psychology.ts. Same server↔web duplication convention as every other type
+// in this file (LeaderboardRow, HallucinationRow…); keep them in step.
 /** tic-tac-toe behavioural distributions (Module C, plan §5). Arrays are length 9. */
 export interface TicTacToePsychology {
   game: 'tictactoe';

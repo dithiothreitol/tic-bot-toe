@@ -18,7 +18,8 @@ export interface PsychologyMatch {
   p1Id: string;
   p2Id: string;
   winner: 'p1' | 'p2' | 'draw' | null;
-  moves: { player: 'p1' | 'p2'; move: Move }[];
+  /** `forfeit` marks a random substitute we injected after the model failed (§8) — not its choice. */
+  moves: { player: 'p1' | 'p2'; move: Move; forfeit?: boolean }[];
 }
 
 export interface TicTacToePsychology {
@@ -73,7 +74,10 @@ export function aggregateTicTacToe(
     if (!side) continue;
     n += 1;
 
-    const own = m.moves.filter((x) => x.player === side);
+    // Forfeited moves are OUR random substitutes, not the model's decisions —
+    // excluding them keeps the heatmap a picture of choices, not coin flips
+    // (same stance as `optimalDecidedMoves`/`neverDecided` in db/results.ts).
+    const own = m.moves.filter((x) => x.player === side && !x.forfeit);
     for (const mv of own) {
       const cell = ticTacToeCell(mv.move);
       if (cell !== null) moveCounts[cell] += 1;
@@ -107,7 +111,8 @@ export function aggregateBattleship(
     if (!side) continue;
     n += 1;
 
-    const own = m.moves.filter((x) => x.player === side);
+    // Skip forfeits here too — an injected random shot is not the model's aim.
+    const own = m.moves.filter((x) => x.player === side && !x.forfeit);
     let firstDone = false;
     for (const mv of own) {
       // Battleship moves are coordinate strings ("C5"); coordToCell rejects

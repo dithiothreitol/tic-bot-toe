@@ -30,7 +30,19 @@ import { matches } from '../db/schema';
 
 const MAX_MATCHES = 500;
 const CACHE_TTL_MS = 10 * 60_000;
+/**
+ * Hard cap on cache entries. `subjectId` comes straight from the query string, so
+ * the keyspace is attacker-controlled and unbounded — without a cap, a loop over
+ * random ids would grow the Map forever (the TTL only gates freshness on read, it
+ * never deletes). We prune expired entries and, if still full, evict oldest-first
+ * (Map preserves insertion order) so the cache stays bounded regardless of input.
+ */
+export const MAX_CACHE_ENTRIES = 1000;
 
+// Wire shape — MIRRORED in apps/web/src/api/client.ts (`PsychologyResponse` +
+// the `PsychologyPayload` union). This repo duplicates every API DTO across the
+// server/web boundary (no shared API-types package — see LeaderboardRow,
+// HallucinationRow, FailureRow…); keep the two definitions in step.
 export interface PsychologyResponse {
   subjectId: string;
   game: GameId;
@@ -42,7 +54,7 @@ export interface PsychologyResponse {
   payload: PsychologyPayload | null;
 }
 
-interface CacheEntry {
+export interface CacheEntry {
   at: number;
   data: PsychologyResponse;
 }
@@ -121,14 +133,32 @@ export function psychologyRoute(deps: { db: Database; now?: () => number }): Hon
       n: payload?.n ?? 0,
       payload,
     };
-    cache.set(key, { at: now(), data });
+    const stamp = now();
+    pruneCache(cache, stamp);
+    cache.set(key, { at: stamp, data });
     return c.json(data);
   });
 
   return app;
 }
 
-/** Coerce the jsonb `moves` blob into the minimal {player, move} the aggregators read. */
+/** Keep the cache bounded: drop expired entries, then evict oldest until under cap. Exported for tests. */
+export function pruneCache(cache: Map<string, CacheEntry>, now: number): void {
+  for (const [k, v] of cache) {
+    if (now - v.at >= CACHE_TTL_MS) cache.delete(k);
+  }
+  while (cache.size >= MAX_CACHE_ENTRIES) {
+    const oldest = cache.keys().next().value;
+    if (oldest === undefined) break;
+    cache.delete(oldest);
+  }
+}
+
+/**
+ * Coerce the jsonb `moves` blob into the minimal {player, move, forfeit} the
+ * aggregators read. `forfeit` (from telemetry) rides along so a random substitute
+ * we injected on failure is not mistaken for the model's decision.
+ */
 function normalizeMoves(raw: unknown): PsychologyMatch['moves'] {
   if (!Array.isArray(raw)) return [];
   const out: PsychologyMatch['moves'] = [];
@@ -136,8 +166,9 @@ function normalizeMoves(raw: unknown): PsychologyMatch['moves'] {
     if (m && typeof m === 'object') {
       const player = (m as { player?: unknown }).player;
       const move = (m as { move?: unknown }).move;
+      const forfeit = (m as { telemetry?: { forfeit?: unknown } }).telemetry?.forfeit === true;
       if ((player === 'p1' || player === 'p2') && (typeof move === 'number' || typeof move === 'string')) {
-        out.push({ player, move });
+        out.push({ player, move, forfeit });
       }
     }
   }

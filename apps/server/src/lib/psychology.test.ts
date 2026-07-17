@@ -68,6 +68,25 @@ describe('aggregateTicTacToe (Module C)', () => {
     expect(r.moveCounts.reduce((a, b) => a + b, 0)).toBe(1);
   });
 
+  it('excludes forfeited moves — a random substitute is not a decision', () => {
+    const m: PsychologyMatch = {
+      p1Id: S,
+      p2Id: O,
+      winner: 'p1',
+      moves: [
+        { player: 'p1', move: 0, forfeit: true }, // injected random → must not count
+        { player: 'p2', move: 3 },
+        { player: 'p1', move: 4 }, // real decision → the true opening
+      ],
+    };
+    const r = aggregateTicTacToe([m], S);
+    expect(r.n).toBe(1); // the match still counts toward the sample
+    expect(r.firstMoveCounts[0]).toBe(0); // forfeited cell never becomes the "opening"
+    expect(r.firstMoveCounts[4]).toBe(1); // first NON-forfeit move is the opening
+    expect(r.moveCounts[0]).toBe(0);
+    expect(r.moveCounts[4]).toBe(1);
+  });
+
   it('ignores matches the subject is not part of', () => {
     const foreign: PsychologyMatch = {
       p1Id: O,
@@ -114,6 +133,23 @@ describe('aggregateBattleship (Module C)', () => {
     expect(r.firstShotCounts[0]).toBe(2); // A1 was the opening shot both times
     expect(r.firstShotCounts[1]).toBe(0);
     expect(r.shotCounts.reduce((a, b) => a + b, 0)).toBe(4);
+  });
+
+  it('excludes forfeited shots from the shot map', () => {
+    const m: PsychologyMatch = {
+      p1Id: S,
+      p2Id: O,
+      winner: 'p1',
+      moves: [
+        { player: 'p1', move: 'A1', forfeit: true }, // random substitute → skip
+        { player: 'p1', move: 'B1' }, // real first shot → cell 1
+      ],
+    };
+    const r = aggregateBattleship([m], S, 6);
+    expect(r.shotCounts[0]).toBe(0); // forfeited A1 not counted
+    expect(r.shotCounts[1]).toBe(1);
+    expect(r.firstShotCounts[1]).toBe(1); // first real shot is the opening
+    expect(r.firstShotCounts[0]).toBe(0);
   });
 
   it('skips malformed / off-board coordinates', () => {

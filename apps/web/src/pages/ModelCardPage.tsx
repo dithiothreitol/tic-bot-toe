@@ -130,24 +130,40 @@ export function ModelCardPage() {
       apiGet<FailureRow[]>(
         `/api/failures?subjectId=${encodeURIComponent(subjectId)}&game=${game}&limit=5`,
       ),
-      apiGet<PsychologyResponse>(
-        `/api/psychology?subjectId=${encodeURIComponent(subjectId)}&${qs}`,
-      ),
     ])
-      .then(([rows, card, elo, hall, fails, ps]) => {
+      .then(([rows, card, elo, hall, fails]) => {
         if (!alive) return;
         setPopulation(rows);
         setData(card);
         setEloPoints(elo);
         setHalluc(hall);
         setFailures(fails);
-        setPsych(ps);
       })
       .catch(() => {
         if (alive) toast.error(t.modelCard.loadError);
       })
       .finally(() => {
         if (alive) setLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [subjectId, mode, game, variant]);
+
+  // Psychology (Module C) is a non-critical enhancement — fetched on its own so a
+  // failure here never blanks the core card (which the shared Promise.all would).
+  useEffect(() => {
+    if (!subjectId) return;
+    let alive = true;
+    setPsych(null);
+    apiGet<PsychologyResponse>(
+      `/api/psychology?subjectId=${encodeURIComponent(subjectId)}&mode=${mode}&game=${game}&variant=${variant}`,
+    )
+      .then((ps) => {
+        if (alive) setPsych(ps);
+      })
+      .catch(() => {
+        if (alive) setPsych(null);
       });
     return () => {
       alive = false;

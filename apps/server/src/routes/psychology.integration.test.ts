@@ -109,6 +109,29 @@ describe('GET /api/psychology — tic-tac-toe', () => {
     expect(body.payload.moveCounts[0]).toBe(0); // that was the opponent's cell
   });
 
+  it('excludes forfeited moves read from stored telemetry', async () => {
+    await insertMatch({
+      game: 'tictactoe',
+      variant: 'standard',
+      p1Id: 'openrouter:s',
+      p2Id: 'openrouter:o',
+      winner: 'p1',
+      moves: [
+        { player: 'p1', move: 0, telemetry: t(true) }, // forfeit → must not count
+        { player: 'p2', move: 3, telemetry: t() },
+        { player: 'p1', move: 4, telemetry: t() }, // real opening
+      ],
+    });
+    const res = await app().request(
+      '/api/psychology?subjectId=openrouter:s&game=tictactoe&variant=standard',
+    );
+    const body = (await res.json()) as PsychologyResponse;
+    if (body.payload?.game !== 'tictactoe') throw new Error('wrong game');
+    expect(body.payload.firstMoveCounts[0]).toBe(0);
+    expect(body.payload.firstMoveCounts[4]).toBe(1);
+    expect(body.payload.moveCounts[0]).toBe(0);
+  });
+
   it('excludes lab matches from the sample', async () => {
     await insertMatch({
       game: 'tictactoe',

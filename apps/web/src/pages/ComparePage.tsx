@@ -214,7 +214,9 @@ export function ComparePage() {
         </HudPanel>
       </div>
 
-      {!sameModel && (psychA?.payload || psychB?.payload) && (
+      {!sameModel &&
+        ((psychA?.payload != null && psychA.n >= MIN_PSYCH_SAMPLE) ||
+          (psychB?.payload != null && psychB.n >= MIN_PSYCH_SAMPLE)) && (
         <HudPanel className="flex flex-col gap-3 p-5">
           <SectionLabel>{t.modelCard.psychology}</SectionLabel>
           <p className="max-w-prose text-sm text-muted-foreground">
