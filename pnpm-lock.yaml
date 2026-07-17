@@ -93,6 +93,9 @@ importers:
       '@arena/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
+      '@arena/lexicons':
+        specifier: workspace:*
+        version: link:../../packages/lexicons
       '@fontsource/jetbrains-mono':
         specifier: ^5.2.8
         version: 5.2.8

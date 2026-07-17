@@ -3,6 +3,14 @@
 Jednozdaniowe decyzje podejmowane tam, gdzie SPEC.md nie rozstrzyga (zgodnie z
 regułą 5 promptu startowego). Najnowsze na górze.
 
+## Sudoku + Scrabble — Etap 6: UI Scrabble / „Słowna bitwa" (plan §7)
+
+- **Komponenty**: `ScrabbleBoard` (15×15, premie kolorami + etykiety 2L/3L/2W/3W/★, płytki z podglądem układanego słowa), `ScrabbleRack` (płytki z wartościami, blank=`?`), `ScrabbleGlyph`, kafel + selektor języka (pl/en) w `SetupScreen` (uogólnione `variantsForGame`). Nazwa UI „Słowna bitwa"/„Word Battle" (i18n pl+en), id techniczne `scrabble`.
+- **`ScrabbleArena`** (najbardziej złożony komponent planu): LLM-vs-LLM = widok boga (oba stojaki). Wejście człowieka — **builder**: tap pola startowego → przełącznik kierunku →/↓ → tap płytek stojaka; **litery już na planszy wplatane automatycznie** w notację (start cofa się po istniejących literach → notacja to zawsze pełne słowo), blank przez picker litery, **walidacja NA ŻYWO** przez `validateMove` (powód po polsku/angielsku), Zagraj/⌫/Wyczyść + Pas + Wymiana (multi-select, gdy worek ≥7). Test integracyjny potwierdza pełny przepływ (tap H8 → C,A,T → „H8>CAT" → Zagraj → onPlay).
+- **Ładowanie leksykonu przed startem** (`providers/lexicon.ts` — `ensureLexicon` fetch+rejestr, dedup): brama `needsLexicon` w `GameRunner` z paskiem postępu i obsługą błędu/retry. Artefakty serwowane przez plugin Vite `arena-lexicon-assets` (dev: middleware z `packages/lexicons/dist`; build: `emitFile` do `dist/lexicons/`) — **bez duplikacji w repo**. `@arena/lexicons` dodane do zależności web.
+- **Bez analizy** dla scrabble (plan §7.4): przycisk „Analiza" ukryty; `analyzeMatch` zwraca pusty wynik dla `scrabble` (potrzebne też serwerowi w Etapie 7). `safetyMaxMoves=200`.
+- **Weryfikacja**: build web emituje `dist/lexicons/{en,pl}.dawg`; dev-server serwuje `/lexicons/*.dawg` (200, poprawne rozmiary). Testy: `ScrabbleArena` (builder+PASS+widok boga), kafel w `SetupScreen`, spec e2e (pomijany bez klucza).
+
 ## Sudoku + Scrabble — Etap 5: silnik Scrabble / „Słowna bitwa" (plan §5)
 
 - **`scrabble-data.ts`**: oficjalne rozkłady i wartości płytek PL (100, z ą ć ę ł ń ó ś ź ż; bez q/v/x) i EN (100), plansza 15×15 z pełnym układem premii (8×TW, 17×DW z gwiazdką, 12×TL, 24×DL — zweryfikowane testem). Warianty gry = języki (`pl`/`en`).

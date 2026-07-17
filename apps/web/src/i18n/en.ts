@@ -118,6 +118,29 @@ export const en: Dict = {
     cancel: 'Cancel',
   },
 
+  scrabble: {
+    boardLabel: 'Word board',
+    rackLabel: 'Your rack',
+    blankTile: 'blank',
+    cell: (col: string, row: number, letter: string | null) =>
+      `Square ${col}${row}${letter ? `, letter ${letter}` : ''}`,
+    across: 'Across',
+    down: 'Down',
+    play: 'Play word',
+    pass: 'Pass',
+    exchange: 'Exchange',
+    exchangeHint: 'Pick tiles to exchange',
+    confirmExchange: 'Exchange selected',
+    clear: 'Clear',
+    cancel: 'Cancel',
+    pickBlank: 'Pick a letter for the blank',
+    bag: 'Bag',
+    loadingTitle: 'Loading dictionary',
+    loadingHint: 'Fetching the word-game dictionary (once — then served from cache).',
+    loadError: 'Could not load the dictionary. Check your connection and try again.',
+    retry: 'Try again',
+  },
+
   placement: {
     title: 'Place your fleet',
     instruction:

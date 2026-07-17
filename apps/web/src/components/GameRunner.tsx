@@ -7,6 +7,7 @@ import {
   type Move,
   type PlayerSide,
   type SetupConfig,
+  type ScrabbleState,
   type SetupRecord,
   type SudokuState,
   type TicTacToeCell,
@@ -22,7 +23,9 @@ import {
 import { AnalysisView } from '@/components/AnalysisView';
 import { Board3x3 } from '@/components/Board3x3';
 import { BattleshipBoard } from '@/components/BattleshipBoard';
+import { ScrabbleArena } from '@/components/ScrabbleArena';
 import { SudokuBoard } from '@/components/SudokuBoard';
+import { ensureLexicon, isLexiconReady } from '@/providers/lexicon';
 import { TimelineChart } from '@/components/charts/TimelineChart';
 import { GameLog } from '@/components/GameLog';
 import { ShipPlacement } from '@/components/ShipPlacement';
@@ -117,6 +120,7 @@ function safetyMaxMovesFor(game: GameId, variant: Variant): number {
     const vc = SUDOKU_VARIANTS_CONFIG[variant.id] ?? SUDOKU_VARIANTS_CONFIG.classic9;
     return 3 * (vc.size * vc.size - vc.clues) + 2;
   }
+  if (game === 'scrabble') return 200;
   return 9;
 }
 
@@ -280,8 +284,34 @@ export function GameRunner({
     config.game === 'battleship' && humanSide !== null && placement === null;
   const needsPrediction = prediction === 'pending';
 
+  // Scrabble needs its dictionary loaded + registered before any move can be
+  // validated (plan §6.3). Gate the match on it, with a load bar.
+  const scrabbleLang = config.game === 'scrabble' ? (config.variant.id as 'pl' | 'en') : null;
+  const [lexReady, setLexReady] = useState(() => scrabbleLang === null || isLexiconReady(scrabbleLang));
+  const [lexError, setLexError] = useState<string | null>(null);
+  const [lexProgress, setLexProgress] = useState(0);
+  const needsLexicon = scrabbleLang !== null && !lexReady;
+
   useEffect(() => {
-    if (needsPlacement || needsPrediction) return;
+    if (scrabbleLang === null || lexReady) return;
+    let alive = true;
+    setLexError(null);
+    ensureLexicon(scrabbleLang, (p) => {
+      if (alive && p.total) setLexProgress(p.loaded / p.total);
+    })
+      .then(() => {
+        if (alive) setLexReady(true);
+      })
+      .catch((e) => {
+        if (alive) setLexError(String((e as Error)?.message ?? e));
+      });
+    return () => {
+      alive = false;
+    };
+  }, [scrabbleLang, lexReady]);
+
+  useEffect(() => {
+    if (needsPlacement || needsPrediction || needsLexicon) return;
 
     const abort = new AbortController();
     aborterRef.current = abort;
@@ -425,14 +455,14 @@ export function GameRunner({
       abort.abort();
       commentator?.stop();
     };
-  }, [config, restartKey, placement, needsPlacement, needsPrediction, humanSide]);
+  }, [config, restartKey, placement, needsPlacement, needsPrediction, needsLexicon, humanSide]);
 
   // Feed the home-page "live" counter while the match is actually being played.
   // Best-effort heartbeat: it pings on start and every LIVE_BEAT_MS, and drops the
   // match the moment it ends or the component unmounts. Kept out of the run-loop
   // effect above so a beat never perturbs the game itself.
   const matchLive =
-    !needsPlacement && !needsPrediction && status === 'playing' && outcome === null;
+    !needsPlacement && !needsPrediction && !needsLexicon && status === 'playing' && outcome === null;
   useEffect(() => {
     if (!matchLive) return;
     const id = liveIdRef.current;
@@ -592,7 +622,15 @@ export function GameRunner({
   );
 
   const slotSymbol = (side: PlayerSide): string =>
-    config.game === 'tictactoe' ? (side === 'p1' ? 'X' : 'O') : config.game === 'sudoku' ? '#' : '⚓';
+    config.game === 'tictactoe'
+      ? side === 'p1'
+        ? 'X'
+        : 'O'
+      : config.game === 'sudoku'
+        ? '#'
+        : config.game === 'scrabble'
+          ? '✎'
+          : '⚓';
   /** Identicon seed: the model id, so the same model always looks the same. */
   const slotSeed = (side: PlayerSide): string => {
     const spec = side === 'p1' ? config.p1 : config.p2;
@@ -651,6 +689,46 @@ export function GameRunner({
           <Button variant="ghost" size="sm" onClick={() => setPrediction('skipped')}>
             {t.prediction.skip}
           </Button>
+        </HudPanel>
+      </div>
+    );
+  }
+
+  if (needsLexicon) {
+    return (
+      <div className="flex w-full flex-col gap-4">
+        {header}
+        {playerSlots}
+        <HudPanel brackets className="flex flex-col items-center gap-4 p-8">
+          <SectionLabel>{t.scrabble.loadingTitle}</SectionLabel>
+          {lexError ? (
+            <>
+              <p className="max-w-prose text-center text-sm text-danger">{t.scrabble.loadError}</p>
+              <Button
+                onClick={() => {
+                  setLexError(null);
+                  setLexReady(false);
+                }}
+              >
+                {t.scrabble.retry}
+              </Button>
+              <Button variant="ghost" size="sm" onClick={onExit}>
+                {t.result.backToSetup}
+              </Button>
+            </>
+          ) : (
+            <>
+              <p className="max-w-prose text-center text-sm text-muted-foreground">
+                {t.scrabble.loadingHint}
+              </p>
+              <div className="h-2 w-64 overflow-hidden border border-border bg-card-inset">
+                <div
+                  className="h-full bg-p1 transition-all"
+                  style={{ width: `${Math.round(lexProgress * 100)}%` }}
+                />
+              </div>
+            </>
+          )}
         </HudPanel>
       </div>
     );
@@ -718,6 +796,16 @@ export function GameRunner({
               state={state as SudokuState | null}
               interactive={isHumanTurn}
               toMove={toMove}
+              names={config.names}
+              onPlay={(move) => submit(move)}
+            />
+          ) : config.game === 'scrabble' ? (
+            <ScrabbleArena
+              state={state as ScrabbleState | null}
+              interactive={isHumanTurn}
+              toMove={toMove}
+              mode={config.mode}
+              humanSide={humanSide}
               names={config.names}
               onPlay={(move) => submit(move)}
             />
@@ -839,7 +927,8 @@ export function GameRunner({
           )}
           <div className="flex flex-wrap justify-center gap-3">
             <Button onClick={rematch}>{t.result.rematch}</Button>
-            {log.length > 0 && (
+            {/* Scrabble has no per-move analysis (plan §7.4). */}
+            {config.game !== 'scrabble' && log.length > 0 && (
               <Button
                 variant="outline"
                 onClick={() => setShowAnalysis((v) => !v)}

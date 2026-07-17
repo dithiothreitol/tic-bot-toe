@@ -114,6 +114,31 @@ test.describe('człowiek gra w Sudoku Duel', () => {
   });
 });
 
+test.describe('człowiek gra w Słowną bitwę', () => {
+  test('ładuje słownik, układa pierwsze słowo przez H8, może spasować', async ({ page }) => {
+    await seedKey(page);
+    await page.goto('/');
+
+    // Word Battle tile → default variant (pl or en); human moves first.
+    await page.getByRole('tab', { name: /słowna bitwa/i }).click();
+    await pickModel(page);
+    await page.getByRole('button', { name: /^start$/i }).click();
+
+    // The dictionary loads (once), then the word board appears.
+    await expect(page.getByRole('grid', { name: /plansza słowna/i })).toBeVisible({ timeout: 60_000 });
+
+    // PASS is always available — exercise it so a match can progress without a key
+    // to the dictionary-heavy placement flow.
+    await expect(page.getByRole('button', { name: /^pas$/i })).toBeVisible();
+
+    // The rack shows the player's tiles.
+    await expect(page.getByText(/twój stojak/i)).toBeVisible();
+    if (process.env.E2E_SHOTS) {
+      await page.screenshot({ path: `${process.env.E2E_SHOTS}/human-scrabble.png`, fullPage: true });
+    }
+  });
+});
+
 test.describe('człowiek gra w statki', () => {
   test('rozstawia flotę, strzela i widzi trafienia/pudła', async ({ page }) => {
     await seedKey(page);

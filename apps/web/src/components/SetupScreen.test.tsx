@@ -72,6 +72,15 @@ describe('SetupScreen', () => {
     expect(screen.getByText(pl.variants.mini)).toBeInTheDocument();
   });
 
+  it('offers Word Battle with a language (pl/en) selector', async () => {
+    const user = userEvent.setup();
+    renderSetup();
+
+    await user.click(await screen.findByRole('tab', { name: pl.games.scrabble }));
+    expect(await screen.findByText(pl.setup.variant)).toBeInTheDocument();
+    expect(screen.getByText(pl.variants.pl)).toBeInTheDocument(); // "Polski"
+  });
+
   it('restores a remembered model once the catalog loads', async () => {
     useSetupPrefs.setState({ p2ModelId: 'vendor/one' });
     renderSetup();

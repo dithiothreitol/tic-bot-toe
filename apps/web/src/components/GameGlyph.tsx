@@ -55,6 +55,25 @@ export function SudokuGlyph() {
   );
 }
 
+/** Three lettered tiles, hinting at a word game. */
+export function ScrabbleGlyph() {
+  return (
+    <div aria-hidden className="flex w-fit items-center gap-[2px]">
+      {['W', 'O', 'R'].map((ch, i) => (
+        <span
+          key={ch}
+          className={cn(
+            'flex size-[11px] items-center justify-center border font-mono text-[7px] font-bold leading-none',
+            i === 1 ? 'border-p2/60 bg-p2/20 text-p2' : 'border-p1/60 bg-p1/20 text-p1',
+          )}
+        >
+          {ch}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 /** A fleet: bars of different lengths, hinting at the ship sizes. */
 export function BattleshipGlyph() {
   return (

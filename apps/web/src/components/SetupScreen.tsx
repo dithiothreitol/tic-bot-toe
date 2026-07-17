@@ -5,11 +5,12 @@ import {
   type GameId,
   type Variant,
   BATTLESHIP_VARIANTS,
+  SCRABBLE_VARIANTS,
   SUDOKU_VARIANTS,
   TICTACTOE_VARIANTS,
 } from '@arena/game-core';
 
-import { BattleshipGlyph, SudokuGlyph, TicTacToeGlyph } from '@/components/GameGlyph';
+import { BattleshipGlyph, ScrabbleGlyph, SudokuGlyph, TicTacToeGlyph } from '@/components/GameGlyph';
 import { ModelPicker } from '@/components/ModelPicker';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
@@ -54,6 +55,7 @@ const gameTileClass =
 function variantsForGame(game: GameId): Variant[] {
   if (game === 'battleship') return BATTLESHIP_VARIANTS;
   if (game === 'sudoku') return SUDOKU_VARIANTS;
+  if (game === 'scrabble') return SCRABBLE_VARIANTS;
   return TICTACTOE_VARIANTS;
 }
 
@@ -61,6 +63,7 @@ function variantsForGame(game: GameId): Variant[] {
 function humanSymbol(game: GameId): string {
   if (game === 'tictactoe') return 'X';
   if (game === 'sudoku') return '#';
+  if (game === 'scrabble') return '✎';
   return '⚓';
 }
 
@@ -319,6 +322,15 @@ export function SetupScreen({
                   <span className="text-sm font-semibold text-foreground">{t.games.sudoku}</span>
                   <span className="font-mono text-[10px] normal-case tracking-normal text-faint">
                     {t.gameMeta.sudoku}
+                  </span>
+                </span>
+              </TabsTrigger>
+              <TabsTrigger value="scrabble" aria-label={t.games.scrabble} className={gameTileClass}>
+                <ScrabbleGlyph />
+                <span className="flex flex-col items-start gap-0.5 text-left">
+                  <span className="text-sm font-semibold text-foreground">{t.games.scrabble}</span>
+                  <span className="font-mono text-[10px] normal-case tracking-normal text-faint">
+                    {t.gameMeta.scrabble}
                   </span>
                 </span>
               </TabsTrigger>

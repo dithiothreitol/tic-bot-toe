@@ -125,6 +125,29 @@ export const pl = {
     cancel: 'Anuluj',
   },
 
+  scrabble: {
+    boardLabel: 'Plansza słowna',
+    rackLabel: 'Twój stojak',
+    blankTile: 'blank',
+    cell: (col: string, row: number, letter: string | null) =>
+      `Pole ${col}${row}${letter ? `, litera ${letter}` : ''}`,
+    across: 'W poziomie',
+    down: 'W pionie',
+    play: 'Zagraj słowo',
+    pass: 'Pas',
+    exchange: 'Wymień',
+    exchangeHint: 'Wybierz płytki do wymiany',
+    confirmExchange: 'Wymień wybrane',
+    clear: 'Wyczyść',
+    cancel: 'Anuluj',
+    pickBlank: 'Wybierz literę dla blanku',
+    bag: 'Worek',
+    loadingTitle: 'Ładowanie słownika',
+    loadingHint: 'Pobieram słownik do gry słownej (jednorazowo, potem z pamięci).',
+    loadError: 'Nie udało się pobrać słownika. Sprawdź połączenie i spróbuj ponownie.',
+    retry: 'Spróbuj ponownie',
+  },
+
   placement: {
     title: 'Rozstaw flotę',
     instruction:

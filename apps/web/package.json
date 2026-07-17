@@ -29,7 +29,8 @@
     "recharts": "^3.9.2",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.6.0",
-    "zustand": "^5.0.14"
+    "zustand": "^5.0.14",
+    "@arena/lexicons": "workspace:*"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.2",

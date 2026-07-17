@@ -55,6 +55,12 @@ export function analyzeMatch(
   setup: SetupRecord | null | undefined,
   moves: AnalyzedMove[],
 ): GameAnalysis {
+  // Scrabble has no per-move analysis (plan §12) — return an empty result so the
+  // client analysis screen and the server's eval revalidation both no-op for it.
+  if (game === 'scrabble') {
+    return { game, moves: [], accuracy: emptyAccuracy(), turningPoint: null };
+  }
+
   const engine =
     game === 'tictactoe' ? ticTacToe : game === 'sudoku' ? sudoku : battleship;
   const variantObj: Variant = engine.variants.find((v) => v.id === variant) ?? {
