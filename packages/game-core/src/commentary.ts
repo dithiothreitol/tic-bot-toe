@@ -1,7 +1,8 @@
 import { type BattleshipState, battleship } from './battleship';
+import type { ScrabbleState } from './scrabble';
 import type { SudokuState } from './sudoku';
 import type { TicTacToeState } from './tictactoe';
-import type { GameId, Move, MoveQuality, PlayerSide, TicTacToeCell } from './types';
+import type { GameId, Move, MoveQuality, PlacedTile, PlayerSide, TicTacToeCell } from './types';
 
 /**
  * The AI commentator's PROMPT (SPEC §12.1) — pure, deterministic, and shared.
@@ -109,9 +110,26 @@ function describeSudoku(state: SudokuState): string {
   return [`Scores: Player 1 ${state.scores.p1}, Player 2 ${state.scores.p2}`, ...rows].join('\n');
 }
 
+/** The board (letters where played, '.' elsewhere) + the score standing. */
+function describeScrabble(state: ScrabbleState): string {
+  const n = 15;
+  const board = state.board as (PlacedTile | null)[];
+  const rows: string[] = [];
+  for (let r = 0; r < n; r++) {
+    let line = '';
+    for (let c = 0; c < n; c++) {
+      const t = board[r * n + c];
+      line += t ? t.letter : '.';
+    }
+    rows.push(line);
+  }
+  return [`Scores: Player 1 ${state.scores.p1}, Player 2 ${state.scores.p2}`, ...rows].join('\n');
+}
+
 export function describeGodView(game: GameId, state: unknown): string {
   if (game === 'tictactoe') return describeTicTacToe(state as TicTacToeState);
   if (game === 'sudoku') return describeSudoku(state as SudokuState);
+  if (game === 'scrabble') return describeScrabble(state as ScrabbleState);
   return describeBattleship(state as BattleshipState);
 }
 
@@ -154,7 +172,7 @@ export function buildCommentaryPrompt(
   ].join('\n');
 
   const lines = [
-    `Game: ${req.game === 'tictactoe' ? 'tic-tac-toe' : req.game === 'sudoku' ? 'sudoku duel' : 'battleship'}`,
+    `Game: ${req.game === 'tictactoe' ? 'tic-tac-toe' : req.game === 'sudoku' ? 'sudoku duel' : req.game === 'scrabble' ? 'word game' : 'battleship'}`,
     `Board after the move (god view):`,
     describeGodView(req.game, req.state),
     '',

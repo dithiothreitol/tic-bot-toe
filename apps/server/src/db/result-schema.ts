@@ -30,7 +30,7 @@ const resultMove = z.object({
 
 export const resultPayloadSchema = z.object({
   mode: z.enum(['model_vs_model', 'human_vs_model']),
-  game: z.enum(['tictactoe', 'battleship', 'sudoku']),
+  game: z.enum(['tictactoe', 'battleship', 'sudoku', 'scrabble']),
   variant: z.string().min(1).max(50),
   p1Id: subjectId,
   p2Id: subjectId,

@@ -3,6 +3,13 @@
 Jednozdaniowe decyzje podejmowane tam, gdzie SPEC.md nie rozstrzyga (zgodnie z
 regułą 5 promptu startowego). Najnowsze na górze.
 
+## Sudoku + Scrabble — Etap 7: serwer Scrabble + deploy (plan §8)
+
+- **Boot leksykonów**: `index.ts` ładuje i rejestruje `pl`+`en` przez `@arena/lexicons/node` (`LEXICON_DIR` z configu, default = dist pakietu). Best-effort — błąd wyłącza tylko zapis scrabble, nie serwer. **Brama 503**: `POST /api/result` dla `game='scrabble'` gdy brak obu leksykonów → `503 lexicon_unavailable` (transient, nie 422). `result-schema` z.enum += `scrabble`; `routes/commentary` enum += scrabble.
+- **OG**: `drawScrabble` (plansza z płytkami) + etykiety `CARD_COPY`/`meta` „Słowna bitwa"/„Word Battle". `commentary.ts` (game-core) `describeScrabble` (plansza+wynik); klient `classifyLastMove` neutralny dla scrabble (brak solvera). `analyzeMatch` pusty dla scrabble.
+- **Deploy**: `LEXICON_DIR=/app/web/lexicons` — **artefakty z buildu Vite** (plugin emituje `dist/lexicons/*.dawg`) serwują JEDNOCZEŚNIE przeglądarkę (statycznie) i serwer (fs), bez osobnej kopii. Manifest `packages/lexicons` dodany do warstwy install Dockerfile. `.env.example` + `LEXICON_DIR`. README (leksykony) już z Etapu 4.
+- **Weryfikacja**: server-side z REALNYM słownikiem (bez DB) — boot ładuje pl+en, `validateMove('H8>KOTY')` = ok na pełnym słowniku PL (3,24 mln słów), `applyMove` = 14 pkt (K2+O1+T2+Y2, centrum ×2). Testy integracyjne scrabble (zapis→ratingi, pierwszy ruch bez H8→422, brak leksykonu→503) i OG render napisane + typecheck; **uruchomienie testcontainers/dev-stack niedostępne w tej sesji (Docker Desktop wyłączony)** — pokrycie wzorowane na przechodzących testach sudoku z Etapu 3, do przebiegu w CI.
+
 ## Sudoku + Scrabble — Etap 6: UI Scrabble / „Słowna bitwa" (plan §7)
 
 - **Komponenty**: `ScrabbleBoard` (15×15, premie kolorami + etykiety 2L/3L/2W/3W/★, płytki z podglądem układanego słowa), `ScrabbleRack` (płytki z wartościami, blank=`?`), `ScrabbleGlyph`, kafel + selektor języka (pl/en) w `SetupScreen` (uogólnione `variantsForGame`). Nazwa UI „Słowna bitwa"/„Word Battle" (i18n pl+en), id techniczne `scrabble`.

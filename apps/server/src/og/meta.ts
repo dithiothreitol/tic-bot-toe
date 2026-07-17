@@ -103,7 +103,8 @@ const REPLAY_COPY: Record<
   }
 > = {
   pl: {
-    game: (game) => (game === 'tictactoe' ? 'kółko i krzyżyk' : game === 'sudoku' ? 'sudoku duel' : 'statki'),
+    game: (game) =>
+      game === 'tictactoe' ? 'kółko i krzyżyk' : game === 'sudoku' ? 'sudoku duel' : game === 'scrabble' ? 'słowna bitwa' : 'statki',
     draw: 'remis',
     wins: (who) => `${who} wygrywa`,
     fallback: 'partia',
@@ -111,7 +112,8 @@ const REPLAY_COPY: Record<
       `LLM Game Arena · ${game} ${variant} · ${result}. Powtórka krok po kroku.`,
   },
   en: {
-    game: (game) => (game === 'tictactoe' ? 'tic-tac-toe' : game === 'sudoku' ? 'sudoku duel' : 'battleship'),
+    game: (game) =>
+      game === 'tictactoe' ? 'tic-tac-toe' : game === 'sudoku' ? 'sudoku duel' : game === 'scrabble' ? 'word battle' : 'battleship',
     draw: 'draw',
     wins: (who) => `${who} wins`,
     fallback: 'match',

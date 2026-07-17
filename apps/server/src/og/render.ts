@@ -10,7 +10,9 @@ import {
   type BattleshipState,
   type GameId,
   type Move,
+  type PlacedTile,
   type PlayerSide,
+  type ScrabbleState,
   type SetupRecord,
   type SudokuState,
   type TicTacToeState,
@@ -217,16 +219,43 @@ function drawSudoku(ctx: Ctx, state: SudokuState, cx: number, cy: number, size: 
   }
 }
 
+/** Final word-game board: placed tiles as lettered squares. */
+function drawScrabble(ctx: Ctx, state: ScrabbleState, cx: number, cy: number, size: number): void {
+  const n = 15;
+  const cell = size / n;
+  const board = state.board as (PlacedTile | null)[];
+  for (let i = 0; i < n * n; i++) {
+    const col = i % n;
+    const row = Math.floor(i / n);
+    const x = cx + col * cell;
+    const y = cy + row * cell;
+    const t = board[i];
+    ctx.fillStyle = t ? (t.isBlank ? '#243049' : '#1b2740') : '#0a1120';
+    ctx.fillRect(x + 0.5, y + 0.5, cell - 1, cell - 1);
+    ctx.strokeStyle = GRID;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x + 0.5, y + 0.5, cell - 1, cell - 1);
+    if (t) {
+      ctx.fillStyle = t.isBlank ? P2 : '#dfe7ff';
+      ctx.font = mono(Math.floor(cell * 0.6), true);
+      ctx.textAlign = 'center';
+      ctx.fillText(t.letter, x + cell / 2, y + cell * 0.72);
+    }
+  }
+}
+
 /** The only words on the card — the rest is the board and the model ids. */
 const CARD_COPY: Record<Locale, { game: (g: GameId) => string; draw: string; wins: (w: string) => string; fallback: string }> = {
   pl: {
-    game: (g) => (g === 'tictactoe' ? 'Kółko i krzyżyk' : g === 'sudoku' ? 'Sudoku Duel' : 'Statki'),
+    game: (g) =>
+      g === 'tictactoe' ? 'Kółko i krzyżyk' : g === 'sudoku' ? 'Sudoku Duel' : g === 'scrabble' ? 'Słowna bitwa' : 'Statki',
     draw: 'remis',
     wins: (w) => `${w} wygrywa`,
     fallback: 'partia',
   },
   en: {
-    game: (g) => (g === 'tictactoe' ? 'Tic-tac-toe' : g === 'sudoku' ? 'Sudoku Duel' : 'Battleship'),
+    game: (g) =>
+      g === 'tictactoe' ? 'Tic-tac-toe' : g === 'sudoku' ? 'Sudoku Duel' : g === 'scrabble' ? 'Word Battle' : 'Battleship',
     draw: 'draw',
     wins: (w) => `${w} wins`,
     fallback: 'match',
@@ -329,6 +358,8 @@ export function renderMatchOg(match: OgMatch, locale: Locale = 'pl'): Buffer {
       drawTicTacToe(ctx, state as TicTacToeState, bx, by, boardSize);
     } else if (match.game === 'sudoku') {
       drawSudoku(ctx, state as SudokuState, bx, by, boardSize);
+    } else if (match.game === 'scrabble') {
+      drawScrabble(ctx, state as ScrabbleState, bx, by, boardSize);
     } else {
       drawBattleship(ctx, state as BattleshipState, bx, by, boardSize);
     }

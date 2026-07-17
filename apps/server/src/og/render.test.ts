@@ -59,6 +59,21 @@ describe('renderMatchOg', () => {
     expect(png.subarray(0, 4)).toEqual(PNG_MAGIC);
   });
 
+  it('renders a scrabble (Word Battle) match to a PNG buffer', () => {
+    const match: OgMatch = {
+      game: 'scrabble',
+      variant: 'pl',
+      p1Id: 'openrouter:a',
+      p2Id: 'openrouter:b',
+      winner: 'draw',
+      setup: { game: 'scrabble', variant: 'pl', seed: 1 },
+      moves: [], // empty board is enough to exercise the scrabble draw path
+    };
+    const png = renderMatchOg(match);
+    expect(png.length).toBeGreaterThan(1000);
+    expect(png.subarray(0, 4)).toEqual(PNG_MAGIC);
+  });
+
   it('falls back to a title card on a corrupt move list (never throws)', () => {
     const match: OgMatch = {
       game: 'tictactoe',

@@ -5,7 +5,9 @@ import { serveStatic } from '@hono/node-server/serve-static';
 import { desc, eq } from 'drizzle-orm';
 import type { Context } from 'hono';
 
+import { registerLexicon } from '@arena/game-core';
 import { localeFromPath, localePath } from '@arena/i18n';
+import { loadLexiconNode } from '@arena/lexicons/node';
 
 import { buildApp } from './app';
 import { loadConfig } from './config';
@@ -38,6 +40,19 @@ if (config.databaseUrl) {
   console.log('[server] migrations applied');
 } else {
   console.warn('[server] DATABASE_URL not set — ranking endpoints disabled');
+}
+
+// Word-game dictionaries: load + register both so scrabble replay can validate
+// words (plan §8.2). Until they are ready, POST /api/result refuses scrabble
+// with 503 (routes/result). Best-effort — a failure only disables scrabble
+// saving, never the rest of the server. `LEXICON_DIR` overrides the path.
+for (const lang of ['pl', 'en'] as const) {
+  try {
+    registerLexicon(lang, await loadLexiconNode(lang, config.lexiconDir));
+    console.log(`[server] ${lang} lexicon loaded`);
+  } catch (e) {
+    console.warn(`[server] ${lang} lexicon unavailable — scrabble saving disabled:`, (e as Error).message);
+  }
 }
 
 const app = buildApp({ config, db: dbHandle?.db });

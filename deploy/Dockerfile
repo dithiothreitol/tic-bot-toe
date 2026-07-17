@@ -11,6 +11,7 @@ WORKDIR /app
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json tsconfig.base.json ./
 COPY packages/game-core/package.json packages/game-core/
 COPY packages/i18n/package.json packages/i18n/
+COPY packages/lexicons/package.json packages/lexicons/
 COPY apps/web/package.json apps/web/
 COPY apps/server/package.json apps/server/
 RUN pnpm install --frozen-lockfile
@@ -32,7 +33,11 @@ FROM node:22-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production \
     PORT=8080 \
-    STATIC_DIR=/app/web
+    STATIC_DIR=/app/web \
+    # The word-game dictionaries: the Vite build emits them into the web bundle
+    # (/app/web/lexicons/*.dawg — plan §6.1), so the server reads them straight
+    # from there. No separate copy; the same files serve the browser and the server.
+    LEXICON_DIR=/app/web/lexicons
 
 # Fonts for the OG canvas renderer (Alpine ships none — DejaVu covers Polish).
 RUN apk add --no-cache font-dejavu

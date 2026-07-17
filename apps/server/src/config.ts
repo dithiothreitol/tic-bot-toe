@@ -14,6 +14,8 @@ export interface Config {
   databaseUrl: string;
   /** Directory of the built frontend to serve (single-port deploy). */
   staticDir: string;
+  /** Where the word-game `.dawg` dictionaries live; undefined = the package default. */
+  lexiconDir: string | undefined;
   /**
    * The AI-coach (§12.1) Gemini key. A SERVER secret funded by the owner, NOT a
    * per-user BYOK key — empty means the funded coach is simply unavailable (the
@@ -43,6 +45,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     trustedProxy: env.TRUSTED_PROXY === 'true',
     databaseUrl: env.DATABASE_URL ?? '',
     staticDir: env.STATIC_DIR ?? '../web/dist',
+    lexiconDir: env.LEXICON_DIR ?? undefined,
     // Its OWN var, not the dev-time asset-gen GEMINI_API_KEY — otherwise a key set
     // for image generation would silently switch on a paid, public coach in prod.
     geminiApiKey: env.GEMINI_COACH_API_KEY ?? '',

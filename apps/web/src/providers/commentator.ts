@@ -128,6 +128,11 @@ export function classifyLastMove(
     // The engine grades sudoku itself from the state before the move.
     return sudoku.evaluateMove!(stateBefore as SudokuState, player, move as string).quality;
   }
+  if (game === 'scrabble') {
+    // Scrabble has no per-move solver (plan §12) — a neutral rating; the
+    // commentator still remarks on the opening and the finish.
+    return 'good';
+  }
   const s = stateBefore as BattleshipState;
   const cell = coordToCell(move as string, s.size);
   if (cell === null) return 'weak';

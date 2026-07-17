@@ -7,11 +7,15 @@ import {
   type GameId,
   type Move,
   type SudokuState,
+  clearLexicons,
   getGame,
+  miniLexicon,
+  registerLexicon,
+  scrabble,
   sudoku,
 } from '@arena/game-core';
 import { eq, sql } from 'drizzle-orm';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { buildApp } from './app';
 import { newJti, signSession, signStartToken } from './auth/jwt';
@@ -116,6 +120,19 @@ function playSudoku(variantId: string, seed: number, p1Id: string, p2Id: string)
     state = sudoku.applyMove(state, side, move);
   }
   return { mode: 'model_vs_model', game: 'sudoku', variant: variantId, p1Id, p2Id, moves, setup: sudoku.serializeSetup(state) };
+}
+
+/** A short valid scrabble match (4 passes → the game ends on the scoreless rule). */
+function playScrabblePasses(seed: number, p1Id: string, p2Id: string): ResultPayload {
+  let st = scrabble.createInitialState({ id: 'pl', label: '' }, { seed });
+  const moves: ResultMove[] = [];
+  const tele = { latencyMs: 4000, retries: 0, forfeit: false, promptTokens: 20, completionTokens: 2, costUsd: 0.0001 };
+  for (let i = 0; i < 4 && scrabble.status(st) === 'playing'; i++) {
+    const side = scrabble.currentPlayer(st);
+    moves.push({ player: side, move: 'PASS', telemetry: { ...tele } });
+    st = scrabble.applyMove(st, side, 'PASS');
+  }
+  return { mode: 'model_vs_model', game: 'scrabble', variant: 'pl', p1Id, p2Id, moves, setup: scrabble.serializeSetup(st) };
 }
 
 /**
@@ -368,6 +385,69 @@ describe('submitResult (real Postgres via testcontainers)', () => {
     if (!res.ok) expect(res.code).toBe(422);
   });
 });
+
+describe('submitResult — scrabble (needs registered lexicons)', () => {
+  beforeEach(() => {
+    registerLexicon('pl', miniLexicon('pl', []));
+    registerLexicon('en', miniLexicon('en', []));
+  });
+  afterEach(() => clearLexicons());
+
+  it('accepts a valid scrabble match and records both ratings', async () => {
+    const payload = playScrabblePasses(3, 'openrouter:wordy', 'openrouter:silent');
+    const res = await submitResult(handle.db, newJti(), payload, '1.2.3.4');
+    expect(res.ok).toBe(true);
+    if (res.ok) expect(['p1', 'p2', 'draw']).toContain(res.winner);
+    // Both subjects get a per-(mode,game,variant) rating row.
+    const rows = (await handle.db.select().from(ratings)).filter((r) => r.game === 'scrabble');
+    expect(rows).toHaveLength(2);
+    expect(rows.every((r) => r.variant === 'pl')).toBe(true);
+  });
+
+  it('rejects a scrabble match whose first word does not cover H8 (422)', async () => {
+    const payload = playScrabblePasses(5, 'openrouter:a', 'openrouter:b');
+    // Replace the first move with an illegal opening placement.
+    payload.moves[0] = { ...payload.moves[0]!, move: 'A1>AT' };
+    const res = await submitResult(handle.db, newJti(), payload, null);
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.code).toBe(422);
+  });
+});
+
+describe('POST /api/result — scrabble 503 until the lexicons load (§8.2)', () => {
+  it('refuses a scrabble result with 503 when no lexicon is registered', async () => {
+    clearLexicons(); // simulate a server that has not finished loading dictionaries
+    const config = loadConfig({ JWT_SECRET: 'test-secret' });
+    const app = buildApp({ config, db: handle.db });
+    const { token } = await signSession('test-secret', 1800, newJti());
+    const payload = playScrabblePassesUnvalidated();
+
+    const res = await app.request('/api/result', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+      body: JSON.stringify(payload),
+    });
+    expect(res.status).toBe(503);
+    expect(((await res.json()) as { error: string }).error).toBe('lexicon_unavailable');
+  });
+});
+
+/** A scrabble payload built WITHOUT touching the engine (so no lexicon is needed to construct it). */
+function playScrabblePassesUnvalidated(): ResultPayload {
+  const tele = { latencyMs: 4000, retries: 0, forfeit: false, promptTokens: 20, completionTokens: 2 };
+  return {
+    mode: 'model_vs_model',
+    game: 'scrabble',
+    variant: 'pl',
+    p1Id: 'openrouter:a',
+    p2Id: 'openrouter:b',
+    moves: [
+      { player: 'p1', move: 'PASS', telemetry: { ...tele } },
+      { player: 'p2', move: 'PASS', telemetry: { ...tele } },
+    ],
+    setup: { game: 'scrabble', variant: 'pl', seed: 1 },
+  };
+}
 
 describe('HTTP endpoints (real Postgres)', () => {
   it('POST /api/result requires a JWT and saves on success', async () => {

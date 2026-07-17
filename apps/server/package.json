@@ -24,7 +24,8 @@
     "hono": "^4.12.29",
     "jose": "^6.2.3",
     "postgres": "^3.4.9",
-    "zod": "^4.4.3"
+    "zod": "^4.4.3",
+    "@arena/lexicons": "workspace:*"
   },
   "devDependencies": {
     "@testcontainers/postgresql": "^12.0.4",

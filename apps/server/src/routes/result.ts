@@ -1,3 +1,4 @@
+import { hasLexicon } from '@arena/game-core';
 import { Hono } from 'hono';
 
 import { verifySession, verifyStartToken } from '../auth/jwt';
@@ -37,6 +38,13 @@ export function resultRoute(deps: { db: Database; config: Config; now?: () => nu
     const parsed = resultPayloadSchema.safeParse(raw);
     if (!parsed.success) return c.json({ error: 'bad_payload' }, 400);
     const payload = parsed.data as ResultPayload;
+
+    // Scrabble replay validates words against the dictionaries. Until the server
+    // has loaded both (plan §6.3/§8.2), refuse scrabble results with 503 — a
+    // transient "not ready", not a permanent rejection.
+    if (payload.game === 'scrabble' && !(hasLexicon('pl') && hasLexicon('en'))) {
+      return c.json({ error: 'lexicon_unavailable' }, 503);
+    }
 
     // `human:<id>` is the server's namespace, minted from a verified player
     // token. Accepting it from the client would let anyone write into another

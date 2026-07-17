@@ -38,6 +38,9 @@ importers:
       '@arena/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
+      '@arena/lexicons':
+        specifier: workspace:*
+        version: link:../../packages/lexicons
       '@hono/node-server':
         specifier: ^2.0.8
         version: 2.0.8(hono@4.12.29)
