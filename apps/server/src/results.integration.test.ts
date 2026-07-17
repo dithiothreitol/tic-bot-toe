@@ -268,6 +268,30 @@ describe('submitResult (real Postgres via testcontainers)', () => {
     expect(a.capturedMoves).toBe(a.totalMoves); // denominator started this match
   });
 
+  it('never writes hallucination counters onto the human ranking row (D1)', async () => {
+    const player = await resolvePlayer(handle.db, 'b'.repeat(40));
+    const payload = playHuman(7);
+    // A crafted payload puts model-style rejections on the HUMAN (p1) moves.
+    payload.moves = payload.moves.map((m) =>
+      m.player === 'p1'
+        ? { ...m, rejections: [{ kind: 'illegal', reason: 'x', attempted: 'A1', raw: 'r' }] }
+        : m,
+    );
+
+    const res = await submitResult(handle.db, newJti(), payload, '9.9.9.9', humanOpts(player));
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+
+    const rows = await handle.db.select().from(ratings);
+    const human = rows.find((r) => r.subjectId.startsWith('human:'))!;
+    expect(human.rejectedAttempts).toBe(0);
+    expect(human.movesWithRejections).toBe(0);
+    expect(human.capturedMoves).toBe(0);
+    // …and nothing about the human's moves reaches the museum either.
+    const gallery = await handle.db.select().from(failureGallery);
+    expect(gallery.filter((g) => g.subjectId.startsWith('human:'))).toHaveLength(0);
+  });
+
   it('rejects an illegal move (422)', async () => {
     const payload = playOut('tictactoe', 'standard', 0, 4000, 'a', 'b');
     payload.moves[2] = { ...payload.moves[2]!, move: payload.moves[0]!.move }; // occupied

@@ -485,6 +485,21 @@ describe('GET /api/hallucinations (Module B, Etap 1)', () => {
     // capturedMoves defaulted to 0 → the honest answer is "no data", not 100%.
     expect(data[0]!.cleanFirstTryRate).toBeNull();
   });
+
+  it('returns `since` as a browser-parseable ISO date once a failure is captured', async () => {
+    const mid = await insertMatch({ game: 'tictactoe', variant: 'standard', mode: 'model_vs_model', p1Id: 'openrouter:a', p2Id: 'openrouter:b', winner: 'p1' });
+    await handle.db.insert(ratings).values([
+      { subjectId: 'openrouter:a', mode: 'model_vs_model', game: 'tictactoe', variant: 'standard', totalMoves: 10, forfeitMoves: 0, games: 2, capturedMoves: 10, movesWithRejections: 1 },
+    ]);
+    await handle.db.insert(failureGallery).values([
+      { matchId: mid, subjectId: 'openrouter:a', game: 'tictactoe', variant: 'standard', kind: 'illegal', attempted: '4', reason: 'x', excerpt: 'y', moveIndex: 0 },
+    ]);
+
+    const data = (await (await app().request('/api/hallucinations?game=tictactoe')).json()) as Array<{ since: string | null }>;
+    // ISO-8601 (T separator) — new Date() parses it on every engine, not just V8.
+    expect(data[0]!.since).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
+    expect(Number.isNaN(new Date(data[0]!.since!).getTime())).toBe(false);
+  });
 });
 
 /** The „muzeum wpadek" feed (Module B, plan §4.3, Etap 3). */

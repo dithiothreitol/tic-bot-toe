@@ -48,34 +48,44 @@ export function hallucinationsRoute(deps: { db: Database }): Hono {
     const game = c.req.query('game') ?? 'tictactoe';
     const variant = c.req.query('variant'); // absent = summed across all variants
 
-    const rows = await deps.db
-      .select({
-        subjectId: ratings.subjectId,
-        forfeitMoves: sql<number>`sum(${ratings.forfeitMoves})::int`,
-        totalMoves: sql<number>`sum(${ratings.totalMoves})::int`,
-        games: sql<number>`sum(${ratings.games})::int`,
-        capturedMoves: sql<number>`sum(${ratings.capturedMoves})::int`,
-        rejectedAttempts: sql<number>`sum(${ratings.rejectedAttempts})::int`,
-        movesWithRejections: sql<number>`sum(${ratings.movesWithRejections})::int`,
-      })
-      .from(ratings)
-      .where(
-        and(
-          eq(ratings.mode, mode),
-          eq(ratings.game, game),
-          variant ? eq(ratings.variant, variant) : undefined,
-          sql`${ratings.subjectId} NOT LIKE 'human%'`,
-        ),
-      )
-      .groupBy(ratings.subjectId);
+    // Both reads are independent — run them together, not back-to-back.
+    const [rows, sinceRows] = await Promise.all([
+      deps.db
+        .select({
+          subjectId: ratings.subjectId,
+          forfeitMoves: sql<number>`sum(${ratings.forfeitMoves})::int`,
+          totalMoves: sql<number>`sum(${ratings.totalMoves})::int`,
+          games: sql<number>`sum(${ratings.games})::int`,
+          capturedMoves: sql<number>`sum(${ratings.capturedMoves})::int`,
+          rejectedAttempts: sql<number>`sum(${ratings.rejectedAttempts})::int`,
+          movesWithRejections: sql<number>`sum(${ratings.movesWithRejections})::int`,
+        })
+        .from(ratings)
+        .where(
+          and(
+            eq(ratings.mode, mode),
+            eq(ratings.game, game),
+            variant ? eq(ratings.variant, variant) : undefined,
+            sql`${ratings.subjectId} NOT LIKE 'human%'`,
+          ),
+        )
+        .groupBy(ratings.subjectId),
+      // When capture began for this game — a UI caveat for the D5b metric. Null
+      // when nothing has been captured yet (the metric then reads null). We pull
+      // the epoch (ms) rather than the timestamp, so there is no date-string to
+      // parse on either side — just a number.
+      deps.db
+        .select({
+          sinceMs: sql<number | null>`extract(epoch from min(${failureGallery.createdAt})) * 1000`,
+        })
+        .from(failureGallery)
+        .where(eq(failureGallery.game, game)),
+    ]);
 
-    // When capture began for this game — a UI caveat for the D5b metric. Null
-    // when nothing has been captured yet (the metric then simply reads 100%/null).
-    const sinceRows = await deps.db
-      .select({ since: sql<string | null>`min(${failureGallery.createdAt})::text` })
-      .from(failureGallery)
-      .where(eq(failureGallery.game, game));
-    const since = sinceRows[0]?.since ?? null;
+    // Emit ISO-8601 the browser parses on every engine (a raw Postgres timestamp
+    // text is space-separated and `new Date()` rejects it on Firefox/Safari).
+    const sinceMs = sinceRows[0]?.sinceMs ?? null;
+    const since = sinceMs != null ? new Date(Number(sinceMs)).toISOString() : null;
 
     const data: HallucinationRow[] = rows
       .map((r) => ({

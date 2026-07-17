@@ -159,10 +159,12 @@ interface SideAgg {
   decidedLatencySum: number;
   /** Optimal moves per §12.2, computed server-side (never trusted from client). */
   optimal: number;
-  /** Illegal/unparseable attempts this side made (transport excluded — D5). */
+  /** Illegal/unparseable attempts this side made (transport excluded — D5). 0 for the human side. */
   rejectedAttempts: number;
-  /** Moves that carried at least one such attempt (numerator of "not clean"). */
+  /** Moves that carried at least one such attempt (numerator of "not clean"). 0 for the human side. */
   movesWithRejections: number;
+  /** Denominator for `cleanFirstTryRate` — this side's moves, or 0 for the human side (D1). */
+  capturedMoves: number;
 }
 
 /** Illegal/unparseable attempts on a move — the hallucination ones (transport is infra, D5). */
@@ -172,9 +174,19 @@ function hallucinatedRejections(m: ResultMove): number {
   ).length;
 }
 
-function aggregate(payload: ResultPayload, side: 'p1' | 'p2', id: string): SideAgg {
+function aggregate(
+  payload: ResultPayload,
+  side: 'p1' | 'p2',
+  id: string,
+  humanSide: 'p1' | 'p2' | null,
+): SideAgg {
   const mv = payload.moves.filter((m) => m.player === side);
   const decided = mv.filter((m) => !m.telemetry.forfeit);
+  // The hallucination counters describe MODEL play only — a person does not run
+  // the retry loop (D1/D5). For the human side they stay 0, so a hand-crafted
+  // payload can never write model-hallucination data onto a `human:<id>` row (it
+  // is stripped from storage and the gallery too — this closes the last path).
+  const isHuman = side === humanSide;
   return {
     id,
     moveCount: mv.length,
@@ -188,8 +200,9 @@ function aggregate(payload: ResultPayload, side: 'p1' | 'p2', id: string): SideA
     cost: mv.reduce((s, m) => s + (m.telemetry.costUsd ?? 0), 0),
     forfeits: mv.filter((m) => m.telemetry.forfeit).length,
     optimal: 0, // filled from server-side analysis in submitResult
-    rejectedAttempts: mv.reduce((s, m) => s + hallucinatedRejections(m), 0),
-    movesWithRejections: mv.filter((m) => hallucinatedRejections(m) > 0).length,
+    rejectedAttempts: isHuman ? 0 : mv.reduce((s, m) => s + hallucinatedRejections(m), 0),
+    movesWithRejections: isHuman ? 0 : mv.filter((m) => hallucinatedRejections(m) > 0).length,
+    capturedMoves: isHuman ? 0 : mv.length,
   };
 }
 
@@ -376,10 +389,11 @@ async function upsertRating(
       costUsdSum: skipTelemetry ? '0' : String(agg.cost),
       optimalMoves: agg.optimal,
       // Hallucination aggregates (D5b). `capturedMoves` starts counting here, so a
-      // model's pre-Etap-2 history is never mistaken for a clean record.
+      // model's pre-Etap-2 history is never mistaken for a clean record; it is 0
+      // for the human side (the counters describe model play only — D1).
       rejectedAttempts: agg.rejectedAttempts,
       movesWithRejections: agg.movesWithRejections,
-      capturedMoves: agg.moveCount,
+      capturedMoves: agg.capturedMoves,
     })
     .onConflictDoUpdate({
       target: [ratings.subjectId, ratings.mode, ratings.game, ratings.variant],
@@ -403,7 +417,7 @@ async function upsertRating(
         optimalMoves: sql`${ratings.optimalMoves} + ${agg.optimal}`,
         rejectedAttempts: sql`${ratings.rejectedAttempts} + ${agg.rejectedAttempts}`,
         movesWithRejections: sql`${ratings.movesWithRejections} + ${agg.movesWithRejections}`,
-        capturedMoves: sql`${ratings.capturedMoves} + ${agg.moveCount}`,
+        capturedMoves: sql`${ratings.capturedMoves} + ${agg.capturedMoves}`,
       },
     });
 }
@@ -584,8 +598,8 @@ export async function submitResult(
     }
   }
 
-  const s1 = aggregate(payload, 'p1', subject.p1);
-  const s2 = aggregate(payload, 'p2', subject.p2);
+  const s1 = aggregate(payload, 'p1', subject.p1, humanSide);
+  const s2 = aggregate(payload, 'p2', subject.p2, humanSide);
   // Forfeits are OUR random substitutes, not the model's choices (see above).
   s1.optimal = optimalDecidedMoves(payload, analysis, 'p1');
   s2.optimal = optimalDecidedMoves(payload, analysis, 'p2');
