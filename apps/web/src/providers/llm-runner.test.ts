@@ -318,6 +318,43 @@ describe('runLlmMove — rejection capture (Module B, D4)', () => {
   });
 });
 
+describe('runLlmMove — reasoning trace capture (Module A, D4)', () => {
+  it('captures the provider reasoning trace on a successful move', async () => {
+    const { view, legal } = viewAndLegal();
+    const { transport } = scriptedTransport([{ text: '{"move": 4}', reasoning: 'take the center' }]);
+    const result = await runLlmMove(view, legal, { transport });
+    expect(result.thoughts).toBe('take the center');
+  });
+
+  it('trims a long trace to THOUGHTS_MAX_CHARS (1500)', async () => {
+    const { view, legal } = viewAndLegal();
+    const { transport } = scriptedTransport([{ text: '{"move": 4}', reasoning: 'x'.repeat(3000) }]);
+    const result = await runLlmMove(view, legal, { transport });
+    expect(result.thoughts).toHaveLength(1500);
+  });
+
+  it('in lab CoT mode, uses the text before the JSON when there is no trace field', async () => {
+    const { view, legal } = viewAndLegal();
+    const { transport } = scriptedTransport([{ text: 'I will take the center. {"move": 4}' }]);
+    const result = await runLlmMove(view, legal, { transport, reasoning: true });
+    expect(result.thoughts).toBe('I will take the center.');
+  });
+
+  it('prefers the provider trace over content extraction, even in lab mode', async () => {
+    const { view, legal } = viewAndLegal();
+    const { transport } = scriptedTransport([{ text: 'blah {"move": 4}', reasoning: 'real trace' }]);
+    const result = await runLlmMove(view, legal, { transport, reasoning: true });
+    expect(result.thoughts).toBe('real trace');
+  });
+
+  it('leaves thoughts undefined with no trace and no lab reasoning', async () => {
+    const { view, legal } = viewAndLegal();
+    const { transport } = scriptedTransport([{ text: '{"move": 4}' }]);
+    const result = await runLlmMove(view, legal, { transport });
+    expect(result.thoughts).toBeUndefined();
+  });
+});
+
 describe('classifyTransportError', () => {
   it('maps HTTP statuses from provider error messages', () => {
     expect(classifyTransportError(new Error('OpenRouter 429: rate'))).toBe('rate_limited');

@@ -3,6 +3,14 @@
 Jednozdaniowe decyzje podejmowane tam, gdzie SPEC.md nie rozstrzyga (zgodnie z
 regułą 5 promptu startowego). Najnowsze na górze.
 
+## Efekt WOW — Etap 4: Tok myślenia — przechwycenie (plan §3, Etap 4)
+
+- **Flaga katalogowa JUŻ ISTNIEJE jako `isReasoning`** — rozjazd względem §3.1 („wyprowadź `supportsReasoning`"). `openrouter-catalog.detectsReasoning` od dawna czyta `supported_parameters` (`reasoning`/`include_reasoning`) i płynie przez `reasoningModel` (SetupScreen/DailyChallengeCard → players → config). Nie dublowałem sygnału: `reasoningCapture` w transporcie **domyślnie = `reasoningModel`** (`captureReasoning = reasoningCapture ?? reasoningModel`), więc modele rozumujące łapią ślad bez żadnej nowej hydrauliki przez `PlayerSpec`. Flaga `reasoningCapture` istnieje jako jawny override (używana w testach).
+- **Parametr = `reasoning: { enabled: true }`** (unified API OpenRoutera) — prosi o ZWRÓCENIE śladu przy WŁASNYM effortcie modelu, nie wymusza głębszego myślenia. Model i tak rozumuje (ukryte tokeny CoT liczyły się do `max_tokens` już przez `reasoningModel`), więc siła gry i ruch bez zmian → **partie rankingowe zostają rankingowe** (D2). Tryb lab `PromptOptions.reasoning` (CoT w treści) pozostaje lab-only.
+- **Fallback D3 tylko na 400/404/422** (`REASONING_PARAM_REJECTED`), nie na dowolne 4xx: 401/402/403/429 to auth/kredyty/limit — ponowienie bez parametru dałoby ten sam błąd. Przy odrzuceniu parametru transport ponawia RAZ bez `reasoning`, więc przechwytywanie śladu nigdy nie psuje grywalnego modelu. Zweryfikowane testem.
+- **`thoughts` w runnerze**: preferuj `completion.reasoning`; przy braku, a w trybie lab (`config.reasoning`) — tekst przed pierwszym `{` (CoT w treści). Trim do `THOUGHTS_MAX_CHARS` (1500). Przechwytywane na UDANYM ruchu (ślad ruchu, który model faktycznie zagrał). WebLLM/Ollama nie zwracają śladu → pole milczy.
+- **Weryfikacja żywa na 3 darmowych modelach reasoning** (risk #1): `tencent/hy3`, `poolside/laguna-xs-2.1`, `cohere/north-mini-code` — każdy zwrócił legalny ruch (środek) z realnym, przyciętym śladem (234/906/470 zn., wszystkie ≤1500), `forfeit=false`. Parametr `reasoning:{enabled:true}` zadziałał na każdym (fallback D3 niepotrzebny, ale pokryty testem). UI toku myślenia (panel, replay) to Etap 5.
+
 ## Efekt WOW — Etap 3: Muzeum wpadek (plan §4, Etap 3)
 
 - **Endpoint `/api/failures`** (publiczny read, jak `analytics.ts`) czyta zdenormalizowaną `failure_gallery` z Etapu 2 — feed najnowsze-pierwsze, filtry `game`/`subjectId`, `limit` domyślnie 40, twardy sufit 100. Zwraca tablicę `{subjectId, game, variant, kind, attempted, reason, excerpt, matchId, createdAt}` (createdAt ISO). Transport nigdy tam nie trafił (Etap 2), więc muzeum z definicji pokazuje tylko `illegal`/`unparseable`.

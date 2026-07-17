@@ -21,6 +21,19 @@ function fakeFetch(response: Response) {
   return { fetchImpl, calls };
 }
 
+/** Fetch that returns a different queued response per call (last one repeats). */
+function fakeFetchSeq(responses: Response[]) {
+  const calls: FetchCall[] = [];
+  let i = 0;
+  const fetchImpl = ((url: string | URL | Request, init?: RequestInit) => {
+    calls.push({ url: String(url), init: init ?? {} });
+    const r = responses[Math.min(i, responses.length - 1)]!;
+    i += 1;
+    return Promise.resolve(r);
+  }) as unknown as typeof fetch;
+  return { fetchImpl, calls };
+}
+
 function okJson(body: unknown): Response {
   return {
     ok: true,
@@ -95,6 +108,71 @@ describe('OpenRouter provider — key isolation (SPEC hard constraint)', () => {
     await expect(
       transport([{ role: 'user', content: 'hi' }], new AbortController().signal),
     ).rejects.toThrow(/429/);
+  });
+
+  it('sends `reasoning:{enabled}` only when capture is on (off by default)', async () => {
+    const on = fakeFetch(okJson(chatBody));
+    await createOpenRouterTransport({
+      model: 'v/m', apiKey: 'k', fetchImpl: on.fetchImpl, reasoningCapture: true,
+    })([{ role: 'user', content: 'hi' }], new AbortController().signal);
+    expect(JSON.parse(on.calls[0].init.body as string).reasoning).toEqual({ enabled: true });
+
+    const off = fakeFetch(okJson(chatBody));
+    await createOpenRouterTransport({ model: 'v/m', apiKey: 'k', fetchImpl: off.fetchImpl })(
+      [{ role: 'user', content: 'hi' }],
+      new AbortController().signal,
+    );
+    expect(JSON.parse(off.calls[0].init.body as string).reasoning).toBeUndefined();
+  });
+
+  it('defaults capture ON for a reasoning model (same catalog signal)', async () => {
+    const { fetchImpl, calls } = fakeFetch(okJson(chatBody));
+    await createOpenRouterTransport({ model: 'v/m', apiKey: 'k', fetchImpl, reasoningModel: true })(
+      [{ role: 'user', content: 'hi' }],
+      new AbortController().signal,
+    );
+    expect(JSON.parse(calls[0].init.body as string).reasoning).toEqual({ enabled: true });
+  });
+
+  it('reads the reasoning trace from message.reasoning', async () => {
+    const { fetchImpl } = fakeFetch(
+      okJson({
+        choices: [{ message: { content: '{"move": 4}', reasoning: 'center controls the board' } }],
+        usage: { prompt_tokens: 10, completion_tokens: 2 },
+      }),
+    );
+    const out = await createOpenRouterTransport({
+      model: 'v/m', apiKey: 'k', fetchImpl, reasoningCapture: true,
+    })([{ role: 'user', content: 'hi' }], new AbortController().signal);
+    expect(out.reasoning).toBe('center controls the board');
+  });
+
+  it('retries once WITHOUT the reasoning param on a 4xx (D3), then succeeds', async () => {
+    const seq = fakeFetchSeq([
+      { ok: false, status: 400, text: async () => 'unknown field: reasoning' } as Response,
+      okJson(chatBody),
+    ]);
+    const out = await createOpenRouterTransport({
+      model: 'v/m', apiKey: 'k', fetchImpl: seq.fetchImpl, reasoningCapture: true,
+    })([{ role: 'user', content: 'hi' }], new AbortController().signal);
+
+    expect(seq.calls).toHaveLength(2);
+    expect(JSON.parse(seq.calls[0].init.body as string).reasoning).toEqual({ enabled: true });
+    expect(JSON.parse(seq.calls[1].init.body as string).reasoning).toBeUndefined();
+    expect(out.text).toBe('{"move": 4}');
+  });
+
+  it('does NOT do the param-less retry on a 429 (not a param problem)', async () => {
+    const seq = fakeFetchSeq([
+      { ok: false, status: 429, text: async () => 'rate limited' } as Response,
+      okJson(chatBody),
+    ]);
+    await expect(
+      createOpenRouterTransport({
+        model: 'v/m', apiKey: 'k', fetchImpl: seq.fetchImpl, reasoningCapture: true,
+      })([{ role: 'user', content: 'hi' }], new AbortController().signal),
+    ).rejects.toThrow(/429/);
+    expect(seq.calls).toHaveLength(1);
   });
 
   it('getMove returns a legal move with cost telemetry from the price snapshot', async () => {

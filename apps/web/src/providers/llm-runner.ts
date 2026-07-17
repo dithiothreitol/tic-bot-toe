@@ -12,6 +12,7 @@ import {
   REJECTION_ATTEMPTED_MAX_CHARS,
   REJECTION_RAW_MAX_CHARS,
   REJECTION_REASON_MAX_CHARS,
+  THOUGHTS_MAX_CHARS,
   getGame,
 } from '@arena/game-core';
 
@@ -31,9 +32,35 @@ export interface ChatMessage {
 
 export interface ChatCompletion {
   text: string;
+  /**
+   * The model's reasoning trace (Module A), when the provider surfaced one
+   * (OpenRouter `message.reasoning`). Kept in memory; persisted only on an
+   * explicit save, trimmed (D1). WebLLM/Ollama leave it undefined.
+   */
+  reasoning?: string;
   /** From the API `usage` field / runtime stats; omit when unknown. */
   promptTokens?: number;
   completionTokens?: number;
+}
+
+/**
+ * The reasoning trace to persist for a move (Module A). Prefer the provider's
+ * dedicated field; failing that, in lab CoT mode (`config.reasoning`) the model
+ * reasons in the CONTENT before its JSON answer, so take the text preceding the
+ * first `{`. Trimmed to THOUGHTS_MAX_CHARS. Undefined when there is nothing.
+ */
+function extractThoughts(
+  completion: ChatCompletion,
+  labReasoning: boolean | undefined,
+): string | undefined {
+  const trace = completion.reasoning?.trim();
+  if (trace) return trace.slice(0, THOUGHTS_MAX_CHARS);
+  if (labReasoning) {
+    const brace = completion.text.indexOf('{');
+    const pre = (brace > 0 ? completion.text.slice(0, brace) : '').trim();
+    if (pre) return pre.slice(0, THOUGHTS_MAX_CHARS);
+  }
+  return undefined;
 }
 
 /** Provider-specific transport. Rejects on network error / timeout / abort. */
@@ -270,10 +297,12 @@ export async function runLlmMove(
               : { ok: false, reason: 'not a legal move' };
 
       if (parsed !== null && validity?.ok) {
+        const thoughts = extractThoughts(completion, config.reasoning);
         return {
           move: parsed,
           telemetry: finalizeTelemetry(acc, retries, false, config.price),
           raw: completion.text,
+          ...(thoughts ? { thoughts } : {}),
           ...(rejections.length ? { rejections: [...rejections] } : {}),
         };
       }

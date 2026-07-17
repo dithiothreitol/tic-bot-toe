@@ -34,6 +34,16 @@ export interface OpenRouterConfig {
    * prompt to CoT or unranking (the output contract stays terse JSON).
    */
   reasoningModel?: boolean;
+  /**
+   * Surface the model's reasoning trace (Module A): ask OpenRouter to return
+   * `message.reasoning` by sending `reasoning: { enabled: true }`, and read it
+   * back. Defaults to `reasoningModel` — the SAME catalog signal (a model that
+   * does hidden CoT is exactly the one with a trace worth capturing), so no
+   * separate wiring is needed. It uses the model's OWN effort, so the move (and
+   * the ranking) is unchanged (D2). A model that rejects the param (4xx) is
+   * retried once without it (D3) — capturing a trace never breaks play.
+   */
+  reasoningCapture?: boolean;
   /** HTTP-Referer / X-Title for OpenRouter attribution. */
   referer?: string;
   title?: string;
@@ -47,7 +57,7 @@ export interface OpenRouterConfig {
 }
 
 interface OpenRouterResponse {
-  choices?: Array<{ message?: { content?: string | null } }>;
+  choices?: Array<{ message?: { content?: string | null; reasoning?: string | null } }>;
   usage?: { prompt_tokens?: number; completion_tokens?: number };
 }
 
@@ -57,27 +67,50 @@ function defaultReferer(): string {
     : 'https://tic-bot-toe.local';
 }
 
+/** Statuses that mean "your request shape is wrong" — the only ones worth the
+ *  param-less D3 retry. 401/402/403/429 are auth/credits/rate: retrying without
+ *  the reasoning param would just earn the same error. */
+const REASONING_PARAM_REJECTED = new Set([400, 404, 422]);
+
 export function createOpenRouterTransport(config: OpenRouterConfig): ChatTransport {
   const doFetch = config.fetchImpl ?? fetch;
+  // Capture the reasoning trace for reasoning-capable models by default (same
+  // catalog signal as the roomier ceiling), or when a caller opts in explicitly.
+  const captureReasoning = config.reasoningCapture ?? config.reasoningModel ?? false;
+  const headers = {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${config.apiKey}`,
+    'HTTP-Referer': config.referer ?? defaultReferer(),
+    'X-Title': config.title ?? 'tic-bot-toe',
+  };
   return async (messages, signal) => {
-    const res = await doFetch(`${OPENROUTER_BASE}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${config.apiKey}`,
-        'HTTP-Referer': config.referer ?? defaultReferer(),
-        'X-Title': config.title ?? 'tic-bot-toe',
-      },
-      body: JSON.stringify({
-        model: config.model,
-        messages,
-        temperature: config.temperature ?? 0.2,
-        // A reasoning model needs the roomy ceiling to emit any content at all,
-        // even when the match-level reasoning toggle is off (see reasoningModel).
-        max_tokens: config.maxTokens ?? moveMaxTokens(config.reasoning || config.reasoningModel),
-      }),
-      signal,
-    });
+    const body: Record<string, unknown> = {
+      model: config.model,
+      messages,
+      temperature: config.temperature ?? 0.2,
+      // A reasoning model needs the roomy ceiling to emit any content at all,
+      // even when the match-level reasoning toggle is off (see reasoningModel).
+      max_tokens: config.maxTokens ?? moveMaxTokens(config.reasoning || config.reasoningModel),
+    };
+    // Ask OpenRouter to include the model's OWN reasoning trace (Module A). Effort
+    // stays the model default — we only surface what it already produces (D2).
+    if (captureReasoning) body.reasoning = { enabled: true };
+
+    const post = (b: Record<string, unknown>): Promise<Response> =>
+      doFetch(`${OPENROUTER_BASE}/chat/completions`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(b),
+        signal,
+      });
+
+    let res = await post(body);
+    // D3: a model that does not accept the `reasoning` param answers 4xx. Retry
+    // ONCE without it so trace-capture never turns a playable model unplayable.
+    if (captureReasoning && !res.ok && REASONING_PARAM_REJECTED.has(res.status)) {
+      const { reasoning: _dropped, ...withoutReasoning } = body;
+      res = await post(withoutReasoning);
+    }
 
     if (!res.ok) {
       const detail = await res.text().catch(() => '');
@@ -85,8 +118,10 @@ export function createOpenRouterTransport(config: OpenRouterConfig): ChatTranspo
     }
 
     const data = (await res.json()) as OpenRouterResponse;
+    const message = data.choices?.[0]?.message;
     return {
-      text: data.choices?.[0]?.message?.content ?? '',
+      text: message?.content ?? '',
+      reasoning: message?.reasoning ?? undefined,
       promptTokens: data.usage?.prompt_tokens,
       completionTokens: data.usage?.completion_tokens,
     };
