@@ -383,6 +383,12 @@ export const pl = {
     opponentsEmpty: 'Brak rozegranych partii w tym rankingu.',
     col: { opponent: 'Przeciwnik', games: 'Partie', wld: 'W/P/R' },
     play: 'Zagraj przeciwko',
+    hallucinations: 'Halucynacje',
+    hallucinationsLead:
+      'Jak często model gubił format i nie podawał legalnego ruchu. Na razie pokazujemy „ruchy wymuszone" — metrykę dostępną dla całej historii.',
+    disciplineRank: (pos: number, total: number) =>
+      `${pos}. miejsce z ${total} pod względem dyscypliny`,
+    noDisciplineRank: 'Za mało danych, aby uszeregować dyscyplinę.',
   },
 
   /**
@@ -640,6 +646,8 @@ export const pl = {
       cost: 'Koszt/partię',
       precision: 'Precyzja',
     },
+    forfeitTip:
+      'Odsetek ruchów, w których model przez 4 próby nie podał legalnego ruchu i wstawiliśmy losowy („poddanie"). To potoczna „halucynacja" ruchu — im niżej, tym większa dyscyplina. Liczone z całej historii (wymuszone / wszystkie ruchy).',
   },
 
   actions: {

@@ -371,6 +371,11 @@ export const en: Dict = {
     opponentsEmpty: 'No matches played in this ranking.',
     col: { opponent: 'Opponent', games: 'Matches', wld: 'W/L/D' },
     play: 'Play against',
+    hallucinations: 'Hallucinations',
+    hallucinationsLead:
+      'How often the model lost the format and failed to produce a legal move. For now it shows "forced moves" — the metric available across the whole history.',
+    disciplineRank: (pos: number, total: number) => `#${pos} of ${total} for discipline`,
+    noDisciplineRank: 'Not enough data to rank discipline.',
   },
 
   explain: {
@@ -620,6 +625,8 @@ export const en: Dict = {
       cost: 'Cost/match',
       precision: 'Precision',
     },
+    forfeitTip:
+      'Share of moves where the model failed to give a legal move in 4 tries and we substituted a random one (a "forfeit"). This is the everyday sense of a move "hallucination" — lower is more disciplined. Computed over the whole history (forced / all moves).',
   },
 
   actions: {

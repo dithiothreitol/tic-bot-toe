@@ -4,7 +4,12 @@ import { toast } from 'sonner';
 
 import { type GameId, BATTLESHIP_VARIANTS } from '@arena/game-core';
 
-import { type EloHistoryPoint, type LeaderboardRow, apiGet } from '@/api/client';
+import {
+  type EloHistoryPoint,
+  type HallucinationRow,
+  type LeaderboardRow,
+  apiGet,
+} from '@/api/client';
 import { ExplainNumbers } from '@/components/ExplainNumbers';
 import { EloHistory } from '@/components/charts/EloHistory';
 import { RadarCard } from '@/components/charts/RadarCard';
@@ -30,6 +35,7 @@ import {
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useLocale, useLocalePath, useT, variantLabel } from '@/i18n';
 import { formatCost, formatMs } from '@/lib/format';
+import { cn } from '@/lib/utils';
 import { type ModelMeta, describeModel } from '@/lib/model-copy';
 import { type CatalogModel, fetchCatalog } from '@/providers/openrouter-catalog';
 import { WEBLLM_MODELS } from '@/providers/webllm';
@@ -93,6 +99,7 @@ export function ModelCardPage() {
   const [mode, setMode] = useState<Mode>('model_vs_model');
   const [population, setPopulation] = useState<LeaderboardRow[]>([]);
   const [data, setData] = useState<ModelCardResponse | null>(null);
+  const [halluc, setHalluc] = useState<HallucinationRow[]>([]);
   const [eloPoints, setEloPoints] = useState<EloHistoryPoint[]>([]);
   const [catalog, setCatalog] = useState<CatalogModel[]>([]);
   const [loading, setLoading] = useState(true);
@@ -114,12 +121,14 @@ export function ModelCardPage() {
       apiGet<EloHistoryPoint[]>(
         `/api/elo-history?subjectId=${encodeURIComponent(subjectId)}&${qs}`,
       ),
+      apiGet<HallucinationRow[]>(`/api/hallucinations?${qs}`),
     ])
-      .then(([rows, card, elo]) => {
+      .then(([rows, card, elo, hall]) => {
         if (!alive) return;
         setPopulation(rows);
         setData(card);
         setEloPoints(elo);
+        setHalluc(hall);
       })
       .catch(() => {
         if (alive) toast.error(t.modelCard.loadError);
@@ -136,6 +145,15 @@ export function ModelCardPage() {
   const copy = useMemo(() => (meta ? describeModel(meta, locale) : null), [meta, locale]);
 
   const card = data?.card ?? null;
+  // Position in the discipline ranking (most disciplined = 1). The endpoint
+  // returns rows ordered best-first, so the index is the rank. Absent when this
+  // subject is not in the pool (no ranked moves) — the section then says so.
+  const disciplineRank = useMemo(() => {
+    if (halluc.length === 0) return null;
+    const idx = halluc.findIndex((h) => h.subjectId === subjectId);
+    return idx >= 0 ? t.modelCard.disciplineRank(idx + 1, halluc.length) : null;
+  }, [halluc, subjectId, t]);
+
   const onGameChange = (g: GameId) => {
     setGame(g);
     setVariant(defaultVariant(g));
@@ -253,6 +271,31 @@ export function ModelCardPage() {
               {t.leaderboard.col.latency}:{' '}
               {card.avgLatencyMs === null ? '—' : formatMs(card.avgLatencyMs)}
             </p>
+          </HudPanel>
+
+          <HudPanel className="flex flex-col gap-3 p-5">
+            <SectionLabel>{t.modelCard.hallucinations}</SectionLabel>
+            <p className="max-w-prose text-sm leading-relaxed text-muted-foreground">
+              {t.modelCard.hallucinationsLead}
+            </p>
+            <div className="flex flex-wrap items-end gap-x-8 gap-y-2">
+              <div className="flex flex-col gap-0.5">
+                <span className="font-mono text-[10px] uppercase tracking-wider text-dim">
+                  {t.leaderboard.col.forfeit}
+                </span>
+                <span
+                  className={cn(
+                    'font-mono text-3xl font-bold',
+                    card.forfeitRate > 0.05 ? 'text-warn' : 'text-edu',
+                  )}
+                >
+                  {Math.round(card.forfeitRate * 100)}%
+                </span>
+              </div>
+              <p className="font-mono text-xs text-dim">
+                {disciplineRank ?? t.modelCard.noDisciplineRank}
+              </p>
+            </div>
           </HudPanel>
 
           <div className="grid gap-4 lg:grid-cols-2">

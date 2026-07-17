@@ -29,6 +29,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useLocalePath, useT, variantLabel } from '@/i18n';
 import { formatCost, formatMs } from '@/lib/format';
 import { cn } from '@/lib/utils';
@@ -194,7 +195,16 @@ export function LeaderboardPage() {
                         </TableHead>
                       )}
                       <TableHead className="text-right">{t.leaderboard.col.wld}</TableHead>
-                      <TableHead className="text-right">{t.leaderboard.col.forfeit}</TableHead>
+                      <TableHead className="text-right">
+                        <Tooltip>
+                          <TooltipTrigger className="cursor-help underline decoration-dotted decoration-from-font underline-offset-2">
+                            {t.leaderboard.col.forfeit}
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs text-left font-mono text-[11px] leading-relaxed">
+                            {t.leaderboard.forfeitTip}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TableHead>
                       <TableHead className="text-right">{t.leaderboard.col.latency}</TableHead>
                       {!humans && (
                         <TableHead className="text-right">{t.leaderboard.col.cost}</TableHead>

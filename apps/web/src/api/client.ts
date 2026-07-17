@@ -99,6 +99,15 @@ export interface LeaderboardRow {
   optimalRate: number | null;
 }
 
+/** One row of the discipline ranking (Module B, plan §4.3). */
+export interface HallucinationRow {
+  subjectId: string;
+  games: number;
+  totalMoves: number;
+  forfeitMoves: number;
+  forfeitRate: number;
+}
+
 /** One Elo checkpoint (SPEC §9.3.4). */
 export interface EloHistoryPoint {
   eloAfter: number;

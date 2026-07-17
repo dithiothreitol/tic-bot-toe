@@ -16,7 +16,7 @@ import { newJti, signSession } from './auth/jwt';
 import { hashPlayerToken } from './auth/player';
 import { loadConfig } from './config';
 import { type DbHandle, createDb } from './db/client';
-import { dailyResults, matches, players, predictions } from './db/schema';
+import { dailyResults, matches, players, predictions, ratings } from './db/schema';
 
 /**
  * Integration tests for the community endpoints (SPEC §12.5/§12.6) against a
@@ -436,5 +436,43 @@ describe('POST /api/daily/result (§12.6)', () => {
       body: JSON.stringify({ matchId: await winningDailyMatch() }),
     });
     expect(res.status).toBe(401);
+  });
+});
+
+/**
+ * Discipline ranking (Module B, plan §4.3, Etap 1). Reads straight from
+ * `ratings`, so it works on the WHOLE history the moment it ships — the point of
+ * doing the forfeit metric first. Seeds `ratings` directly: this is about the
+ * endpoint's ordering/aggregation, not about how ratings get populated.
+ */
+describe('GET /api/hallucinations (Module B, Etap 1)', () => {
+  it('ranks models by discipline (lowest forfeit rate first), excluding humans', async () => {
+    await handle.db.insert(ratings).values([
+      { subjectId: 'openrouter:messy', mode: 'model_vs_model', game: 'tictactoe', variant: 'standard', totalMoves: 100, forfeitMoves: 40, games: 20 },
+      { subjectId: 'openrouter:clean', mode: 'model_vs_model', game: 'tictactoe', variant: 'standard', totalMoves: 100, forfeitMoves: 2, games: 20 },
+      { subjectId: 'human:11111111-1111-1111-1111-111111111111', mode: 'model_vs_model', game: 'tictactoe', variant: 'standard', totalMoves: 50, forfeitMoves: 0, games: 10 },
+    ]);
+
+    const res = await app().request('/api/hallucinations?mode=model_vs_model&game=tictactoe');
+    expect(res.status).toBe(200);
+    const data = (await res.json()) as Array<{ subjectId: string; forfeitRate: number }>;
+
+    expect(data.map((d) => d.subjectId)).toEqual(['openrouter:clean', 'openrouter:messy']);
+    expect(data[0]!.forfeitRate).toBeCloseTo(0.02);
+    expect(data[1]!.forfeitRate).toBeCloseTo(0.4);
+  });
+
+  it('sums across variants when no variant is given', async () => {
+    await handle.db.insert(ratings).values([
+      { subjectId: 'openrouter:a', mode: 'model_vs_model', game: 'battleship', variant: 'small', totalMoves: 50, forfeitMoves: 5, games: 5 },
+      { subjectId: 'openrouter:a', mode: 'model_vs_model', game: 'battleship', variant: 'large', totalMoves: 50, forfeitMoves: 15, games: 5 },
+    ]);
+
+    const res = await app().request('/api/hallucinations?game=battleship');
+    const data = (await res.json()) as Array<{ totalMoves: number; forfeitMoves: number; forfeitRate: number }>;
+    expect(data).toHaveLength(1);
+    expect(data[0]!.totalMoves).toBe(100);
+    expect(data[0]!.forfeitMoves).toBe(20);
+    expect(data[0]!.forfeitRate).toBeCloseTo(0.2);
   });
 });

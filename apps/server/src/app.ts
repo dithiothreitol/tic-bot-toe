@@ -9,6 +9,7 @@ import { securityHeaders } from './middleware/security';
 import { eloHistoryRoute, headToHeadRoute } from './routes/analytics';
 import { commentaryRoute } from './routes/commentary';
 import { dailyRoute } from './routes/daily';
+import { hallucinationsRoute } from './routes/hallucinations';
 import { healthRoute } from './routes/health';
 import { leaderboardRoute } from './routes/leaderboard';
 import { liveRoute } from './routes/live';
@@ -121,6 +122,8 @@ export function buildApp(deps: AppDeps): Hono {
     api.route('/model', modelRoute({ db: deps.db }));
     api.route('/elo-history', eloHistoryRoute({ db: deps.db }));
     api.route('/head-to-head', headToHeadRoute({ db: deps.db }));
+    // Discipline ranking (Module B) — forfeit rate per model, whole history.
+    api.route('/hallucinations', hallucinationsRoute({ db: deps.db }));
     api.route('/matches', matchesRoute({ db: deps.db }));
     api.route('/replay', replayRoute({ db: deps.db }));
     api.route('/og', ogRoute({ db: deps.db }));
