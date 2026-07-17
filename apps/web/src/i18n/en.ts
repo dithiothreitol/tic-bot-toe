@@ -523,6 +523,35 @@ export const en: Dict = {
     temperatureHint:
       '0 = always the same, “safe” move; higher = more creativity and more mistakes.',
     excludedNote: 'This match is flagged as a lab match and will not affect Elo.',
+
+    duel: {
+      kicker: 'Prompt duel',
+      toggle: 'Prompt duel',
+      lead: 'The same model plays itself with two different appendices — find out which prompt plays better.',
+      modelNote:
+        'Uses the model from the "Player 1" slot. Sides swap every game (fair start), and the prompt texts stay local.',
+      promptA: 'Prompt A',
+      promptB: 'Prompt B',
+      promptAShort: 'Prompt A',
+      promptBShort: 'Prompt B',
+      placeholderA: 'e.g. Play aggressively, take the center.',
+      placeholderB: 'e.g. Play defensively, guard the corners.',
+      length: 'Games',
+      subtitle: (model: string, n: number) => `${model} · best of ${n}`,
+      draws: 'Draws',
+      again: 'Again',
+      back: 'Back to setup',
+      gameStarter: (label: string) => `Starts: ${label}`,
+      gameInProgress: (k: number, n: number) => `Game ${k}/${n} in progress…`,
+      resultKicker: 'Duel result',
+      resultTie: 'Series tied',
+      resultWin: (label: string) => `Better prompt: ${label}`,
+      resultLine: (model: string, games: number, a: number, b: number, d: number) =>
+        `${model} · ${games} games · A ${a} : ${b} B (draws: ${d})`,
+      tokens: 'Tokens',
+      cost: 'Cost',
+      forfeits: 'Forced',
+    },
   },
 
   reasoning: {

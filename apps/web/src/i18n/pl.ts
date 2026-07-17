@@ -546,6 +546,36 @@ export const pl = {
     temperatureHint:
       '0 = zawsze ten sam, „bezpieczny" ruch; wyżej = więcej kreatywności i błędów.',
     excludedNote: 'Ta partia jest oznaczona jako laboratoryjna i nie wpłynie na Elo.',
+
+    /** Pojedynek promptów (Moduł F). */
+    duel: {
+      kicker: 'Pojedynek promptów',
+      toggle: 'Pojedynek promptów',
+      lead: 'Ten sam model gra sam ze sobą z dwoma różnymi dopiskami — sprawdź, który prompt gra lepiej.',
+      modelNote:
+        'Używany jest model z pola „Gracz 1". Strony zamieniają się co partię (fair start), a treść promptów zostaje lokalnie.',
+      promptA: 'Prompt A',
+      promptB: 'Prompt B',
+      promptAShort: 'Prompt A',
+      promptBShort: 'Prompt B',
+      placeholderA: 'np. Graj agresywnie, zajmuj środek.',
+      placeholderB: 'np. Graj defensywnie, pilnuj rogów.',
+      length: 'Liczba partii',
+      subtitle: (model: string, n: number) => `${model} · seria ${n} partii`,
+      draws: 'Remisy',
+      again: 'Znów',
+      back: 'Wróć do setupu',
+      gameStarter: (label: string) => `Zaczyna: ${label}`,
+      gameInProgress: (k: number, n: number) => `Partia ${k}/${n} w toku…`,
+      resultKicker: 'Wynik pojedynku',
+      resultTie: 'Remis w serii',
+      resultWin: (label: string) => `Lepszy prompt: ${label}`,
+      resultLine: (model: string, games: number, a: number, b: number, d: number) =>
+        `${model} · ${games} partii · A ${a} : ${b} B (remisy: ${d})`,
+      tokens: 'Tokeny',
+      cost: 'Koszt',
+      forfeits: 'Wymuszone',
+    },
   },
 
   reasoning: {

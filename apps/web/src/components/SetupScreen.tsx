@@ -128,6 +128,10 @@ export function SetupScreen({
     labOpen,
     appendix,
     temperature,
+    promptDuelOn,
+    appendixA,
+    appendixB,
+    seriesLength,
     reasoning,
     safetyOn,
     maxForfeits,
@@ -210,13 +214,17 @@ export function SetupScreen({
   );
   const hasVariant = variantList.length > 1;
 
+  // Prompt duel (Module F): one model plays ITSELF over a series, so only the
+  // p1 slot (the duel model) is used — the p2 picker is irrelevant here.
+  const duelActive = labOpen && promptDuelOn && mode === 'model_vs_model';
+
   const start = () => {
     const needP1 = mode === 'model_vs_model';
-    if ((needP1 && !p1Model) || !p2Model) {
+    if (duelActive ? !p1Model : (needP1 && !p1Model) || !p2Model) {
       toast.error(t.setup.needModel);
       return;
     }
-    const chosen = [needP1 ? p1Model : null, p2Model].filter(
+    const chosen = (duelActive ? [p1Model] : [needP1 ? p1Model : null, p2Model]).filter(
       (m): m is SelectableModel => m !== null,
     );
     const apiKey = useSettings.getState().openRouterKey;
@@ -258,6 +266,27 @@ export function SetupScreen({
       ? { maxConsecutiveForfeits: maxForfeits, maxTokens }
       : { maxConsecutiveForfeits: 0, maxTokens: 0 };
     const base = { game, variant, seed: randomSeed(), lab: labOpen, reasoning, commentator, safety };
+
+    // Prompt duel: both sides are the SAME model; the per-game appendix (A/B) is
+    // injected by the SeriesRunner, so the base specs carry no appendix. The
+    // series is always a lab match (excluded from Elo). Seed is fresh per run.
+    if (duelActive && p1Model) {
+      const spec = specFor(p1Model, apiKey, { temperature, systemAppendix: '' });
+      onStart({
+        ...base,
+        lab: true,
+        mode: 'model_vs_model',
+        p1: spec,
+        p2: spec,
+        names: { p1: p1Model.name, p2: p1Model.name },
+        series: { appendixA, appendixB, seriesLength, seriesSeed: randomSeed() },
+      });
+      return;
+    }
+
+    // Past the duel early-return this is a normal match; the guard at the top
+    // already ensured p2 (and p1 when needed), so narrow for the build below.
+    if (!p2Model) return;
     const config: MatchConfig =
       mode === 'model_vs_model'
         ? {
@@ -548,19 +577,21 @@ export function SetupScreen({
 
           {labOpen && (
             <div className="flex flex-col gap-4 clip-cut border border-edu/30 bg-edu/5 p-4">
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="lab-appendix" className="text-edu">
-                  {t.lab.appendix}
-                </Label>
-                <Textarea
-                  id="lab-appendix"
-                  value={appendix}
-                  onChange={(e) => patch({ appendix: e.target.value })}
-                  placeholder={t.lab.appendixPlaceholder}
-                  rows={3}
-                />
-                <p className="font-mono text-[10px] text-dim">{t.lab.appendixHint}</p>
-              </div>
+              {!promptDuelOn && (
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="lab-appendix" className="text-edu">
+                    {t.lab.appendix}
+                  </Label>
+                  <Textarea
+                    id="lab-appendix"
+                    value={appendix}
+                    onChange={(e) => patch({ appendix: e.target.value })}
+                    placeholder={t.lab.appendixPlaceholder}
+                    rows={3}
+                  />
+                  <p className="font-mono text-[10px] text-dim">{t.lab.appendixHint}</p>
+                </div>
+              )}
 
               <div className="flex flex-col gap-2">
                 <div className="flex items-center justify-between">
@@ -578,6 +609,68 @@ export function SetupScreen({
                   aria-label={t.lab.temperature}
                 />
                 <p className="font-mono text-[10px] text-dim">{t.lab.temperatureHint}</p>
+              </div>
+
+              {/* Prompt duel (Module F): one model, two appendices, N-game series. */}
+              <div className="flex flex-col gap-3 border-t border-edu/20 pt-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex flex-col gap-0.5">
+                    <Label className="text-edu">{t.lab.duel.toggle}</Label>
+                    <p className="max-w-prose font-mono text-[10px] text-dim">{t.lab.duel.lead}</p>
+                  </div>
+                  <Switch
+                    checked={promptDuelOn}
+                    onCheckedChange={(v) => patch({ promptDuelOn: v })}
+                    aria-label={t.lab.duel.toggle}
+                  />
+                </div>
+
+                {promptDuelOn && (
+                  <div className="flex flex-col gap-4">
+                    <p className="max-w-prose font-mono text-[10px] text-dim">
+                      {t.lab.duel.modelNote}
+                    </p>
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor="lab-appendix-a" className="text-p1">
+                        {t.lab.duel.promptA}
+                      </Label>
+                      <Textarea
+                        id="lab-appendix-a"
+                        value={appendixA}
+                        onChange={(e) => patch({ appendixA: e.target.value })}
+                        placeholder={t.lab.duel.placeholderA}
+                        rows={3}
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor="lab-appendix-b" className="text-p2">
+                        {t.lab.duel.promptB}
+                      </Label>
+                      <Textarea
+                        id="lab-appendix-b"
+                        value={appendixB}
+                        onChange={(e) => patch({ appendixB: e.target.value })}
+                        placeholder={t.lab.duel.placeholderB}
+                        rows={3}
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Label className="text-edu">{t.lab.duel.length}</Label>
+                      {[3, 5, 7].map((n) => (
+                        <Button
+                          key={n}
+                          type="button"
+                          size="sm"
+                          variant={seriesLength === n ? 'default' : 'outline'}
+                          onClick={() => patch({ seriesLength: n })}
+                          aria-pressed={seriesLength === n}
+                        >
+                          {n}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <p className="font-mono text-[10px] uppercase tracking-wider text-edu/80">

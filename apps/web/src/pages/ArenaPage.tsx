@@ -7,6 +7,7 @@ import { DemoBattle } from '@/components/DemoBattle';
 import { type MatchConfig, GameRunner } from '@/components/GameRunner';
 import { LiveStats } from '@/components/LiveStats';
 import { QuickStartSection } from '@/components/QuickStartSection';
+import { SeriesRunner } from '@/components/SeriesRunner';
 import { SetupScreen } from '@/components/SetupScreen';
 import { SectionLabel } from '@/components/ui/hud';
 import { useT } from '@/i18n';
@@ -79,7 +80,11 @@ export function ArenaPage() {
       )}
 
       {screen === 'game' && config && (
-        <GameRunner config={config} onExit={() => setScreen('setup')} />
+        config.series ? (
+          <SeriesRunner config={config} onExit={() => setScreen('setup')} />
+        ) : (
+          <GameRunner config={config} onExit={() => setScreen('setup')} />
+        )
       )}
     </div>
   );

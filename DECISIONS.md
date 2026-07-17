@@ -3,6 +3,16 @@
 Jednozdaniowe decyzje podejmowane tam, gdzie SPEC.md nie rozstrzyga (zgodnie z
 regułą 5 promptu startowego). Najnowsze na górze.
 
+## Efekt WOW — Etap 9: Pojedynek promptów (plan §8, Etap 9)
+
+- **`runSeries` czyste i z wstrzykiwanym orchestratorem.** Rdzeń (`game/series.ts`) nie zna providerów — dostaje `buildPlayer(appendix) => Player` i (opcjonalnie) `runner` (domyślnie `runMatch`). Dzięki temu testy jednostkowe napędzają zamianę stron / determinizm seedów / agregację / abort fałszywym runnerem, bez LLM. To ten sam wzorzec co przy Turingu (pure core + DI).
+- **Zamiana stron co partię (D10, fairness).** Partia k: prompt A gra p1 gdy k parzyste, p2 gdy nieparzyste. Wynik tłumaczony na „kto z promptów wygrał" (`promptWinner`), niezależnie od strony. Seedy `seriesSeed + k` (determinizm serii). Agregaty tokenów/kosztu/wymuszeń przypisywane do promptu wg strony, którą tego dnia grał.
+- **Lekki `SeriesRunner`, NIE rozbudowa `GameRunner`.** Pojedynek to lokalny eksperyment lab (D10) — bez zapisu, predykcji, komentatora, Turnstile. `ArenaPage` przełącza na `SeriesRunner`, gdy `config.series` jest obecne (nowe opcjonalne pole `MatchConfig.series`). Zawartość promptów NIE trafia do grafiki wyniku (zostaje lokalnie, D10) — karta pokazuje tylko „Prompt A/B", wynik a:b i telemetrię per prompt.
+- **Jeden model, dwa dopiski.** W setupie (sekcja lab) przełącznik „Pojedynek promptów" chowa pojedynczy appendix i pokazuje dwa textarea (A/B) + wybór N∈{3,5,7}. Używany jest model ze slotu „Gracz 1"; slot „Gracz 2" jest ignorowany (walidacja wymaga tylko p1 w trybie duelu). Obie strony budowane z tego samego `PlayerSpec` (temperatura wspólna), różni je wyłącznie `systemAppendix`.
+- **`seriesSeed` generowany per uruchomienie, nie persystowany** (rozjazd względem „pola w store" z §8) — pole `seriesSeed` nie ma sensu trzymać w prefs (nie odtwarzamy starych serii; determinizm dotyczy JEDNEGO przebiegu: gry k = seed+k). Store trzyma `promptDuelOn`, `appendixA/B`, `seriesLength`; seed stempluje `SetupScreen` przy Starcie (`randomSeed()`). Nowe pola bez migracji (zustand merge).
+- **Abort bezpieczny (DoD).** `SeriesRunner` trzyma `AbortController`; „PRZERWIJ" i unmount go odpalają. `runSeries` sprawdza `signal.aborted` przed każdą partią i przekazuje `signal` do `runMatch`, więc partia w locie też się urywa; partii oznaczonej `aborted` nie liczy. „Znów" restartuje serię przez bumpnięcie `runId` (świeży seed z tego samego setupu). Zweryfikowane testem (abort w połowie → policzone tylko rozegrane partie).
+- **Live plansza tylko dla kółka i krzyżyk.** Podgląd bieżącej partii renderuję `Board3x3` (główna gra pojedynku); dla innych gier pokazuję kafelki + postęp bez żywej planszy (świadome zawężenie — DoD to seria 5 partii + karta wyniku).
+
 ## Efekt WOW — Etap 8: Demo WebLLM na stronie głównej (plan §7, Etap 8)
 
 - **Jeden silnik, obie strony (D9).** `DemoBattle` tworzy DWÓCH graczy `createWebLlmPlayer` z tym SAMYM `mlcId` — `engineCache` (klucz = mlcId) sprawia, że pobranie i model w VRAM są JEDNE, a nie dwa naraz (ryzyko OOM na średnim laptopie, risk #6). Różne osobowości robi temperatura: 0.2 („rozważny") vs 0.9 („ryzykant"). Gra: kółko i krzyżyk (najkrótsze partie).

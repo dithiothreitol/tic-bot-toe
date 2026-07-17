@@ -38,6 +38,16 @@ export interface SetupPrefs {
   labOpen: boolean;
   appendix: string;
   temperature: number;
+  /**
+   * „Pojedynek promptów" (Module F, D10) — a lab-only sub-mode of the appendix.
+   * When on, ONE model plays itself over a series with two appendices (A vs B),
+   * sides swapping each game. The two texts stay local (never sent to the server).
+   */
+  promptDuelOn: boolean;
+  appendixA: string;
+  appendixB: string;
+  /** Games in the series — 3, 5 or 7 (odd, so there is always a decisive side count). */
+  seriesLength: number;
 }
 
 export const SETUP_DEFAULTS: SetupPrefs = {
@@ -56,6 +66,10 @@ export const SETUP_DEFAULTS: SetupPrefs = {
   labOpen: false,
   appendix: '',
   temperature: 0.2,
+  promptDuelOn: false,
+  appendixA: '',
+  appendixB: '',
+  seriesLength: 5,
 };
 
 interface SetupStore extends SetupPrefs {

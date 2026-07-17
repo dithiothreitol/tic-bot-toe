@@ -94,4 +94,21 @@ describe('SetupScreen', () => {
     expect(await screen.findAllByText(pl.setup.chooseModel)).not.toHaveLength(0);
     expect(screen.queryByText('vendor/gone')).not.toBeInTheDocument();
   });
+
+  it('reveals the prompt-duel controls when lab + duel are toggled on (Module F)', async () => {
+    const user = userEvent.setup();
+    renderSetup();
+
+    // The single appendix and duel controls are hidden until the lab is open.
+    expect(screen.queryByText(pl.lab.duel.promptA)).not.toBeInTheDocument();
+    await user.click(await screen.findByRole('switch', { name: pl.lab.toggle }));
+    expect(screen.getByText(pl.lab.appendix)).toBeInTheDocument(); // single appendix visible
+
+    await user.click(screen.getByRole('switch', { name: pl.lab.duel.toggle }));
+    // Two prompt fields + the game-count buttons appear; the single appendix hides.
+    expect(screen.getByText(pl.lab.duel.promptA)).toBeInTheDocument();
+    expect(screen.getByText(pl.lab.duel.promptB)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '5' })).toBeInTheDocument();
+    expect(screen.queryByText(pl.lab.appendix)).not.toBeInTheDocument();
+  });
 });

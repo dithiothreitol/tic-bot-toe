@@ -112,7 +112,7 @@ const EMPTY_TTT: TicTacToeCell[] = Array<TicTacToeCell>(9).fill(null);
  * 3× the starting empties (plan §4.2b); this is the outer guard, set just above
  * it (3×empty + 2, plan §7.2). Battleship uses 2·N²; tic-tac-toe 9.
  */
-function safetyMaxMovesFor(game: GameId, variant: Variant): number {
+export function safetyMaxMovesFor(game: GameId, variant: Variant): number {
   if (game === 'battleship') {
     const size = getBattleshipVariant(variant.id).size;
     return 2 * size * size;
@@ -159,6 +159,20 @@ export interface MatchConfig {
    * setup screen fills it in. `0` on either field disables that guard.
    */
   safety?: MatchSafety;
+  /**
+   * Prompt duel (Module F, D10). When present, the arena runs a `SeriesRunner`
+   * instead of a single `GameRunner`: the model in `p1` plays ITSELF over
+   * `seriesLength` games with these two appendices, sides swapping each game. The
+   * appendix texts stay local (never persisted / sent), same as the lab appendix.
+   */
+  series?: PromptDuelSpec;
+}
+
+export interface PromptDuelSpec {
+  appendixA: string;
+  appendixB: string;
+  seriesLength: number;
+  seriesSeed: number;
 }
 
 export interface MatchSafety {
