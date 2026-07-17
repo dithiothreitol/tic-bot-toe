@@ -116,6 +116,10 @@ export const en: Dict = {
     placeDigit: (d: number) => `Place digit ${d}`,
     movesLeft: 'Moves left',
     cancel: 'Cancel',
+    humanHint:
+      'Only place a digit you can deduce — a legal but wrong digit disappears from the board and costs −1.',
+    wrongMove: (d: number) =>
+      `Digit ${d} was legal but didn't match the hidden solution — removed from the board (−1).`,
   },
 
   scrabble: {

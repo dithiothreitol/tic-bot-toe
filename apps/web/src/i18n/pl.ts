@@ -123,6 +123,12 @@ export const pl = {
     placeDigit: (d: number) => `Wpisz cyfrę ${d}`,
     movesLeft: 'Ruchów do końca',
     cancel: 'Anuluj',
+    /** Stały explainer w trybie człowiek vs model — tłumaczy mechanikę −1/revert. */
+    humanHint:
+      'Stawiaj tylko cyfrę, którą potrafisz wydedukować — legalna, ale błędna cyfra znika z planszy i kosztuje −1.',
+    /** Feedback po własnym błędnym ruchu gracza: dlaczego cyfra zniknęła. */
+    wrongMove: (d: number) =>
+      `Cyfra ${d} była zgodna z regułami, ale nie pasuje do ukrytego rozwiązania — usunięta z planszy (−1).`,
   },
 
   scrabble: {

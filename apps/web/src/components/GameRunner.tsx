@@ -812,6 +812,7 @@ export function GameRunner({
               state={state as SudokuState | null}
               interactive={isHumanTurn}
               toMove={toMove}
+              humanSide={humanSide}
               names={config.names}
               onPlay={(move) => submit(move)}
             />
@@ -1134,12 +1135,15 @@ function SudokuArena({
   state,
   interactive,
   toMove,
+  humanSide,
   names,
   onPlay,
 }: {
   state: SudokuState | null;
   interactive: boolean;
   toMove: PlayerSide;
+  /** Which side the person plays (null ⇒ model-vs-model — no explainer needed). */
+  humanSide: PlayerSide | null;
   names: { p1: string; p2: string };
   onPlay: (move: Move) => void;
 }) {
@@ -1162,6 +1166,11 @@ function SudokuArena({
   for (const h of state.history) if (h.correct) owners[h.cell] = h.player;
 
   const last = state.history.at(-1) ?? null;
+  // The person's own most recent placement was legal but wrong ⇒ it was removed
+  // and cost −1. That's the exact moment "my digit vanished" reads as a bug, so
+  // the neutral rule hint flips to a pointed explanation of what just happened.
+  const humanLastWrong =
+    humanSide !== null && last !== null && last.player === humanSide && !last.correct;
   const interactiveCells = interactive
     ? state.board.map((v, i) => (v === null ? i : -1)).filter((i) => i >= 0)
     : [];
@@ -1198,6 +1207,22 @@ function SudokuArena({
         lastCell={last ? last.cell : null}
         lastCorrect={last ? last.correct : undefined}
       />
+
+      {/* Human mode only: a standing explainer of the −1/revert rule, upgraded to
+          a pointed "that digit was removed" the turn after the person misfires. */}
+      {humanSide !== null &&
+        (humanLastWrong ? (
+          <p
+            role="status"
+            className="max-w-xs text-center font-mono text-[11px] font-bold leading-relaxed tracking-wide text-danger"
+          >
+            {t.sudoku.wrongMove(last!.digit)}
+          </p>
+        ) : (
+          <p className="max-w-xs text-center font-mono text-[10px] leading-relaxed tracking-wide text-dim">
+            {t.sudoku.humanHint}
+          </p>
+        ))}
 
       {interactive && selected !== null && (
         <DigitPicker
