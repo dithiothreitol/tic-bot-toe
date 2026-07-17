@@ -1,6 +1,6 @@
 import type { GameId, Move, MoveTelemetry, PlayerSide, SetupRecord } from '@arena/game-core';
 
-const BASE = import.meta.env.VITE_API_BASE ?? '';
+const BASE = import.meta.env?.VITE_API_BASE ?? '';
 
 export class ApiError extends Error {
   constructor(

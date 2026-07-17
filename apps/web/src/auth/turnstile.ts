@@ -4,7 +4,7 @@
  * "always passes" test key for local dev.
  */
 export const TURNSTILE_SITE_KEY =
-  import.meta.env.VITE_TURNSTILE_SITE_KEY ?? '1x00000000000000000000AA';
+  import.meta.env?.VITE_TURNSTILE_SITE_KEY ?? '1x00000000000000000000AA';
 
 interface TurnstileApi {
   render: (

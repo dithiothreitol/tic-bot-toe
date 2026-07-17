@@ -7,7 +7,7 @@ import { type ChatTransport, type LlmMoveConfig, moveMaxTokens, runLlmMove } fro
  * server proxy (/api/ollama), which serializes requests. Free (owner's CPU),
  * so no cost; matches are server_verified. Only available when ENABLE_OLLAMA.
  */
-const API_BASE = import.meta.env.VITE_API_BASE ?? '';
+const API_BASE = import.meta.env?.VITE_API_BASE ?? '';
 
 export interface OllamaModel {
   name: string;
