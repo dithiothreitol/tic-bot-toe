@@ -21,6 +21,12 @@ Sześć funkcji zamienia arenę z benchmarku w spektakl — każda czyta te same
 - 🖥️ **Demo w przeglądarce** — na stronie głównej dwie osobowości jednego małego modelu **WebLLM** (rozważny vs ryzykant) grają ze sobą w całości w Twojej przeglądarce — bez klucza, bez chmury, offline.
 - ⚔️ **Pojedynek promptów** — tryb lab: zderz dwa dopiski do promptu w serii N partii na tym samym modelu, ze zmianą stron co partię (fairness). Treść promptów zostaje lokalnie.
 
+| Demo WebLLM w przeglądarce | Muzeum wpadek | Psychologia modelu |
+|---|---|---|
+| ![Demo WebLLM](./handoff/screens/07-demo-webllm.png) | ![Muzeum wpadek](./handoff/screens/09-muzeum-wpadek.png) | ![Psychologia](./handoff/screens/10-psychologia.png) |
+| **Tryb Turinga** | **Pojedynek promptów** | |
+| ![Tryb Turinga](./handoff/screens/11-tryb-turinga.png) | ![Pojedynek promptów](./handoff/screens/08-pojedynek-promptow.png) | |
+
 ## Monorepo (pnpm workspaces)
 
 | Pakiet | Rola |

@@ -55,6 +55,12 @@ Six features turn the arena from a benchmark into a spectacle — each reads the
 - 🖥️ **In-browser demo** — on the home page, two personalities of one small **WebLLM** model (cautious vs reckless) play each other entirely in your browser, no key, no cloud, offline.
 - ⚔️ **Prompt duel** — a lab mode: pit two system-prompt appendices against each other over a best-of-N series on the same model, sides swapping each game for fairness. The prompt text stays local.
 
+| In-browser WebLLM demo | Fail museum | Model psychology |
+|---|---|---|
+| ![WebLLM demo](./handoff/screens/07-demo-webllm.png) | ![Fail museum](./handoff/screens/09-muzeum-wpadek.png) | ![Model psychology](./handoff/screens/10-psychologia.png) |
+| **Turing mode** | **Prompt duel** | |
+| ![Turing mode](./handoff/screens/11-tryb-turinga.png) | ![Prompt duel](./handoff/screens/08-pojedynek-promptow.png) | |
+
 ## Screenshots
 
 | Home | Gameplay | Result card |
