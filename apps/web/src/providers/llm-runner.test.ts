@@ -68,6 +68,29 @@ describe('runLlmMove', () => {
     expect(calls[0][1].role).toBe('user');
   });
 
+  it('forwards onReasoningDelta to the transport (live stream channel, §3.4)', async () => {
+    const { view, legal } = viewAndLegal();
+    const seen: Array<((d: string) => void) | undefined> = [];
+    // A transport that records the streaming callback and drives it once.
+    const transport = async (
+      _m: ChatMessage[],
+      _s: AbortSignal,
+      onReasoningDelta?: (d: string) => void,
+    ): Promise<ChatCompletion> => {
+      seen.push(onReasoningDelta);
+      onReasoningDelta?.('live');
+      return { text: '{"move": 4}' };
+    };
+    const deltas: string[] = [];
+    const result = await runLlmMove(view, legal, {
+      transport,
+      onReasoningDelta: (d) => deltas.push(d),
+    });
+    expect(result.move).toBe(4);
+    expect(seen[0]).toBeTypeOf('function'); // the runner handed the callback through
+    expect(deltas).toEqual(['live']);
+  });
+
   it('retries with a corrective message then succeeds', async () => {
     const { view, legal } = viewAndLegal();
     const { transport, calls } = scriptedTransport([

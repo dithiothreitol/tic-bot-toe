@@ -48,6 +48,35 @@ const chatBody = {
   usage: { prompt_tokens: 10, completion_tokens: 2 },
 };
 
+/** A fake SSE Response whose body streams the given text (optionally in slices). */
+function sseResponse(slices: string[]): Response {
+  const encoder = new TextEncoder();
+  const body = new ReadableStream<Uint8Array>({
+    start(controller) {
+      for (const s of slices) controller.enqueue(encoder.encode(s));
+      controller.close();
+    },
+  });
+  return {
+    ok: true,
+    status: 200,
+    headers: { get: (k: string) => (k.toLowerCase() === 'content-type' ? 'text/event-stream' : null) },
+    body,
+    json: async () => {
+      throw new Error('a stream must not be JSON-parsed');
+    },
+    text: async () => slices.join(''),
+  } as unknown as Response;
+}
+
+const SSE_MOVE = [
+  'data: {"choices":[{"delta":{"reasoning":"I take "}}]}\n\n',
+  'data: {"choices":[{"delta":{"reasoning":"the center."}}]}\n\n',
+  'data: {"choices":[{"delta":{"content":"{\\"move\\": 4}"}}]}\n\n',
+  'data: {"choices":[],"usage":{"prompt_tokens":10,"completion_tokens":3}}\n\n',
+  'data: [DONE]\n\n',
+];
+
 describe('OpenRouter provider — key isolation (SPEC hard constraint)', () => {
   it('sends the request ONLY to openrouter.ai with the key in the Authorization header', async () => {
     const { fetchImpl, calls } = fakeFetch(okJson(chatBody));
@@ -173,6 +202,78 @@ describe('OpenRouter provider — key isolation (SPEC hard constraint)', () => {
       })([{ role: 'user', content: 'hi' }], new AbortController().signal),
     ).rejects.toThrow(/429/);
     expect(seq.calls).toHaveLength(1);
+  });
+
+  it('streams the reasoning trace live and assembles the same completion (§3.4)', async () => {
+    const { fetchImpl, calls } = fakeFetch(sseResponse(SSE_MOVE));
+    const deltas: string[] = [];
+    const out = await createOpenRouterTransport({
+      model: 'v/m',
+      apiKey: 'k',
+      fetchImpl,
+      reasoningCapture: true,
+    })([{ role: 'user', content: 'hi' }], new AbortController().signal, (d) => deltas.push(d));
+
+    // The request asked to stream, with usage in the final chunk.
+    const body = JSON.parse(calls[0].init.body as string);
+    expect(body.stream).toBe(true);
+    expect(body.stream_options).toEqual({ include_usage: true });
+
+    // The trace arrived fragment-by-fragment (the typewriter), and the assembled
+    // result matches what the one-shot path would have returned.
+    expect(deltas).toEqual(['I take ', 'the center.']);
+    expect(out.reasoning).toBe('I take the center.');
+    expect(out.text).toBe('{"move": 4}');
+    expect(out.promptTokens).toBe(10);
+    expect(out.completionTokens).toBe(3);
+  });
+
+  it('reassembles correctly when SSE bytes split mid-line across chunks', async () => {
+    // Split one event across two network reads — the line buffer must stitch it.
+    const joined = SSE_MOVE.join('');
+    const mid = Math.floor(joined.length / 2);
+    const { fetchImpl } = fakeFetch(sseResponse([joined.slice(0, mid), joined.slice(mid)]));
+    const deltas: string[] = [];
+    const out = await createOpenRouterTransport({
+      model: 'v/m', apiKey: 'k', fetchImpl, reasoningCapture: true,
+    })([{ role: 'user', content: 'hi' }], new AbortController().signal, (d) => deltas.push(d));
+    expect(deltas.join('')).toBe('I take the center.');
+    expect(out.text).toBe('{"move": 4}');
+  });
+
+  it('does NOT stream without a delta listener, or without capture (no regression)', async () => {
+    // Capture on, but no listener → plain one-shot request.
+    const noListener = fakeFetch(okJson(chatBody));
+    await createOpenRouterTransport({ model: 'v/m', apiKey: 'k', fetchImpl: noListener.fetchImpl, reasoningCapture: true })(
+      [{ role: 'user', content: 'hi' }], new AbortController().signal,
+    );
+    expect(JSON.parse(noListener.calls[0].init.body as string).stream).toBeUndefined();
+
+    // Listener present, but capture off → nothing to stream, still one-shot.
+    const noCapture = fakeFetch(okJson(chatBody));
+    await createOpenRouterTransport({ model: 'v/m', apiKey: 'k', fetchImpl: noCapture.fetchImpl })(
+      [{ role: 'user', content: 'hi' }], new AbortController().signal, () => {},
+    );
+    expect(JSON.parse(noCapture.calls[0].init.body as string).stream).toBeUndefined();
+  });
+
+  it('falls back to a plain param-less request when the stream request is 4xx-rejected (D3)', async () => {
+    const seq = fakeFetchSeq([
+      { ok: false, status: 400, text: async () => 'stream unsupported' } as Response,
+      okJson(chatBody),
+    ]);
+    const deltas: string[] = [];
+    const out = await createOpenRouterTransport({
+      model: 'v/m', apiKey: 'k', fetchImpl: seq.fetchImpl, reasoningCapture: true,
+    })([{ role: 'user', content: 'hi' }], new AbortController().signal, (d) => deltas.push(d));
+
+    expect(seq.calls).toHaveLength(2);
+    expect(JSON.parse(seq.calls[0].init.body as string).stream).toBe(true);
+    const retry = JSON.parse(seq.calls[1].init.body as string);
+    expect(retry.stream).toBeUndefined();
+    expect(retry.reasoning).toBeUndefined();
+    expect(out.text).toBe('{"move": 4}');
+    expect(deltas).toEqual([]); // nothing streamed on the fallback
   });
 
   it('getMove returns a legal move with cost telemetry from the price snapshot', async () => {

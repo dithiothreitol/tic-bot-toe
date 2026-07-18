@@ -3,6 +3,16 @@
 Jednozdaniowe decyzje podejmowane tam, gdzie SPEC.md nie rozstrzyga (zgodnie z
 regułą 5 promptu startowego). Najnowsze na górze.
 
+## Efekt WOW — Streaming SSE toku myślenia (plan §3.4, dołożone po Etapie 10)
+
+Dowieziony efekt maszyny do pisania „na żywo" — odłożony w Etapach 5 i 10 jako opcjonalny.
+
+- **Kanał opt-in, zero regresji na działającej ścieżce.** `ChatTransport` dostaje opcjonalny 3. argument `onReasoningDelta`; `runLlmMove` przepuszcza `config.onReasoningDelta`. Gdy go NIE ma, transport idzie starą, jednostrzałową drogą (bez zmian). Interfejs `Player.getMove` z game-core NIETKNIĘTY — callback jest wpieczony w gracza przy budowie (`makePlayer(spec, hooks)`), nie przewlekany przez `getMove`.
+- **Strumień tylko gdy jest co pokazać.** OpenRouter streamuje (`stream:true` + `stream_options.include_usage`) wyłącznie gdy `captureReasoning && onReasoningDelta` — czyli model rozumujący ORAZ ktoś słucha (panel włączony). Parser SSE składa DOKŁADNIE ten sam `ChatCompletion` co ścieżka JSON (tekst + reasoning + usage), więc ruch, tokeny i ranking bez zmian (D2 zachowane) — streaming jest tylko sposobem DOSTAWY.
+- **Odporność:** nie-`data:` linie (komentarze SSE `: OPENROUTER PROCESSING`) i `[DONE]` pomijane; zły chunk pominięty, nie fatalny; bufor linii zszywa event rozcięty między odczytami sieci; gdy poprosiliśmy o stream, a serwer/proxy odpowiedział JSON-em (brak `text/event-stream`), i tak parsujemy JSON. Fallback D3 rozszerzony: 4xx na streamie → jeden retry PROSTY (bez `reasoning`, bez `stream`), więc capture nigdy nie psuje grywalności.
+- **UI (`GameRunner` + `ThoughtStream`):** nowy stan `liveThought {side, text}` — każdy fragment dokleja do śladu bieżącego ruchanta (reset gdy zmienia się strona → ślady się nie zlewają), czyszczony przy zatwierdzeniu ruchu (`onMove`) i na starcie partii. Panel pokazuje strumień „na żywo" w trakcie ruchu, a między ruchami — ostatni zatwierdzony ślad z logu. Rendering rośnie znak-po-znaku + auto-scroll = typewriter. Streaming włączany tylko gdy `showThoughts` (odczyt przy starcie partii).
+- **Weryfikacja na żywo (OpenRouter):** `tencent/hy3:free` zwrócił **26 fragmentów reasoning (206 zn.) w oknie 411 ms** — realny strumień token-po-tokenie, ślad złożony poprawnie. Potwierdza SSE parsing + inkrementalną dostawę na prawdziwym API (nie tylko fake w teście).
+
 ## Efekt WOW — Etap 10: Szlif (plan §10, Etap 10)
 
 - **DoD = README z nowymi funkcjami + e2e zielone** — i to dowożę. `README.md` (EN) i `README.pl.md` (PL) dostają sekcję „Zobacz, jak modele naprawdę grają" z sześcioma modułami (A–F) i linkami do `/muzeum-wpadek` i `/turing`. Bez nowych screenów (pliki nie istnieją w `handoff/screens/` — dorzucenie martwych `img` psułoby README; screeny to osobny, ręczny krok).

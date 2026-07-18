@@ -257,6 +257,10 @@ export function GameRunner({
   const locale = useLocale();
   const [state, setState] = useState<unknown>(null);
   const [log, setLog] = useState<MoveLogEntry[]>([]);
+  // Live reasoning being typed out for the move IN PROGRESS (Module A, §3.4). Held
+  // separately from the committed per-move traces in `log`; cleared once the move
+  // lands (the log's captured trace takes over).
+  const [liveThought, setLiveThought] = useState<{ side: PlayerSide; text: string } | null>(null);
   const [status, setStatus] = useState<GameStatus>('playing');
   const [toMove, setToMove] = useState<PlayerSide>('p1');
   const [outcome, setOutcome] = useState<MatchOutcome | null>(null);
@@ -335,12 +339,28 @@ export function GameRunner({
     const abort = new AbortController();
     aborterRef.current = abort;
     const humans: Partial<Record<PlayerSide, HumanPlayerHandle>> = {};
+    // Stream the live reasoning only when the panel is on (read at match start).
+    // Each fragment appends to the mover's live trace, resetting when the mover
+    // changes (a new move) so traces never bleed together.
+    const streamThoughts = useSettings.getState().showThoughts;
     const build = (spec: PlayerSpec, side: PlayerSide) => {
       // Reasoning is a match-level toggle; fold it into every LLM spec here so
       // the setup screen doesn't have to stamp it on each side. Human has no prompt.
       const withReasoning: PlayerSpec =
         spec.kind === 'human' ? spec : { ...spec, reasoning: config.reasoning };
-      const built = makePlayer(withReasoning);
+      const built = makePlayer(
+        withReasoning,
+        streamThoughts
+          ? {
+              onReasoningDelta: (delta) =>
+                setLiveThought((prev) =>
+                  prev && prev.side === side
+                    ? { side, text: prev.text + delta }
+                    : { side, text: delta },
+                ),
+            }
+          : {},
+      );
       if (built.human) humans[side] = built.human;
       return built.player;
     };
@@ -349,6 +369,7 @@ export function GameRunner({
 
     setState(null);
     setLog([]);
+    setLiveThought(null);
     setStatus('playing');
     setToMove('p1');
     setOutcome(null);
@@ -436,6 +457,10 @@ export function GameRunner({
       },
       onMove: (entry, snap) => {
         setLog((l) => [...l, entry]);
+        // The move landed — its captured trace now lives in the log; drop the
+        // live stream so the panel shows the committed trace, and the next move
+        // starts typing from empty.
+        setLiveThought(null);
         applySnap(snap);
 
         // A forfeit with a named cause is why the match "only plays algo" — tell
@@ -873,14 +898,26 @@ export function GameRunner({
         </HudPanel>
       </div>
 
-      {showThoughts && latestThought && (
-        <ThoughtStream
-          live={live}
-          thought={latestThought.thoughts}
-          modelName={latestThought.player === 'p1' ? config.names.p1 : config.names.p2}
-          moveNumber={latestThought.index + 1}
-        />
-      )}
+      {/* While a move streams its reasoning, type THAT out live (§3.4); between
+          moves, fall back to the last committed trace. */}
+      {showThoughts &&
+        (liveThought ? (
+          <ThoughtStream
+            live
+            thought={liveThought.text}
+            modelName={liveThought.side === 'p1' ? config.names.p1 : config.names.p2}
+            moveNumber={log.length + 1}
+          />
+        ) : (
+          latestThought && (
+            <ThoughtStream
+              live={live}
+              thought={latestThought.thoughts}
+              modelName={latestThought.player === 'p1' ? config.names.p1 : config.names.p2}
+              moveNumber={latestThought.index + 1}
+            />
+          )
+        ))}
 
       <TimelineChart log={log} live={live} />
 

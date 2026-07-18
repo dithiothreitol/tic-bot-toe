@@ -43,7 +43,16 @@ export interface BuiltPlayer {
   human?: HumanPlayerHandle;
 }
 
-export function makePlayer(spec: PlayerSpec): BuiltPlayer {
+/**
+ * Per-instance callbacks a caller (the live GameRunner) can bake into a player.
+ * `onReasoningDelta` powers the live „tok myślenia" typewriter (Module A, §3.4) —
+ * only the OpenRouter provider streams, so the others ignore it.
+ */
+export interface PlayerHooks {
+  onReasoningDelta?: (delta: string) => void;
+}
+
+export function makePlayer(spec: PlayerSpec, hooks: PlayerHooks = {}): BuiltPlayer {
   switch (spec.kind) {
     case 'human': {
       const handle = createHumanPlayer('human', spec.displayName ?? 'Human');
@@ -76,6 +85,7 @@ export function makePlayer(spec: PlayerSpec): BuiltPlayer {
             systemAppendix: spec.systemAppendix,
             reasoning: spec.reasoning,
             reasoningModel: spec.reasoningModel,
+            onReasoningDelta: hooks.onReasoningDelta,
           },
           spec.displayName,
         ),

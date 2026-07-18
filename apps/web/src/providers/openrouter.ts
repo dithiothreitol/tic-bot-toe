@@ -1,6 +1,7 @@
 import type { Move, MoveResult, Player, PlayerView } from '@arena/game-core';
 
 import {
+  type ChatCompletion,
   type ChatTransport,
   type LlmMoveConfig,
   type TokenPrice,
@@ -44,6 +45,14 @@ export interface OpenRouterConfig {
    * retried once without it (D3) — capturing a trace never breaks play.
    */
   reasoningCapture?: boolean;
+  /**
+   * Live reasoning stream (Module A, plan §3.4). When present AND the model is
+   * reasoning-capable, the transport streams (`stream: true`) and calls this with
+   * each reasoning fragment as it arrives, so the UI types the trace out live.
+   * The final result is identical to the non-streaming path (D2). Omit → the plain
+   * one-shot request.
+   */
+  onReasoningDelta?: (delta: string) => void;
   /** HTTP-Referer / X-Title for OpenRouter attribution. */
   referer?: string;
   title?: string;
@@ -59,6 +68,74 @@ export interface OpenRouterConfig {
 interface OpenRouterResponse {
   choices?: Array<{ message?: { content?: string | null; reasoning?: string | null } }>;
   usage?: { prompt_tokens?: number; completion_tokens?: number };
+}
+
+/** One SSE chunk in stream mode: content/reasoning arrive as `delta`, usage at the end. */
+interface OpenRouterStreamChunk {
+  choices?: Array<{ delta?: { content?: string | null; reasoning?: string | null } }>;
+  usage?: { prompt_tokens?: number; completion_tokens?: number };
+}
+
+/** Non-streaming shape → ChatCompletion (also the fallback when a "stream" reply is plain JSON). */
+async function readJson(res: Response): Promise<ChatCompletion> {
+  const data = (await res.json()) as OpenRouterResponse;
+  const message = data.choices?.[0]?.message;
+  return {
+    text: message?.content ?? '',
+    reasoning: message?.reasoning ?? undefined,
+    promptTokens: data.usage?.prompt_tokens,
+    completionTokens: data.usage?.completion_tokens,
+  };
+}
+
+/**
+ * Parse an OpenRouter SSE stream into the SAME ChatCompletion the JSON path
+ * returns, calling `onReasoningDelta` with each reasoning fragment as it lands.
+ * Lines that are not `data:` payloads (SSE comments like `: OPENROUTER PROCESSING`)
+ * are skipped; `[DONE]` ends the stream. A malformed chunk is skipped, never fatal.
+ */
+async function readSse(
+  res: Response,
+  onReasoningDelta?: (delta: string) => void,
+): Promise<ChatCompletion> {
+  const reader = res.body!.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let text = '';
+  let reasoning = '';
+  let promptTokens: number | undefined;
+  let completionTokens: number | undefined;
+
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let nl: number;
+    while ((nl = buffer.indexOf('\n')) >= 0) {
+      const line = buffer.slice(0, nl).trim();
+      buffer = buffer.slice(nl + 1);
+      if (!line.startsWith('data:')) continue;
+      const payload = line.slice(5).trim();
+      if (payload === '[DONE]') continue;
+      let chunk: OpenRouterStreamChunk;
+      try {
+        chunk = JSON.parse(payload) as OpenRouterStreamChunk;
+      } catch {
+        continue; // partial/keepalive line — ignore
+      }
+      const delta = chunk.choices?.[0]?.delta;
+      if (delta?.content) text += delta.content;
+      if (delta?.reasoning) {
+        reasoning += delta.reasoning;
+        onReasoningDelta?.(delta.reasoning);
+      }
+      if (chunk.usage) {
+        promptTokens = chunk.usage.prompt_tokens ?? promptTokens;
+        completionTokens = chunk.usage.completion_tokens ?? completionTokens;
+      }
+    }
+  }
+  return { text, reasoning: reasoning || undefined, promptTokens, completionTokens };
 }
 
 function defaultReferer(): string {
@@ -83,7 +160,7 @@ export function createOpenRouterTransport(config: OpenRouterConfig): ChatTranspo
     'HTTP-Referer': config.referer ?? defaultReferer(),
     'X-Title': config.title ?? 'tic-bot-toe',
   };
-  return async (messages, signal) => {
+  return async (messages, signal, onReasoningDelta) => {
     const body: Record<string, unknown> = {
       model: config.model,
       messages,
@@ -96,6 +173,15 @@ export function createOpenRouterTransport(config: OpenRouterConfig): ChatTranspo
     // stays the model default — we only surface what it already produces (D2).
     if (captureReasoning) body.reasoning = { enabled: true };
 
+    // Stream only when there is a live trace worth typing out: a reasoning-capable
+    // model AND a caller listening (§3.4). Delivery-only — the assembled result is
+    // identical to the one-shot path, so the move and the ranking are unchanged.
+    const streaming = captureReasoning && typeof onReasoningDelta === 'function';
+    if (streaming) {
+      body.stream = true;
+      body.stream_options = { include_usage: true };
+    }
+
     const post = (b: Record<string, unknown>): Promise<Response> =>
       doFetch(`${OPENROUTER_BASE}/chat/completions`, {
         method: 'POST',
@@ -105,11 +191,12 @@ export function createOpenRouterTransport(config: OpenRouterConfig): ChatTranspo
       });
 
     let res = await post(body);
-    // D3: a model that does not accept the `reasoning` param answers 4xx. Retry
-    // ONCE without it so trace-capture never turns a playable model unplayable.
+    // D3: a model that rejects the `reasoning` param (or streaming) answers 4xx.
+    // Retry ONCE as a plain non-streaming, param-less request so trace capture
+    // never turns a playable model unplayable.
     if (captureReasoning && !res.ok && REASONING_PARAM_REJECTED.has(res.status)) {
-      const { reasoning: _dropped, ...withoutReasoning } = body;
-      res = await post(withoutReasoning);
+      const { reasoning: _dropped, stream: _s, stream_options: _so, ...plain } = body;
+      res = await post(plain);
     }
 
     if (!res.ok) {
@@ -117,14 +204,14 @@ export function createOpenRouterTransport(config: OpenRouterConfig): ChatTranspo
       throw new Error(`OpenRouter ${res.status}: ${detail.slice(0, 200)}`);
     }
 
-    const data = (await res.json()) as OpenRouterResponse;
-    const message = data.choices?.[0]?.message;
-    return {
-      text: message?.content ?? '',
-      reasoning: message?.reasoning ?? undefined,
-      promptTokens: data.usage?.prompt_tokens,
-      completionTokens: data.usage?.completion_tokens,
-    };
+    // Read as a stream only if we asked for one AND the server actually sent one;
+    // a proxy that answered our stream request with plain JSON still parses. The
+    // header access is optional-chained so it never trips on a minimal Response.
+    const wantsStream =
+      streaming &&
+      res.body != null &&
+      (res.headers?.get?.('content-type') ?? '').includes('text/event-stream');
+    return wantsStream ? readSse(res, onReasoningDelta) : readJson(res);
   };
 }
 
@@ -158,6 +245,7 @@ export function createOpenRouterPlayer(
         price: config.price,
         systemAppendix: config.systemAppendix,
         reasoning: config.reasoning,
+        onReasoningDelta: config.onReasoningDelta,
         // Space out retries so BYOK keys don't flood OpenRouter with back-to-back
         // calls; a 429 backs off ~2s. Overridable via `runner` (tests pass 0).
         retryDelayMs: 700,

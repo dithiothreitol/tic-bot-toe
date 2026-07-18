@@ -63,10 +63,19 @@ function extractThoughts(
   return undefined;
 }
 
-/** Provider-specific transport. Rejects on network error / timeout / abort. */
+/**
+ * Provider-specific transport. Rejects on network error / timeout / abort.
+ *
+ * `onReasoningDelta` (Module A, plan §3.4) is an optional live channel: a provider
+ * that can stream (OpenRouter SSE) calls it with each reasoning fragment AS it
+ * arrives, so the UI can type the trace out live. It is delivery-only — the final
+ * `ChatCompletion` is identical to the non-streaming path, so the move and the
+ * ranking are unchanged (D2). Providers that don't stream simply ignore it.
+ */
 export type ChatTransport = (
   messages: ChatMessage[],
   signal: AbortSignal,
+  onReasoningDelta?: (delta: string) => void,
 ) => Promise<ChatCompletion>;
 
 export interface TokenPrice {
@@ -114,6 +123,13 @@ export interface LlmMoveConfig {
    * the terse default truncates the reasoning. Reasoning matches never rank.
    */
   reasoning?: boolean;
+  /**
+   * Live reasoning stream (Module A, plan §3.4). When set, the transport streams
+   * the reasoning trace and calls this with each fragment as it arrives. The
+   * captured full trace on the returned MoveResult is unchanged (D2); this only
+   * lets the UI type it out live. Omit for the plain non-streaming path.
+   */
+  onReasoningDelta?: (delta: string) => void;
 }
 
 const DEFAULT_MAX_RETRIES = 3;
@@ -260,7 +276,7 @@ export async function runLlmMove(
     const start = now();
     let completion: ChatCompletion | null = null;
     try {
-      completion = await config.transport(messages, controller.signal);
+      completion = await config.transport(messages, controller.signal, config.onReasoningDelta);
     } catch (err) {
       // Network / timeout / abort — a failed attempt; keep retrying, but keep
       // the reason for the forfeit telemetry. Recorded as a `transport` rejection
