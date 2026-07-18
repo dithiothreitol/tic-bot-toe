@@ -3,6 +3,13 @@
 Jednozdaniowe decyzje podejmowane tam, gdzie SPEC.md nie rozstrzyga (zgodnie z
 regułą 5 promptu startowego). Najnowsze na górze.
 
+## Efekt WOW — Etap 10: Szlif (plan §10, Etap 10)
+
+- **DoD = README z nowymi funkcjami + e2e zielone** — i to dowożę. `README.md` (EN) i `README.pl.md` (PL) dostają sekcję „Zobacz, jak modele naprawdę grają" z sześcioma modułami (A–F) i linkami do `/muzeum-wpadek` i `/turing`. Bez nowych screenów (pliki nie istnieją w `handoff/screens/` — dorzucenie martwych `img` psułoby README; screeny to osobny, ręczny krok).
+- **e2e nowych stron (`e2e/new-pages.spec.ts`)** — muzeum wpadek i tryb Turinga: nagłówek + lead/pytanie LUB empty state + dojście z nawigacji. Świadomie BEZ klucza i BEZ modelu (w przeciwieństwie do `human-play.spec.ts`) — to publiczne odczyty, które muszą przeżyć pustą bazę (empty state, nie biała strona). 4 testy zielone na żywym stacku (web :5173 + serwer :8090, `channel: 'chrome'`).
+- **Streaming SSE toku myślenia (§3.4) ODŁOŻONY** — plan sam oznacza go „opcjonalnie". Prawdziwy typewriter „na żywo" wymaga strumieniowania `stream:true` przez CAŁY transport (`openrouter.ts`/`webllm.ts`) + parser SSE + zmianę kontraktu `ChatTransport` z pojedynczego `Promise` na strumień + propagację przez `runLlmMove`/orchestrator do UI. To duży, przekrojowy podsystem z realnym ryzykiem regresji na ścieżce, która DZIAŁA (panel pokazuje pełny ślad per ruch + auto-scroll od Etapu 5). Wartość/ryzyko nie uzasadnia wciśnięcia go w szlif — lepszy osobny etap. Świadomy trade-off.
+- **OG muzeum (kafel z cytatem) i rozbudowa `SPEC.md` ODŁOŻONE** — oba opcjonalne w §9. Strony i tak mają wpisy sitemap (Etapy 3/7) i domyślne OG z tej samej tabeli i18n; dedykowany OG muzeum to kosmetyka. Decyzje są kompletnie udokumentowane w `DECISIONS.md` (D1–D12 + wpisy per-etap), więc dublowanie ich w `SPEC.md` ma niski priorytet. Odnotowane jako świadome pominięcie, nie przeoczenie.
+
 ## Efekt WOW — Etap 9: Pojedynek promptów (plan §8, Etap 9)
 
 - **`runSeries` czyste i z wstrzykiwanym orchestratorem.** Rdzeń (`game/series.ts`) nie zna providerów — dostaje `buildPlayer(appendix) => Player` i (opcjonalnie) `runner` (domyślnie `runMatch`). Dzięki temu testy jednostkowe napędzają zamianę stron / determinizm seedów / agregację / abort fałszywym runnerem, bez LLM. To ten sam wzorzec co przy Turingu (pure core + DI).

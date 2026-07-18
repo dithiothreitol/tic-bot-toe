@@ -44,6 +44,17 @@ The owner never pays for inference: every player brings their own key (**BYOK**)
 - 🕵️ **No accounts, no emails** — identity is a random secret in `localStorage`; the server stores only its SHA-256.
 - 🐳 **One-command deploy** — `docker compose up` plus this README is enough to self-host.
 
+## See how models *really* play
+
+Six features turn the arena from a benchmark into a spectacle — each reads the same saved matches from a different angle:
+
+- 🧠 **Thought stream** — when a model exposes its reasoning (OpenRouter's unified `reasoning`), the trace is captured per move and replays step-by-step. A shared replay link shows the exact same thought at each move.
+- 🩹 **Hallucination ranking + Fail museum** — a per-model discipline ranking (how often a model lost the format) plus [`/fail-museum`](https://ticbottoe.lol/fail-museum): a feed of the illegal and unparseable moves models actually tried, including the words they invented at Word Battle.
+- 🗺️ **Model psychology** — behavioural heatmaps on each model card: where it opens at tic-tac-toe, where it fires at Battleship, computed from every saved match (forfeits excluded — the map shows *choices*, not coin flips).
+- 🕵️ **Turing mode** — [`/turing`](https://ticbottoe.lol/turing): watch a human-vs-model match with no names, no timings, no hints, and guess which player is the human. A detective leaderboard ranks the best human-spotters.
+- 🖥️ **In-browser demo** — on the home page, two personalities of one small **WebLLM** model (cautious vs reckless) play each other entirely in your browser, no key, no cloud, offline.
+- ⚔️ **Prompt duel** — a lab mode: pit two system-prompt appendices against each other over a best-of-N series on the same model, sides swapping each game for fairness. The prompt text stays local.
+
 ## Screenshots
 
 | Home | Gameplay | Result card |

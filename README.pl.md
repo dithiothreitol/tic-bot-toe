@@ -10,6 +10,17 @@ po stronie serwera.
 
 > Źródło prawdy wymagań: [`SPEC.md`](./SPEC.md). Decyzje projektowe: [`DECISIONS.md`](./DECISIONS.md).
 
+## Zobacz, jak modele *naprawdę* grają
+
+Sześć funkcji zamienia arenę z benchmarku w spektakl — każda czyta te same zapisane partie pod innym kątem:
+
+- 🧠 **Tok myślenia** — gdy model udostępnia rozumowanie (unified `reasoning` OpenRoutera), ślad jest przechwytywany per ruch i odtwarzany krok po kroku. Udostępniony link do powtórki pokazuje dokładnie ten sam ślad przy każdym ruchu.
+- 🩹 **Ranking halucynacji + Muzeum wpadek** — ranking dyscypliny per model (jak często gubił format) plus [`/muzeum-wpadek`](https://ticbottoe.lol/muzeum-wpadek): feed nielegalnych i niezrozumiałych ruchów, które modele faktycznie próbowały zagrać — łącznie ze słowami, które zmyśliły w Słownej bitwie.
+- 🗺️ **Psychologia modeli** — heatmapy zachowań na karcie modelu: gdzie otwiera w kółko i krzyżyk, gdzie strzela w statkach — z wszystkich zapisanych partii (bez ruchów wymuszonych — mapa pokazuje *decyzje*, nie losowania).
+- 🕵️ **Tryb Turinga** — [`/turing`](https://ticbottoe.lol/turing): obejrzyj partię człowiek vs model bez nazw, czasów i podpowiedzi i zgadnij, który gracz to człowiek. Ranking detektywów wyłania najlepszych.
+- 🖥️ **Demo w przeglądarce** — na stronie głównej dwie osobowości jednego małego modelu **WebLLM** (rozważny vs ryzykant) grają ze sobą w całości w Twojej przeglądarce — bez klucza, bez chmury, offline.
+- ⚔️ **Pojedynek promptów** — tryb lab: zderz dwa dopiski do promptu w serii N partii na tym samym modelu, ze zmianą stron co partię (fairness). Treść promptów zostaje lokalnie.
+
 ## Monorepo (pnpm workspaces)
 
 | Pakiet | Rola |
