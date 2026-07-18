@@ -9,6 +9,9 @@ import { SeriesRunner } from './SeriesRunner';
 
 // Drive the component with a scripted series: A wins, B wins, draw (best of 3).
 vi.mock('@/game/series', () => ({
+  emptyAggregate: () => ({
+    games: 0, aWins: 0, bWins: 0, draws: 0, tokensA: 0, tokensB: 0, costA: 0, costB: 0, forfeitA: 0, forfeitB: 0,
+  }),
   runSeries: (opts: {
     onGameEnd?: (r: unknown, agg: unknown) => void;
   }) => {

@@ -10,24 +10,12 @@ import { type PlayerSpec, makePlayer } from '@/game/players';
 import {
   type SeriesAggregate,
   type SeriesGameResult,
+  emptyAggregate,
   runSeries,
 } from '@/game/series';
 import { useT } from '@/i18n';
 import { formatCost } from '@/lib/format';
 import { cn } from '@/lib/utils';
-
-const EMPTY_AGG: SeriesAggregate = {
-  games: 0,
-  aWins: 0,
-  bWins: 0,
-  draws: 0,
-  tokensA: 0,
-  tokensB: 0,
-  costA: 0,
-  costB: 0,
-  forfeitA: 0,
-  forfeitB: 0,
-};
 
 type Phase = 'running' | 'done';
 
@@ -49,11 +37,12 @@ export function SeriesRunner({
 
   const [phase, setPhase] = useState<Phase>('running');
   const [games, setGames] = useState<SeriesGameResult[]>([]);
-  const [agg, setAgg] = useState<SeriesAggregate>(EMPTY_AGG);
+  const [agg, setAgg] = useState<SeriesAggregate>(emptyAggregate);
   const [board, setBoard] = useState<TicTacToeState['board'] | null>(null);
   const [currentGame, setCurrentGame] = useState(0);
   const aborter = useRef<AbortController | null>(null);
-  // Re-run token: bumping it restarts the effect for "again".
+  // Re-run token: bumping it restarts the effect for "again". It also shifts the
+  // seed, so a re-run is a genuinely fresh series (not a byte-identical replay).
   const [runId, setRunId] = useState(0);
 
   useEffect(() => {
@@ -61,7 +50,7 @@ export function SeriesRunner({
     aborter.current = abort;
     setPhase('running');
     setGames([]);
-    setAgg(EMPTY_AGG);
+    setAgg(emptyAggregate());
     setBoard(null);
     setCurrentGame(0);
 
@@ -72,29 +61,38 @@ export function SeriesRunner({
     const buildPlayer = (appendix: string) =>
       makePlayer({ ...base, systemAppendix: appendix, reasoning: config.reasoning }).player;
 
-    void runSeries({
-      game: config.game,
-      variant: config.variant,
-      seriesLength: series.seriesLength,
-      seriesSeed: series.seriesSeed,
-      appendixA: series.appendixA,
-      appendixB: series.appendixB,
-      buildPlayer,
-      extraShotOnHit: config.extraShotOnHit,
-      safetyMaxMoves: safetyMaxMovesFor(config.game, config.variant),
-      maxConsecutiveForfeits: config.safety?.maxConsecutiveForfeits || undefined,
-      maxTokens: config.safety?.maxTokens || undefined,
-      signal: abort.signal,
-      onMove: (_entry, snap, gameIndex) => {
-        setCurrentGame(gameIndex);
-        if (config.game === 'tictactoe') setBoard((snap.state as TicTacToeState).board);
-      },
-      onGameEnd: (result, running) => {
-        setGames((g) => [...g, result]);
-        setAgg({ ...running });
-      },
-    }).finally(() => {
-      if (!abort.signal.aborted) setPhase('done');
+    // Defer the actual start to a microtask so React 18 StrictMode's
+    // mount→cleanup→mount cycle aborts the first (throwaway) attempt BEFORE it
+    // fires a real LLM call — otherwise every dev mount burns one getMove.
+    queueMicrotask(() => {
+      if (abort.signal.aborted) return;
+      void runSeries({
+        game: config.game,
+        variant: config.variant,
+        seriesLength: series.seriesLength,
+        // Shift the seed per re-run so "Again" is a new series, not a replay.
+        seriesSeed: series.seriesSeed + runId * 10007,
+        appendixA: series.appendixA,
+        appendixB: series.appendixB,
+        buildPlayer,
+        extraShotOnHit: config.extraShotOnHit,
+        safetyMaxMoves: safetyMaxMovesFor(config.game, config.variant),
+        maxConsecutiveForfeits: config.safety?.maxConsecutiveForfeits || undefined,
+        maxTokens: config.safety?.maxTokens || undefined,
+        signal: abort.signal,
+        onMove: (_entry, snap, gameIndex) => {
+          if (abort.signal.aborted) return; // no setState after unmount/abort
+          setCurrentGame(gameIndex);
+          if (config.game === 'tictactoe') setBoard((snap.state as TicTacToeState).board);
+        },
+        onGameEnd: (result, running) => {
+          if (abort.signal.aborted) return;
+          setGames((g) => [...g, result]);
+          setAgg({ ...running });
+        },
+      }).finally(() => {
+        if (!abort.signal.aborted) setPhase('done');
+      });
     });
 
     return () => abort.abort();
@@ -227,11 +225,12 @@ function Score({
   color: string;
   lead: boolean;
 }) {
+  // The lead glow follows the side's own colour — a leading Prompt B glows
+  // magenta, not cyan.
+  const glow = color === 'text-p2' ? 'text-glow-p2' : 'text-glow-p1';
   return (
     <div className="flex flex-col items-center gap-1">
-      <span className={cn('font-sans text-4xl font-bold', color, lead && 'text-glow-p1')}>
-        {value}
-      </span>
+      <span className={cn('font-sans text-4xl font-bold', color, lead && glow)}>{value}</span>
       <span className="font-mono text-[10px] uppercase tracking-wider text-dim">{label}</span>
     </div>
   );

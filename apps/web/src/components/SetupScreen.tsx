@@ -215,8 +215,11 @@ export function SetupScreen({
   const hasVariant = variantList.length > 1;
 
   // Prompt duel (Module F): one model plays ITSELF over a series, so only the
-  // p1 slot (the duel model) is used — the p2 picker is irrelevant here.
-  const duelActive = labOpen && promptDuelOn && mode === 'model_vs_model';
+  // p1 slot (the duel model) is used — the p2 picker is irrelevant here. The duel
+  // is inherently model-vs-model, so it does NOT depend on the mode selector
+  // (enabling the toggle also switches the mode); otherwise it would silently
+  // no-op in the default human-vs-model mode.
+  const duelActive = labOpen && promptDuelOn;
 
   const start = () => {
     const needP1 = mode === 'model_vs_model';
@@ -275,7 +278,11 @@ export function SetupScreen({
       onStart({
         ...base,
         lab: true,
+        // A duel is always model-vs-model regardless of the mode selector.
         mode: 'model_vs_model',
+        // The lightweight SeriesRunner has no commentator — drop it rather than
+        // carry one it would silently ignore.
+        commentator: undefined,
         p1: spec,
         p2: spec,
         names: { p1: p1Model.name, p2: p1Model.name },
@@ -620,7 +627,11 @@ export function SetupScreen({
                   </div>
                   <Switch
                     checked={promptDuelOn}
-                    onCheckedChange={(v) => patch({ promptDuelOn: v })}
+                    // Turning the duel on switches to model-vs-model — a duel is
+                    // one model against itself, so human mode makes no sense.
+                    onCheckedChange={(v) =>
+                      patch(v ? { promptDuelOn: true, mode: 'model_vs_model' } : { promptDuelOn: false })
+                    }
                     aria-label={t.lab.duel.toggle}
                   />
                 </div>

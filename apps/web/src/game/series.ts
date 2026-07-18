@@ -66,7 +66,8 @@ export interface RunSeriesOptions {
   runner?: typeof runMatch;
 }
 
-function emptyAggregate(): SeriesAggregate {
+/** A fresh zero aggregate — exported so the UI reuses one definition (no drift). */
+export function emptyAggregate(): SeriesAggregate {
   return {
     games: 0,
     aWins: 0,
