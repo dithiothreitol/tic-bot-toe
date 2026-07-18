@@ -1,6 +1,6 @@
 import type { GameId, Move, PlayerSide, SetupRecord } from '@arena/game-core';
 
-import { ApiError, apiGet, apiPost } from '@/api/client';
+import { apiGet, apiPost } from '@/api/client';
 import { getPlayerToken } from '@/store/settings';
 
 /** Turing mode — „Kto jest botem?" (Module D, plan §6). */
@@ -36,18 +36,20 @@ export interface TuringDetective {
 }
 
 /**
- * Fetch a puzzle this browser hasn't guessed yet. Returns null when the pool is
- * exhausted (the server's 404 `no_puzzles`) so the page can show an empty state
- * rather than an error toast.
+ * Fetch a puzzle this browser hasn't guessed yet. The server returns 200 with
+ * `puzzle: null` when the pool is exhausted (a normal empty state, not an error —
+ * so the browser console stays clean); we surface that as `null` for the page's
+ * empty state. Real failures (5xx / network) still reject and bubble up.
  */
 export async function fetchTuringNext(game?: GameId): Promise<TuringNext | null> {
   const qs = game ? `?game=${game}` : '';
-  try {
-    return await apiGet<TuringNext>(`/api/turing/next${qs}`, { playerToken: getPlayerToken() });
-  } catch (e) {
-    if (e instanceof ApiError && e.status === 404) return null;
-    throw e;
-  }
+  const res = await apiGet<{ puzzle: TuringPuzzle | null; puzzleToken?: string }>(
+    `/api/turing/next${qs}`,
+    { playerToken: getPlayerToken() },
+  );
+  return res.puzzle && res.puzzleToken
+    ? { puzzle: res.puzzle, puzzleToken: res.puzzleToken }
+    : null;
 }
 
 /** Submit a guess (which side is the human) and get the reveal. */

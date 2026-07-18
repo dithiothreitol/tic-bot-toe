@@ -125,7 +125,7 @@ describe('GET /api/turing/next', () => {
     expect(JSON.stringify(body)).not.toContain('human:abc');
   });
 
-  it('404s when the pool is empty (all matches ineligible)', async () => {
+  it('returns 200 { puzzle: null } when the pool is empty (all matches ineligible)', async () => {
     await insertMatch({ p1Id: 'openrouter:a', p2Id: 'openrouter:b', mode: 'model_vs_model' }); // not human
     await insertMatch({ p1Id: 'human:x', p2Id: 'openrouter:b', lab: true }); // lab
     await insertMatch({ p1Id: 'human:x', p2Id: 'openrouter:b', winner: null }); // unfinished
@@ -139,8 +139,8 @@ describe('GET /api/turing/next', () => {
       ], // too short (<6)
     });
     const res = await nextPuzzle();
-    expect(res.status).toBe(404);
-    expect((await res.json()) as { error: string }).toEqual({ error: 'no_puzzles' });
+    expect(res.status).toBe(200);
+    expect((await res.json()) as { puzzle: unknown }).toEqual({ puzzle: null });
   });
 
   it('excludes sudoku/scrabble matches — the puzzle UI cannot draw their board', async () => {
@@ -149,7 +149,7 @@ describe('GET /api/turing/next', () => {
     await insertMatch({ game: 'scrabble', variant: 'pl', p1Id: 'human:x', p2Id: 'openrouter:b' });
     // …but neither is renderable, so the pool is empty.
     const res = await nextPuzzle();
-    expect(res.status).toBe(404);
+    expect((await res.json()) as { puzzle: unknown }).toEqual({ puzzle: null });
   });
 
   it('excludes matches this player already guessed', async () => {
@@ -158,7 +158,8 @@ describe('GET /api/turing/next', () => {
       .insert(turingGuesses)
       .values({ playerToken: TOKEN_HASH, matchId: id, guess: 'p1', correct: true });
     const res = await nextPuzzle({ 'x-player-token': PLAYER_TOKEN });
-    expect(res.status).toBe(404); // the only match is already guessed
+    // The only match is already guessed → empty pool → null puzzle.
+    expect((await res.json()) as { puzzle: unknown }).toEqual({ puzzle: null });
   });
 });
 

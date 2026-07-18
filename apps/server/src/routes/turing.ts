@@ -73,7 +73,10 @@ export function turingRoute(deps: { db: Database; config: Config }): Hono {
       .orderBy(desc(matches.createdAt))
       .limit(POOL_SIZE);
 
-    if (candidates.length === 0) return c.json({ error: 'no_puzzles' }, 404);
+    // An empty pool is a normal state, not an error: return 200 with a null
+    // puzzle so the browser console stays clean (a 404 logs red even when the
+    // client handles it). The UI reads `puzzle: null` as its empty state.
+    if (candidates.length === 0) return c.json({ puzzle: null });
     const pick = candidates[Math.floor(Math.random() * candidates.length)]!;
 
     const rows = await deps.db
