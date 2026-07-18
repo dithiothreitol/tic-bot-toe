@@ -255,6 +255,11 @@ export function GameRunner({
   const t = useT();
   const path = useLocalePath();
   const locale = useLocale();
+  // Reactive read of the thought-stream toggle. MUST stay above every early
+  // return below (placement / lexicon / prediction gates) — a hook called after
+  // a conditional return changes the hook count between renders and throws React
+  // error #310 the instant a gate clears (e.g. after ship placement).
+  const showThoughts = useSettings((s) => s.showThoughts);
   const [state, setState] = useState<unknown>(null);
   const [log, setLog] = useState<MoveLogEntry[]>([]);
   // Live reasoning being typed out for the move IN PROGRESS (Module A, §3.4). Held
@@ -799,7 +804,6 @@ export function GameRunner({
   }
 
   const live = status === 'playing' && outcome === null;
-  const showThoughts = useSettings((s) => s.showThoughts);
   // The most recent move that carried a reasoning trace (Module A). Only models
   // produce one, so the panel appears the moment the first trace arrives.
   let latestThought: MoveLogEntry | null = null;
