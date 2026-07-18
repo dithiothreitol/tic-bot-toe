@@ -1,4 +1,4 @@
-import { and, desc, eq, isNotNull, isNull, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 
 import { signPuzzleToken, verifyPuzzleToken } from '../auth/jwt';
@@ -27,6 +27,8 @@ const MIN_MOVES = 6;
 const PUZZLE_TTL_SECONDS = 30 * 60;
 /** Detectives need a real track record before they rank (plan §6.1). */
 const LEADERBOARD_MIN_ATTEMPTS = 10;
+/** Games whose board the puzzle UI can render (TuringPage). Sudoku/scrabble are excluded. */
+const RENDERABLE_GAMES = ['tictactoe', 'battleship'];
 
 /** Which side was the human — the reserved id ('human' or 'human:<uuid>', §16). Pure, for tests. */
 export function humanSideOfMatch(p1Id: string, p2Id: string): 'p1' | 'p2' | null {
@@ -59,6 +61,9 @@ export function turingRoute(deps: { db: Database; config: Config }): Hono {
           eq(matches.forfeitMovesP1, 0),
           eq(matches.forfeitMovesP2, 0),
           sql`jsonb_array_length(${matches.moves}) >= ${MIN_MOVES}`,
+          // Only games the puzzle UI can actually draw a board for — otherwise a
+          // sudoku/scrabble match would reach the battleship renderer and crash.
+          inArray(matches.game, RENDERABLE_GAMES),
           game ? eq(matches.game, game) : undefined,
           tokenHash
             ? sql`${matches.id} NOT IN (SELECT ${turingGuesses.matchId} FROM ${turingGuesses} WHERE ${turingGuesses.playerToken} = ${tokenHash})`

@@ -199,8 +199,12 @@ function ReplayPlayer({ match }: { match: ReplayMatch }) {
             lastMove={step > 0 ? (moves[step - 1].move as number) : null}
             lastMoveClass={currentMove ? QUALITY_RING[currentMove.quality] : undefined}
           />
-        ) : (
+        ) : match.game === 'battleship' ? (
           <BattleshipGodView state={states[step] as BattleshipState} p1={p1} p2={p2} />
+        ) : (
+          // Sudoku/scrabble have no god-view board here yet — show a note instead
+          // of feeding a non-battleship state to the battleship renderer (crash).
+          <p className="py-8 text-center font-mono text-xs text-dim">{t.replay.boardUnavailable}</p>
         )}
 
         <div aria-live="polite" className="text-center font-mono text-sm">

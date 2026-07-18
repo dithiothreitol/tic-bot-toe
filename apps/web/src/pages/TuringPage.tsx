@@ -152,14 +152,14 @@ export function TuringPage() {
                 board={(states[step] as TicTacToeState).board}
                 lastMove={step > 0 ? (moves[step - 1]!.move as number) : null}
               />
-            ) : (
+            ) : puzzle.game === 'battleship' ? (
               <BattleshipGuessView
                 state={states[step] as BattleshipState}
                 labelOfSide={labelOfSide}
                 aLabel={t.turing.playerA}
                 bLabel={t.turing.playerB}
               />
-            )}
+            ) : null}
 
             <div className="flex items-center gap-2">
               <Button variant="outline" size="sm" onClick={() => setStep(0)} disabled={step === 0}>

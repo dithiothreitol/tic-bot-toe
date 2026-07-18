@@ -143,6 +143,15 @@ describe('GET /api/turing/next', () => {
     expect((await res.json()) as { error: string }).toEqual({ error: 'no_puzzles' });
   });
 
+  it('excludes sudoku/scrabble matches — the puzzle UI cannot draw their board', async () => {
+    // Eligible in every OTHER respect (human, decided, 6 moves, no forfeits)…
+    await insertMatch({ game: 'sudoku', p1Id: 'human:x', p2Id: 'openrouter:b' });
+    await insertMatch({ game: 'scrabble', variant: 'pl', p1Id: 'human:x', p2Id: 'openrouter:b' });
+    // …but neither is renderable, so the pool is empty.
+    const res = await nextPuzzle();
+    expect(res.status).toBe(404);
+  });
+
   it('excludes matches this player already guessed', async () => {
     const id = await insertMatch({ p1Id: 'human:abc', p2Id: 'openrouter:bot' });
     await handle.db

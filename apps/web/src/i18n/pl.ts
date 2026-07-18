@@ -666,6 +666,7 @@ export const pl = {
     draw: 'remis',
     wins: 'wygrywa',
     openArena: 'Zagraj własną partię',
+    boardUnavailable: 'Podgląd planszy dla tej gry nie jest jeszcze dostępny w powtórce — poniżej masz listę ruchów.',
   },
 
   charts: {

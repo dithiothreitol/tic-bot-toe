@@ -641,6 +641,7 @@ export const en: Dict = {
     draw: 'draw',
     wins: 'wins',
     openArena: 'Play a match of your own',
+    boardUnavailable: 'A board preview for this game is not available in replay yet — the move list is below.',
   },
 
   charts: {
