@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8" />
+<title>tic-bot-toe — karuzela LinkedIn</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+  :root {
+    --bg: #05070C; --panel: #080D18; --inset: #060A14;
+    --p1: #35E7FF; --p2: #FF3D9A; --edu: #B6FF3C;
+    --text: #DCE6F5; --muted: #A4ADC7; --dim: #8590AD; --faint: #6777A3;
+    --sans: 'Rajdhani', system-ui, sans-serif;
+    --mono: 'JetBrains Mono', ui-monospace, monospace;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #000; }
+
+  .slide {
+    position: relative;
+    width: 1080px; height: 1350px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    overflow: hidden;
+    isolation: isolate;
+  }
+  /* faint cyan tech grid */
+  .slide::before {
+    content: ''; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+    background-image:
+      linear-gradient(rgba(53,231,255,.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(53,231,255,.05) 1px, transparent 1px);
+    background-size: 54px 54px;
+    mask-image: radial-gradient(120% 90% at 50% 30%, #000 55%, transparent 100%);
+  }
+  /* corner accent glow */
+  .slide::after {
+    content: ''; position: absolute; z-index: 0; pointer-events: none;
+    top: -220px; right: -220px; width: 560px; height: 560px; border-radius: 50%;
+    background: radial-gradient(circle, var(--accent-soft) 0%, transparent 68%);
+    opacity: .5;
+  }
+
+  /* L-shaped corner brackets */
+  .brk { position: absolute; width: 62px; height: 62px; z-index: 3; }
+  .brk.tl { top: 46px; left: 46px; border-top: 3px solid var(--accent); border-left: 3px solid var(--accent); }
+  .brk.tr { top: 46px; right: 46px; border-top: 3px solid var(--accent); border-right: 3px solid var(--accent); }
+  .brk.bl { bottom: 46px; left: 46px; border-bottom: 3px solid var(--accent); border-left: 3px solid var(--accent); }
+  .brk.br { bottom: 46px; right: 46px; border-bottom: 3px solid var(--accent); border-right: 3px solid var(--accent); }
+
+  /* scanner line */
+  .scan {
+    position: absolute; left: 0; right: 0; top: 40%; height: 2px; z-index: 1;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    opacity: .28;
+  }
+
+  .content { position: relative; z-index: 4; padding: 108px 96px 96px; height: 100%; display: flex; flex-direction: column; }
+
+  .kicker {
+    font-family: var(--mono); font-weight: 500; font-size: 26px; letter-spacing: .18em;
+    text-transform: uppercase; color: var(--accent);
+  }
+  .kicker .sq { color: var(--accent); margin-right: 10px; }
+
+  h1 {
+    font-weight: 700; line-height: .98; letter-spacing: -.005em;
+    font-size: 96px; margin-top: 34px; color: var(--text);
+  }
+  h1 .em { color: var(--accent); }
+  .slide.big h1 { font-size: 128px; }
+
+  .lead { font-size: 42px; line-height: 1.28; color: var(--muted); margin-top: 40px; max-width: 900px; font-weight: 500; }
+  .lead .em { color: var(--accent); font-weight: 700; }
+
+  .spacer { flex: 1; }
+
+  .foot {
+    font-family: var(--mono); font-size: 24px; letter-spacing: .06em; color: var(--dim);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .foot .brand { color: var(--muted); }
+  .foot .brand b { color: var(--p1); font-weight: 700; }
+  .pageno { color: var(--faint); }
+
+  /* rows / bullets */
+  .rows { margin-top: 52px; display: flex; flex-direction: column; gap: 30px; }
+  .row { display: flex; align-items: baseline; gap: 24px; font-size: 40px; line-height: 1.2; color: var(--text); font-weight: 500; }
+  .row .mk { font-family: var(--mono); color: var(--accent); font-size: 30px; font-weight: 700; flex: none; width: 34px; }
+  .row .sub { color: var(--dim); font-size: 30px; }
+
+  /* two-column */
+  .cols { margin-top: 56px; display: grid; grid-template-columns: 1fr 1fr; gap: 34px; }
+  .card {
+    background: var(--panel); border: 1px solid rgba(53,231,255,.14);
+    clip-path: polygon(20px 0, 100% 0, 100% calc(100% - 20px), calc(100% - 20px) 100%, 0 100%, 0 20px);
+    padding: 44px 40px;
+  }
+  .card.p1 { border-color: rgba(53,231,255,.34); }
+  .card.p2 { border-color: rgba(255,61,154,.34); }
+  .card .tag { font-family: var(--mono); font-size: 24px; letter-spacing: .12em; text-transform: uppercase; }
+  .card.p1 .tag { color: var(--p1); }
+  .card.p2 .tag { color: var(--p2); }
+  .card .ct { font-size: 40px; font-weight: 700; margin-top: 16px; line-height: 1.05; }
+  .card .cd { font-size: 30px; color: var(--muted); margin-top: 18px; line-height: 1.3; font-weight: 500; }
+
+  /* stat blocks */
+  .stats { margin-top: 54px; display: flex; flex-direction: column; gap: 40px; }
+  .stat { display: flex; align-items: baseline; gap: 34px; }
+  .stat .n { font-family: var(--mono); font-weight: 700; font-size: 108px; line-height: .9; flex: none; }
+  .stat.c1 .n { color: var(--p1); }
+  .stat.c2 .n { color: var(--p2); }
+  .stat .lbl { font-size: 38px; font-weight: 600; line-height: 1.15; }
+  .stat .lbl small { display: block; font-family: var(--mono); font-size: 26px; color: var(--dim); font-weight: 400; margin-top: 8px; letter-spacing: .04em; }
+
+  /* timeline */
+  .tl { margin-top: 52px; display: flex; flex-direction: column; gap: 0; border-left: 2px solid rgba(53,231,255,.28); padding-left: 44px; }
+  .tl .ev { position: relative; padding: 26px 0; }
+  .tl .ev + .ev { border-top: 1px solid rgba(255,255,255,.07); }
+  .tl .ev::before { content: ''; position: absolute; left: -53px; top: 34px; width: 16px; height: 16px; background: var(--accent); transform: rotate(45deg); }
+  .tl .d { font-family: var(--mono); font-size: 28px; color: var(--accent); letter-spacing: .04em; }
+  .tl .t { font-size: 38px; font-weight: 600; margin-top: 6px; }
+
+  /* chips */
+  .chips { margin-top: 44px; display: flex; flex-wrap: wrap; gap: 18px; }
+  .chip {
+    font-family: var(--mono); font-size: 28px; color: var(--text);
+    background: var(--inset); border: 1px solid rgba(53,231,255,.18);
+    padding: 14px 24px; letter-spacing: .02em;
+  }
+  .chip b { color: var(--accent); }
+
+  /* screenshot inset */
+  .shot {
+    margin-top: 48px; position: relative; height: 620px;
+    border: 1px solid rgba(53,231,255,.24); background: var(--inset);
+    clip-path: polygon(24px 0, 100% 0, 100% calc(100% - 24px), calc(100% - 24px) 100%, 0 100%, 0 24px);
+    overflow: hidden;
+  }
+  .shot img { width: 100%; display: block; object-fit: cover; object-position: top center; }
+  .shot .sheen { position: absolute; inset: 0; background: linear-gradient(180deg, transparent 60%, rgba(5,7,12,.85)); pointer-events: none; }
+
+  .quote {
+    margin-top: 48px; border-left: 4px solid var(--accent); padding: 8px 0 8px 34px;
+    font-size: 40px; line-height: 1.25; color: var(--text); font-weight: 500; font-style: italic;
+  }
+  .quote .who { display: block; font-style: normal; font-family: var(--mono); font-size: 26px; color: var(--dim); margin-top: 18px; }
+
+  .huge { font-family: var(--mono); font-weight: 700; font-size: 84px; color: var(--accent); margin-top: 48px; letter-spacing: .01em; }
+
+  /* accent themes */
+  .accent-cyan { --accent: #35E7FF; --accent-soft: rgba(53,231,255,.16); }
+  .accent-magenta { --accent: #FF3D9A; --accent-soft: rgba(255,61,154,.16); }
+  .accent-lime { --accent: #B6FF3C; --accent-soft: rgba(182,255,60,.14); }
+
+  /* print → one slide per PDF page */
+  @page { size: 1080px 1350px; margin: 0; }
+  @media print { .slide { break-after: page; } }
+</style>
+</head>
+<body>
+
+<!-- 01 · HOOK -->
+<section class="slide accent-lime big" id="s01">
+  <span class="brk tl"></span><span class="brk tr"></span><span class="brk bl"></span><span class="brk br"></span>
+  <div class="scan"></div>
+  <div class="content">
+    <div class="kicker"><span class="sq">//</span>JAK POWSTAŁA TA APLIKACJA</div>
+    <h1>30 minut<br><span class="em">w samochodzie.</span></h1>
+    <p class="lead">Tyle trwało zaprojektowanie aplikacji, którą agent AI zbudował w <span class="em">6 dni</span>. 71 commitów. Ani jednej linii kodu napisanej ręcznie.</p>
+    <div class="spacer"></div>
+    <div class="foot"><span class="brand"><b>tic-bot-toe</b> · case study</span><span class="pageno">01 / 10</span></div>
+  </div>
+</section>
+
+<!-- 02 · CO POWSTAŁO -->
+<section class="slide accent-cyan" id="s02">
+  <span class="brk tl"></span><span class="brk tr"></span><span class="brk bl"></span><span class="brk br"></span>
+  <div class="content">
+    <div class="kicker"><span class="sq">//</span>CO POWSTAŁO</div>
+    <h1>tic-bot-toe</h1>
+    <p class="lead">Arena, w której modele językowe grają w gry logiczne przeciw sobie i ludziom — i <span class="em">uczą przez grę</span>.</p>
+    <div class="shot"><img src="../zrzuty/01-home.png" alt="" /><div class="sheen"></div></div>
+    <div class="spacer"></div>
+    <div class="foot"><span class="brand">na żywo · <b>ticbottoe.lol</b></span><span class="pageno">02 / 10</span></div>
+  </div>
+</section>
+
+<!-- 03 · DWA NARZĘDZIA -->
+<section class="slide accent-cyan" id="s03">
+  <span class="brk tl"></span><span class="brk tr"></span><span class="brk bl"></span><span class="brk br"></span>
+  <div class="scan"></div>
+  <div class="content">
+    <div class="kicker"><span class="sq">//</span>DWA NARZĘDZIA, DWIE ROLE</div>
+    <h1>Koncepcja to nie<br>to samo co kod</h1>
+    <div class="cols">
+      <div class="card p1">
+        <div class="tag">Claude Cowork</div>
+        <div class="ct">Koncepcja</div>
+        <div class="cd">Research, analiza konkurencji, pozycjonowanie i specyfikacja — rozmową, na plikach.</div>
+      </div>
+      <div class="card p2">
+        <div class="tag">Claude Code</div>
+        <div class="ct">Realizacja</div>
+        <div class="cd">Agent w repozytorium: czyta, pisze, uruchamia, testuje i commituje kod.</div>
+      </div>
+    </div>
+    <div class="spacer"></div>
+    <div class="foot"><span class="brand"><b>tic-bot-toe</b> · case study</span><span class="pageno">03 / 10</span></div>
+  </div>
+</section>
+
+<!-- 04 · KONCEPCJA -->
+<section class="slide accent-lime" id="s04">
+  <span class="brk tl"></span><span class="brk tr"></span><span class="brk bl"></span><span class="brk br"></span>
+  <div class="content">
+    <div class="kicker"><span class="sq">//</span>KONCEPCJA · ~30 MIN</div>
+    <h1>Specyfikacja rosła<br>w <span class="em">rozmowie</span></h1>
+    <div class="rows">
+      <div class="row"><span class="mk">v1</span><span>kółko i krzyżyk · klucz użytkownika · odporność na boty</span></div>
+      <div class="row"><span class="mk">v2</span><span>rankingi Elo + statki z wyborem planszy</span></div>
+      <div class="row"><span class="mk">v3</span><span>własny VPS + PostgreSQL zamiast chmury</span></div>
+      <div class="row"><span class="mk">v4</span><span>telemetria, wykresy i moduł edukacyjny</span></div>
+    </div>
+    <div class="spacer"></div>
+    <p class="lead" style="margin:0;font-size:34px;">Cała rozmowa <span class="em">z telefonu, jako pasażer w aucie.</span></p>
+    <div class="foot" style="margin-top:40px;"><span class="brand"><b>tic-bot-toe</b> · case study</span><span class="pageno">04 / 10</span></div>
+  </div>
+</section>
+
+<!-- 05 · REALIZACJA -->
+<section class="slide accent-magenta" id="s05">
+  <span class="brk tl"></span><span class="brk tr"></span><span class="brk bl"></span><span class="brk br"></span>
+  <div class="scan"></div>
+  <div class="content">
+    <div class="kicker"><span class="sq">//</span>REALIZACJA</div>
+    <h1>Kod napisały<br>agenty</h1>
+    <div class="stats">
+      <div class="stat c1"><span class="n">49</span><span class="lbl">commitów — Opus 4.8 (1M)<small>rdzeń aplikacji w jeden dzień</small></span></div>
+      <div class="stat c2"><span class="n">16</span><span class="lbl">commitów — Claude Fable 5<small>sześć modułów „WOW"</small></span></div>
+    </div>
+    <div class="spacer"></div>
+    <p class="lead" style="margin:0;font-size:34px;">Człowiek: <span class="em">0</span> linii kodu napisanych ręcznie.</p>
+    <div class="foot" style="margin-top:36px;"><span class="brand"><b>tic-bot-toe</b> · case study</span><span class="pageno">05 / 10</span></div>
+  </div>
+</section>
+
+<!-- 06 · METODA -->
+<section class="slide accent-cyan" id="s06">
+  <span class="brk tl"></span><span class="brk tr"></span><span class="brk bl"></span><span class="brk br"></span>
+  <div class="content">
+    <div class="kicker"><span class="sq">//</span>METODA</div>
+    <h1>Dlaczego to<br>zadziałało</h1>
+    <div class="rows">
+      <div class="row"><span class="mk">›</span><span>SPEC = <b>źródło prawdy</b> <span class="sub">— jeden dokument wymagań</span></span></div>
+      <div class="row"><span class="mk">›</span><span>plan etapowy z „definicją ukończenia"</span></div>
+      <div class="row"><span class="mk">›</span><span>DECISIONS.md — decyzje zamiast pytań</span></div>
+      <div class="row"><span class="mk">›</span><span>testy zielone po <b>każdym</b> etapie</span></div>
+      <div class="row"><span class="mk">›</span><span>osobny krok: code-review</span></div>
+    </div>
+    <div class="spacer"></div>
+    <div class="foot"><span class="brand"><b>tic-bot-toe</b> · case study</span><span class="pageno">06 / 10</span></div>
+  </div>
+</section>
+
+<!-- 07 · OŚ CZASU -->
+<section class="slide accent-cyan" id="s07">
+  <span class="brk tl"></span><span class="brk tr"></span><span class="brk bl"></span><span class="brk br"></span>
+  <div class="content">
+    <div class="kicker"><span class="sq">//</span>6 DNI</div>
+    <h1>Od pomysłu<br>do produkcji</h1>
+    <div class="tl">
+      <div class="ev"><div class="d">12.07</div><div class="t">rdzeń grywalny — silniki, providery, rankingi</div></div>
+      <div class="ev"><div class="d">13.07</div><div class="t">produkcja na żywo: ticbottoe.lol</div></div>
+      <div class="ev"><div class="d">16–17.07</div><div class="t">dwie nowe gry: Sudoku i słowna bitwa</div></div>
+      <div class="ev"><div class="d">17–18.07</div><div class="t">sześć modułów „WOW"</div></div>
+    </div>
+    <div class="spacer"></div>
+    <div class="foot"><span class="brand"><b>tic-bot-toe</b> · case study</span><span class="pageno">07 / 10</span></div>
+  </div>
+</section>
+
+<!-- 08 · ROLA CZŁOWIEKA -->
+<section class="slide accent-lime" id="s08">
+  <span class="brk tl"></span><span class="brk tr"></span><span class="brk bl"></span><span class="brk br"></span>
+  <div class="scan"></div>
+  <div class="content">
+    <div class="kicker"><span class="sq">//</span>GDZIE JEST CZŁOWIEK</div>
+    <h1>Nie pisze kodu<br>— <span class="em">prowadzi</span></h1>
+    <div class="chips">
+      <span class="chip">decyzje</span><span class="chip">briefy</span>
+      <span class="chip">recenzja</span><span class="chip">weryfikacja na żywo</span>
+    </div>
+    <div class="quote">Model poradził: „nie buduj wszystkiego". Człowiek świadomie poszedł szerzej — <b>4 gry zamiast 2</b>.<span class="who">— z rozmowy koncepcyjnej</span></div>
+    <div class="spacer"></div>
+    <div class="foot"><span class="brand"><b>tic-bot-toe</b> · case study</span><span class="pageno">08 / 10</span></div>
+  </div>
+</section>
+
+<!-- 09 · TWOJA KOLEJ -->
+<section class="slide accent-lime" id="s09">
+  <span class="brk tl"></span><span class="brk tr"></span><span class="brk bl"></span><span class="brk br"></span>
+  <div class="content">
+    <div class="kicker"><span class="sq">//</span>TWOJA KOLEJ</div>
+    <h1>Powtórzysz to<br>od zera</h1>
+    <p class="lead">Pakiet <span class="em">4 zeszytów</span> prowadzi od podstaw agentów kodujących, przez to case study, po Twoją <span class="em">pierwszą działającą aplikację</span>.</p>
+    <div class="rows">
+      <div class="row"><span class="mk">1</span><span>Agenci kodujący od zera</span></div>
+      <div class="row"><span class="mk">2</span><span>Case study: tic-bot-toe w 6 dni</span></div>
+      <div class="row"><span class="mk">3</span><span>Przygotuj środowisko krok po kroku</span></div>
+      <div class="row"><span class="mk">4</span><span>Twoja pierwsza aplikacja z agentem</span></div>
+    </div>
+    <div class="spacer"></div>
+    <div class="foot"><span class="brand">dla osób bez doświadczenia z agentami</span><span class="pageno">09 / 10</span></div>
+  </div>
+</section>
+
+<!-- 10 · CTA -->
+<section class="slide accent-cyan big" id="s10">
+  <span class="brk tl"></span><span class="brk tr"></span><span class="brk bl"></span><span class="brk br"></span>
+  <div class="scan"></div>
+  <div class="content">
+    <div class="kicker"><span class="sq">//</span>START</div>
+    <h1>Zobacz arenę.<br><span class="em">Zbuduj swoją.</span></h1>
+    <div class="huge">ticbottoe.lol</div>
+    <div class="spacer"></div>
+    <p class="lead" style="font-size:34px;">Materiały „od zera do pierwszej aplikacji" — napisz w komentarzu albo w wiadomości.</p>
+    <div class="foot" style="margin-top:40px;"><span class="brand"><b>tic-bot-toe</b> · LLM Game Arena</span><span class="pageno">10 / 10</span></div>
+  </div>
+</section>
+
+</body>
+</html>
