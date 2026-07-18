@@ -2,6 +2,16 @@
 
 Odpowiednik `DECISIONS.md` dla materiałów szkoleniowych. Jednozdaniowe decyzje per etap. Najnowsze na górze.
 
+## Etapy 1–4 — Cztery zeszyty PDF (gotowe, do recenzji)
+
+- **Wszystkie 4 zeszyty napisane jako Markdown → PDF A4** przez `tools/render-notebooks.mjs` (Chromium/Playwright) z własnym mini-konwerterem Markdown (brak biblioteki MD w repo). Jasny, czytelny motyw druku z akcentami brandu (Rajdhani + JetBrains Mono + Inter), okładka + ramki callout (checkpoint/prompt/warn/note).
+- **Zeszyt 1** fundamenty (czat vs agent, Cowork vs Code, pętla pracy, słowniczek, koszty/bezpieczeństwo, FAQ). **Zeszyt 2** case study wyłącznie z `FAKTY.md` (headline „30 min w aucie", 5 zasad metody, „co poszło nie tak"). **Zeszyt 3** środowisko Windows 11 krok po kroku z punktami kontrolnymi i datą weryfikacji (D3). **Zeszyt 4** pierwsza aplikacja (lista zadań) z gotowymi promptami i komentarzem „dlaczego".
+- **Uwaga autora wdrożona:** Zeszyt 4 mówi wprost, że Claude Code używamy jako **rozszerzenia VS Code**, a alternatywy to **CLI** (`claude`) lub **GitHub Copilot** — metoda i prompty identyczne.
+- **Stopka PDF (uwaga autora):** na każdej stronie „Treść wygenerowana przez AI (Claude) · moderacja: Dariusz Tyszka" + tytuł zeszytu + numer strony.
+- **Naprawiony błąd konwertera:** placeholder inline-code kolidował z liczbami w tekście („6 dni" → `<code>undefined</code>`); zmieniony na sentinel `@@C…@@`. Zweryfikowane podglądem PNG (liczby renderują się poprawnie).
+- **Ograniczenie weryfikacji:** brak `poppler` → stopki PDF nie podejrzano wizualnie (podgląd PNG pokazuje treść strony, nie stopkę druku). Treść body zweryfikowana.
+- **Do recenzji autora:** długość/ton zeszytów; wybór projektu w Zeszycie 4 (domyślnie lista zadań); brzmienie stopki.
+
 ## Etap 5 — Karuzela LinkedIn (gotowa, do recenzji)
 
 - **10 slajdów 1080×1350 (4:5), render @2x** → PNG (post wielo-obrazkowy) + `karuzela.pdf` (post dokumentowy). Toolchain: `tools/slides.html` + `tools/render-slides.mjs` (Chromium/Playwright), deterministycznie — poprawka to edycja HTML i ponowny render.
