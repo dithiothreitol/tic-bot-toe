@@ -241,6 +241,25 @@ describe('OpenRouter provider — key isolation (SPEC hard constraint)', () => {
     expect(out.text).toBe('{"move": 4}');
   });
 
+  it('parses a final event the stream ended on WITHOUT a trailing newline', async () => {
+    // Same events, but the last usage line has no closing "\n\n".
+    const noTrailer = [
+      'data: {"choices":[{"delta":{"reasoning":"hmm"}}]}\n\n',
+      'data: {"choices":[{"delta":{"content":"{\\"move\\": 4}"}}]}\n\n',
+      'data: {"choices":[],"usage":{"prompt_tokens":7,"completion_tokens":1}}',
+    ];
+    const { fetchImpl } = fakeFetch(sseResponse(noTrailer));
+    const deltas: string[] = [];
+    const out = await createOpenRouterTransport({
+      model: 'v/m', apiKey: 'k', fetchImpl, reasoningCapture: true,
+    })([{ role: 'user', content: 'hi' }], new AbortController().signal, (d) => deltas.push(d));
+    // The unterminated final line is still flushed → usage is not lost.
+    expect(out.promptTokens).toBe(7);
+    expect(out.completionTokens).toBe(1);
+    expect(out.text).toBe('{"move": 4}');
+    expect(deltas).toEqual(['hmm']);
+  });
+
   it('does NOT stream without a delta listener, or without capture (no regression)', async () => {
     // Capture on, but no listener → plain one-shot request.
     const noListener = fakeFetch(okJson(chatBody));

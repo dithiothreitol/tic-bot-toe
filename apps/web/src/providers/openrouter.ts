@@ -106,34 +106,46 @@ async function readSse(
   let promptTokens: number | undefined;
   let completionTokens: number | undefined;
 
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    let nl: number;
-    while ((nl = buffer.indexOf('\n')) >= 0) {
-      const line = buffer.slice(0, nl).trim();
-      buffer = buffer.slice(nl + 1);
-      if (!line.startsWith('data:')) continue;
-      const payload = line.slice(5).trim();
-      if (payload === '[DONE]') continue;
-      let chunk: OpenRouterStreamChunk;
-      try {
-        chunk = JSON.parse(payload) as OpenRouterStreamChunk;
-      } catch {
-        continue; // partial/keepalive line — ignore
-      }
-      const delta = chunk.choices?.[0]?.delta;
-      if (delta?.content) text += delta.content;
-      if (delta?.reasoning) {
-        reasoning += delta.reasoning;
-        onReasoningDelta?.(delta.reasoning);
-      }
-      if (chunk.usage) {
-        promptTokens = chunk.usage.prompt_tokens ?? promptTokens;
-        completionTokens = chunk.usage.completion_tokens ?? completionTokens;
+  const processLine = (raw: string): void => {
+    const line = raw.trim();
+    if (!line.startsWith('data:')) return;
+    const payload = line.slice(5).trim();
+    if (payload === '[DONE]') return;
+    let chunk: OpenRouterStreamChunk;
+    try {
+      chunk = JSON.parse(payload) as OpenRouterStreamChunk;
+    } catch {
+      return; // partial/keepalive line — ignore
+    }
+    const delta = chunk.choices?.[0]?.delta;
+    if (delta?.content) text += delta.content;
+    if (delta?.reasoning) {
+      reasoning += delta.reasoning;
+      onReasoningDelta?.(delta.reasoning);
+    }
+    if (chunk.usage) {
+      promptTokens = chunk.usage.prompt_tokens ?? promptTokens;
+      completionTokens = chunk.usage.completion_tokens ?? completionTokens;
+    }
+  };
+
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let nl: number;
+      while ((nl = buffer.indexOf('\n')) >= 0) {
+        processLine(buffer.slice(0, nl));
+        buffer = buffer.slice(nl + 1);
       }
     }
+    // Flush a final event the stream may have ended on without a trailing newline
+    // (defensive — OpenRouter terminates events with \n\n, but a proxy might not).
+    if (buffer.length > 0) processLine(buffer);
+  } finally {
+    // Let go of the stream even if a read rejected (abort/timeout mid-stream).
+    reader.releaseLock();
   }
   return { text, reasoning: reasoning || undefined, promptTokens, completionTokens };
 }
