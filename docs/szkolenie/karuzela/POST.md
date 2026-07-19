@@ -11,55 +11,60 @@ Fakty zgodne z [`../FAKTY.md`](../FAKTY.md). Regeneracja: `node docs/szkolenie/t
 
 ---
 
-## Tekst posta — hook do wyboru
+## Tekst posta
 
-**Hook A (osobisty):**
-> Zaprojektowałem działającą aplikację webową w **30 minut** — jako pasażer w samochodzie. Sześć dni później stała na produkcji. Całość kodu napisały agenty AI. 👇
-
-**Hook B (prowokacja liczbami):**
-> 71 commitów. 6 dni. **0 linii kodu** napisanych moją ręką. Oto jak z pomysłu na tylnym siedzeniu auta powstała działająca aplikacja webowa. 👇
-
-## Tekst posta — treść
+> **Kontynuacja poprzedniego posta** („W nauce o AI wygrywa praktyka…", premiera tic-bot-toe). Ten post świadomie NIE powtarza opisu aplikacji ani listy „czego uczy gra" — nawiązuje do tamtej tezy i opowiada, JAK aplikacja powstała. Styl: osobisty, sceptyczno-szczery, z nawiasowym przymrużeniem oka — jak w oryginale.
 
 ```
-[HOOK]
+Ostatnio pokazałem Wam tic-bot-toe (ticbottoe.lol) — arenę, na której modele
+językowe grają w kółko i krzyżyk oraz w statki. Pisałem wtedy, że w nauce
+o AI wygrywa praktyka. Dziś druga część tej historii, bo najciekawsze nie
+jest to, CO powstało, tylko JAK.
 
-Nie napisałem do niej ani jednej linijki kodu. Moja rola: pomysł, decyzje,
-recenzja. Resztę zrobiły dwa narzędzia AI, każde w swojej roli:
+Uprzedzę pytanie: nie napisałem ani jednej linii kodu.
 
-• Claude Cowork — koncepcja. W jednej rozmowie (tej z auta) powstała pełna
-  specyfikacja: od kółka i krzyżyk, przez rankingi i statki, po własny VPS
-  i moduł edukacyjny. Analiza konkurencji w pakiecie.
+Cała koncepcja powstała w jakieś 30 minut. W samochodzie. Jako pasażer
+(podkreślam, bo bezpieczeństwo ;)). Jedna rozmowa z Claude w telefonie:
+od „chcę arenę, w której modele grają przeciw sobie, i nie chcę płacić
+za cudze partie", przez analizę czy ktoś już to zrobił (nie w tej
+kombinacji), po gotową specyfikację i prompt startowy dla agenta.
 
-• Claude Code — realizacja. Agent w edytorze, który sam czyta, pisze, testuje
-  i commituje kod w repozytorium.
+Potem wkroczył Claude Code — agent, który pracuje wprost w repozytorium:
+czyta pliki, pisze kod, uruchamia testy, commituje. Sześć dni później
+aplikacja stała na produkcji. 71 commitów, każdy podpisany przez model,
+żaden przeze mnie.
 
-Co z tego wyszło? tic-bot-toe (ticbottoe.lol) — arena, w której modele
-językowe grają w 4 gry logiczne przeciw sobie i ludziom, z rankingami Elo,
-podglądem „toku myślenia" modeli i muzeum ich wpadek.
+Moja rola? Ta sama, co architekta na budowie: decyzje, briefy, recenzja
+i sprawdzanie na własne oczy. I tu ukryta jest właściwa lekcja — bo bez
+metody ten eksperyment kończy się kupą niedziałającego kodu:
 
-Dlaczego to zadziałało — i to jest właściwa lekcja, nie sam wynik:
+- Specyfikacja napisana RAZ, z góry — i ani razu nie zmieniana w trakcie.
+- Praca etapami: testy zielone po każdym etapie, inaczej ani kroku dalej.
+- Dziennik decyzji zamiast zasypywania mnie pytaniami o drobiazgi.
+- Code-review jako osobny krok (tak, agent recenzował agenta).
+- Weryfikacja na żywo — bo raz testy „przechodziły", a reguła w kodzie
+  po cichu odrzucała uczciwe, szybkie modele. Wyszło dopiero po pomiarze.
 
-1. Specyfikacja jako źródło prawdy (jeden dokument, napisany raz, z góry).
-2. Praca etapami z „definicją ukończenia" i testami zielonymi po każdym etapie.
-3. Dziennik decyzji zamiast zasypywania mnie pytaniami o drobiazgi.
-4. Osobny krok: code-review.
+Smaczek na koniec: w rozmowie koncepcyjnej model ODRADZAŁ mi pełny zakres.
+„Zbuduj MVP, wypuść, sprawdź, czy ktoś rozegra 20 partii". Poszedłem
+szerzej — 4 gry zamiast 2 i sześć dodatkowych modułów. Świadomie. Agent
+doradza, człowiek decyduje — i dobrze, żeby tak zostało.
 
-Ciekawostka: model odradził mi budowę pełnego zakresu („zrób MVP i sprawdź,
-czy ktoś w to zagra"). Poszedłem szerzej — 4 gry zamiast 2. Świadomie.
+Sceptycyzm wobec szkoleń z poprzedniego posta obowiązuje nadal, więc
+zamiast „programu rozwojowego" przygotowałem coś praktycznego: pakiet
+materiałów, który prowadzi od zera — bez wcześniejszego kontaktu
+z agentami — przez postawienie środowiska aż po zbudowanie PIERWSZEJ
+własnej aplikacji tą samą metodą. Całość w karuzeli poniżej, a po
+materiały napisz w komentarzu.
 
-Przygotowuję pakiet, który przeprowadza przez to od zera — łącznie z
-postawieniem środowiska i zbudowaniem PIERWSZEJ własnej aplikacji, nawet bez
-wcześniejszego kontaktu z agentami kodującymi.
-
-Chcesz materiały? Napisz w komentarzu.
-
-Arena na żywo: ticbottoe.lol
+https://ticbottoe.lol
 ```
 
 ## Hashtagi
 
-`#AI #ClaudeCode #Anthropic #AgentyAI #SztucznaInteligencja #WebDev #Programowanie #BudowanieZAI`
+`#AI #LLM #EdukacjaAI #ClaudeCode #AgentyAI #PromptEngineering`
+
+> Dobrane tak, by nakładały się z poprzednim postem (`#AI #LLM #EdukacjaAI #PromptEngineering`) i dokładały dwa nowe, tematyczne (`#ClaudeCode #AgentyAI`) — algorytm LinkedIn lubi ciągłość serii.
 
 ---
 

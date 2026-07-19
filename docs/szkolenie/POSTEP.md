@@ -18,8 +18,8 @@ Odpowiednik `DECISIONS.md` dla materiałów szkoleniowych. Jednozdaniowe decyzje
 - **Fonty Rajdhani + JetBrains Mono z Google Fonts** ładowane w czasie renderu; skrypt czeka na `document.fonts.ready` (bez tego pierwszy render łapał fallback). Zweryfikowane wizualnie: polskie znaki OK.
 - **Headline = „30 minut w samochodzie"** (slajd 1) — najmocniejszy fakt z researchu; prowadzi całą narrację. Slajd 2 osadza realny zrzut produkcji w ramce HUD.
 - **Fakty tylko z `FAKTY.md`** (D5): 71 commitów, 49 (Opus 4.8 1M) / 16 (Fable 5), 6 dni, v1→v4, „0 linii kodu ręcznie". Zero kosztów/godzin (pominięte przez autora).
-- **Tekst posta w `karuzela/POST.md`**: dwa hooki (osobisty / liczbowy), treść, hashtagi, 10 alt-tekstów.
-- **Do recenzji autora:** wybór hooka; ewentualne dane osobowe/stanowisko na slajdzie 10; czy publikować jako PNG-e czy PDF.
+- **Tekst posta w `karuzela/POST.md`**: przepisany na **kontynuację poprzedniego posta autora** (premiera tic-bot-toe, teza „w nauce o AI wygrywa praktyka") — ten sam osobisty, sceptyczno-szczery ton z nawiasowym przymrużeniem oka; zero powtarzania opisu aplikacji i listy „czego uczy gra"; narracja JAK powstała (30 min w aucie → Claude Code → 6 dni → metoda → „model odradzał, człowiek zdecydował") + zapowiedź pakietu. Hashtagi nakładają się z poprzednim postem (#AI #LLM #EdukacjaAI #PromptEngineering) + dwa nowe (#ClaudeCode #AgentyAI). 10 alt-tekstów bez zmian.
+- **Do recenzji autora:** brzmienie posta (zwłaszcza nawiązanie w pierwszym akapicie); ewentualne dane osobowe/stanowisko na slajdzie 10; czy publikować jako PNG-e czy PDF.
 
 ## Etap 0b — Toolchain + zrzuty (gotowe)
 
