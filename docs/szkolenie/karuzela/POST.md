@@ -13,49 +13,40 @@ Fakty zgodne z [`../FAKTY.md`](../FAKTY.md). Regeneracja: `node docs/szkolenie/t
 
 ## Tekst posta
 
-> **Kontynuacja poprzedniego posta** („W nauce o AI wygrywa praktyka…", premiera tic-bot-toe). Ten post świadomie NIE powtarza opisu aplikacji ani listy „czego uczy gra" — nawiązuje do tamtej tezy i opowiada, JAK aplikacja powstała. Styl: osobisty, sceptyczno-szczery, z nawiasowym przymrużeniem oka — jak w oryginale.
+> **Kontynuacja poprzedniego posta** (premiera tic-bot-toe). Ton: praktyczna ciekawostka, nie szkolenie — autor niczego nie „uczy", po prostu opowiada, jak to powstało. Styl naturalny, luźny, bez copywriterskich konstrukcji.
 
 ```
-Ostatnio pokazałem Wam tic-bot-toe (ticbottoe.lol) — arenę, na której modele
-językowe grają w kółko i krzyżyk oraz w statki. Pisałem wtedy, że w nauce
-o AI wygrywa praktyka. Dziś druga część tej historii, bo najciekawsze nie
-jest to, CO powstało, tylko JAK.
+Ciekawostka do poprzedniego posta o tic-bot-toe (ticbottoe.lol): nie
+napisałem w tej aplikacji ani jednej linii kodu.
 
-Uprzedzę pytanie: nie napisałem ani jednej linii kodu.
+Cały pomysł rozpisałem w jakieś pół godziny, w samochodzie, z telefonu
+(jako pasażer, uprzedzając pytania ;)). Zwykła rozmowa z Claude: chcę
+arenę, w której modele grają przeciw sobie, nie chcę płacić za cudze
+partie, ma być odporna na boty. Po drodze sprawdziliśmy, czy ktoś już
+czegoś takiego nie zrobił (w tej kombinacji - nie) i z tej samej rozmowy
+wyszła gotowa specyfikacja plus prompt startowy.
 
-Cała koncepcja powstała w jakieś 30 minut. W samochodzie. Jako pasażer
-(podkreślam, bo bezpieczeństwo ;)). Jedna rozmowa z Claude w telefonie:
-od „chcę arenę, w której modele grają przeciw sobie, i nie chcę płacić
-za cudze partie", przez analizę czy ktoś już to zrobił (nie w tej
-kombinacji), po gotową specyfikację i prompt startowy dla agenta.
+Resztę zrobił Claude Code, czyli agent pracujący bezpośrednio w
+repozytorium - czyta pliki, pisze kod, uruchamia testy, commituje.
+Po sześciu dniach aplikacja stała na produkcji. W historii repo jest
+71 commitów i każdy jest podpisany przez model, żaden przeze mnie.
 
-Potem wkroczył Claude Code — agent, który pracuje wprost w repozytorium:
-czyta pliki, pisze kod, uruchamia testy, commituje. Sześć dni później
-aplikacja stała na produkcji. 71 commitów, każdy podpisany przez model,
-żaden przeze mnie.
+Moja robota sprowadzała się do decyzji i odbiorów. Trochę jak inwestor
+na budowie - cegieł nie kładłem, ale bez sprawdzania po każdym etapie
+skończyłoby się katastrofą. Zresztą raz prawie się skończyło: w kodzie
+siedziała reguła, która uznawała zbyt szybkie odpowiedzi za oszustwo
+i po cichu wyrzucała uczciwe partie z rankingu. Testy to przepuszczały,
+bo były napisane pod regułę, nie pod rzeczywistość. Wyszło dopiero, gdy
+puściłem na tym prawdziwe modele.
 
-Moja rola? Ta sama, co architekta na budowie: decyzje, briefy, recenzja
-i sprawdzanie na własne oczy. I tu ukryta jest właściwa lekcja — bo bez
-metody ten eksperyment kończy się kupą niedziałającego kodu:
+Najzabawniejsze w całej historii: na etapie planowania model sam mi ten
+projekt odradzał. Twierdził, że mam zrobić absolutne minimum, wypuścić
+i najpierw sprawdzić, czy ktokolwiek w ogóle zagra. Nie posłuchałem
+i dobrze mi z tym ;)
 
-- Specyfikacja napisana RAZ, z góry — i ani razu nie zmieniana w trakcie.
-- Praca etapami: testy zielone po każdym etapie, inaczej ani kroku dalej.
-- Dziennik decyzji zamiast zasypywania mnie pytaniami o drobiazgi.
-- Code-review jako osobny krok (tak, agent recenzował agenta).
-- Weryfikacja na żywo — bo raz testy „przechodziły", a reguła w kodzie
-  po cichu odrzucała uczciwe, szybkie modele. Wyszło dopiero po pomiarze.
-
-Smaczek na koniec: w rozmowie koncepcyjnej model ODRADZAŁ mi pełny zakres.
-„Zbuduj MVP, wypuść, sprawdź, czy ktoś rozegra 20 partii". Poszedłem
-szerzej — 4 gry zamiast 2 i sześć dodatkowych modułów. Świadomie. Agent
-doradza, człowiek decyduje — i dobrze, żeby tak zostało.
-
-Sceptycyzm wobec szkoleń z poprzedniego posta obowiązuje nadal, więc
-zamiast „programu rozwojowego" przygotowałem coś praktycznego: pakiet
-materiałów, który prowadzi od zera — bez wcześniejszego kontaktu
-z agentami — przez postawienie środowiska aż po zbudowanie PIERWSZEJ
-własnej aplikacji tą samą metodą. Całość w karuzeli poniżej, a po
-materiały napisz w komentarzu.
+Całość historii w karuzeli poniżej. Repozytorium, specyfikacja i dziennik
+decyzji są publiczne - można prześledzić commit po commicie, link
+w komentarzu.
 
 https://ticbottoe.lol
 ```
@@ -78,5 +69,5 @@ https://ticbottoe.lol
 6. **06.png** — Slajd „Metoda": SPEC jako źródło prawdy, plan etapowy z definicją ukończenia, DECISIONS.md zamiast pytań, testy zielone po każdym etapie, osobny krok code-review.
 7. **07.png** — Slajd „6 dni, oś czasu": 12.07 rdzeń grywalny, 13.07 produkcja na żywo, 16–17.07 dwie nowe gry, 17–18.07 sześć modułów WOW.
 8. **08.png** — Slajd „Gdzie jest człowiek": nie pisze kodu, tylko prowadzi — decyzje, briefy, recenzja, weryfikacja; model doradzał MVP, człowiek świadomie poszedł szerzej.
-9. **09.png** — Slajd „Twoja kolej": zapowiedź pakietu 4 zeszytów prowadzącego od podstaw agentów po pierwszą własną aplikację.
-10. **10.png** — Slajd końcowy „Zobacz arenę. Zbuduj swoją." z adresem ticbottoe.lol i zachętą do napisania po materiały.
+9. **09.png** — Slajd „Wszystko jawne — prześledź to sam": repozytorium z pełną historią, specyfikacja SPEC.md, dziennik decyzji DECISIONS.md, podpisy modeli w każdym commicie.
+10. **10.png** — Slajd końcowy „Zobacz arenę. Zagraj z modelem." z adresem ticbottoe.lol; bez konta i bez danych, repo w komentarzu.

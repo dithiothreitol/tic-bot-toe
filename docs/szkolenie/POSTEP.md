@@ -18,8 +18,9 @@ Odpowiednik `DECISIONS.md` dla materiałów szkoleniowych. Jednozdaniowe decyzje
 - **Fonty Rajdhani + JetBrains Mono z Google Fonts** ładowane w czasie renderu; skrypt czeka na `document.fonts.ready` (bez tego pierwszy render łapał fallback). Zweryfikowane wizualnie: polskie znaki OK.
 - **Headline = „30 minut w samochodzie"** (slajd 1) — najmocniejszy fakt z researchu; prowadzi całą narrację. Slajd 2 osadza realny zrzut produkcji w ramce HUD.
 - **Fakty tylko z `FAKTY.md`** (D5): 71 commitów, 49 (Opus 4.8 1M) / 16 (Fable 5), 6 dni, v1→v4, „0 linii kodu ręcznie". Zero kosztów/godzin (pominięte przez autora).
-- **Tekst posta w `karuzela/POST.md`**: przepisany na **kontynuację poprzedniego posta autora** (premiera tic-bot-toe, teza „w nauce o AI wygrywa praktyka") — ten sam osobisty, sceptyczno-szczery ton z nawiasowym przymrużeniem oka; zero powtarzania opisu aplikacji i listy „czego uczy gra"; narracja JAK powstała (30 min w aucie → Claude Code → 6 dni → metoda → „model odradzał, człowiek zdecydował") + zapowiedź pakietu. Hashtagi nakładają się z poprzednim postem (#AI #LLM #EdukacjaAI #PromptEngineering) + dwa nowe (#ClaudeCode #AgentyAI). 10 alt-tekstów bez zmian.
-- **Do recenzji autora:** brzmienie posta (zwłaszcza nawiązanie w pierwszym akapicie); ewentualne dane osobowe/stanowisko na slajdzie 10; czy publikować jako PNG-e czy PDF.
+- **Tekst posta w `karuzela/POST.md`**: po dwóch iteracjach z autorem — kontynuacja poprzedniego posta w tonie **praktycznej ciekawostki, nie szkolenia**. Autor odrzucił wersję „copywriterską" (za gładka, brzmiała jak AI) i pozycjonowanie edukacyjne („nie chcę nikogo uczyć"). Finalny tekst: luźny, naturalny, bez zapowiedzi pakietu; CTA = „prześledź commit po commicie, repo w komentarzu". Hashtagi spójne z poprzednim postem.
+- **Slajdy 9–10 przerobione spójnie z tonem**: 9 „Twoja kolej / pakiet 4 zeszytów" → „Wszystko jawne / Prześledź to sam" (repo, SPEC.md, DECISIONS.md, podpisy modeli); 10 CTA „napisz po materiały" → „Zagraj z modelem / bez konta i bez danych". Pakiet zeszytów zostaje w repo jako produkt, ale post go nie sprzedaje. Alt-teksty 9–10 zaktualizowane. Zweryfikowane wizualnie (slajd 9).
+- **Do recenzji autora:** brzmienie posta; czy publikować jako PNG-e czy PDF.
 
 ## Etap 0b — Toolchain + zrzuty (gotowe)
 
