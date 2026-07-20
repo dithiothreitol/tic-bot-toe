@@ -62,6 +62,11 @@ function randomSeed(): number {
   return Math.floor(Math.random() * 2 ** 31);
 }
 
+/** Smooth-scroll to the full setup card (the `#arena-setup` anchor in ArenaPage). */
+function scrollToSetup(): void {
+  document.getElementById('arena-setup')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
 /**
  * Daily challenge tile (SPEC §12.6). The challenge itself comes from the server,
  * which derives it from the date — there is no schedule to drift out of sync.
@@ -177,6 +182,15 @@ export function DailyChallengeCard({
         <p className="font-mono text-[10px] uppercase tracking-wider text-dim">
           {t.daily.free} · {challenge.day}
         </p>
+        {/* The challenge fixes the opponent; this is the escape hatch to the full
+            setup below (with the model picker) for anyone who'd rather choose. */}
+        <button
+          type="button"
+          onClick={scrollToSetup}
+          className="w-fit font-mono text-[10px] uppercase tracking-wider text-edu/80 underline-offset-4 transition-colors hover:text-edu hover:underline"
+        >
+          {t.daily.ownModel} ↓
+        </button>
       </div>
 
       <div className="flex items-center gap-5">

@@ -487,6 +487,8 @@ export const pl = {
     loadError: 'Nie udało się pobrać wyzwania dnia.',
     lostHint: 'Tym razem nie wyszło — spróbuj jeszcze raz, wyzwanie jest ważne do końca dnia.',
     free: 'zawsze darmowy przeciwnik',
+    /** Ucieczka z wyzwania o narzuconym przeciwniku do pełnego setupu (§12.6). */
+    ownModel: 'albo wybierz własny model',
   },
 
   prediction: {

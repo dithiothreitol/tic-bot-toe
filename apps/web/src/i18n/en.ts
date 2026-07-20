@@ -466,6 +466,7 @@ export const en: Dict = {
     loadError: 'Could not fetch the daily challenge.',
     lostHint: 'Not this time — try again, the challenge is valid until the end of the day.',
     free: 'always a free opponent',
+    ownModel: 'or pick your own model',
   },
 
   prediction: {
