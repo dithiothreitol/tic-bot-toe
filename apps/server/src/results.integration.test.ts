@@ -1058,6 +1058,114 @@ async function seedRankedToday(
   );
 }
 
+/**
+ * Regression: `matches_dedup` is a GLOBAL unique index on `moves_hash`, and
+ * tic-tac-toe is the one game whose `serializeSetup` carries no seed — so hashing
+ * the line alone made the move sequence the entire identity of a match. The first
+ * person to beat a model down a given line owned it forever; everyone else got a
+ * 409 `duplicate`. Reported live as "I beat the machine and can't get past streak 1"
+ * — the daily challenge needs a saved `matchId` (routes/daily.ts), so a refused
+ * save silently ends the streak.
+ *
+ * `playOut` ignores `seed` for tic-tac-toe (first-legal-move is deterministic), so
+ * these payloads really are byte-identical in their move lists — which is exactly
+ * what a 3×3 board plus a near-deterministic 3B model produces in the wild.
+ */
+describe('moves_hash dedup is scoped to who played (tic-tac-toe collision)', () => {
+  function humanTtt(modelId: string): ResultPayload {
+    const base = playOut('tictactoe', 'standard', 0, 4000, 'human', modelId);
+    let i = 0;
+    return {
+      ...base,
+      mode: 'human_vs_model',
+      moves: base.moves.map((m) =>
+        m.player === 'p1'
+          ? { ...m, telemetry: { ...m.telemetry, latencyMs: 1500 + ((i++ * 373) % 2500) } }
+          : m,
+      ),
+    };
+  }
+
+  it('lets two different people save the identical winning line', async () => {
+    const alice = await resolvePlayer(handle.db, 'tok-dedup-aaaaaaaaaaa');
+    const bob = await resolvePlayer(handle.db, 'tok-dedup-bbbbbbbbbbb');
+    const line = humanTtt('openrouter:llama');
+
+    expect((await submitResult(handle.db, newJti(), line, null, humanOpts(alice))).ok).toBe(true);
+    const second = await submitResult(handle.db, newJti(), line, null, humanOpts(bob));
+    expect(second.ok).toBe(true);
+  });
+
+  it('lets one person beat a DIFFERENT model with the same line (the daily rotates opponents)', async () => {
+    const player = await resolvePlayer(handle.db, 'tok-dedup-ccccccccccc');
+
+    const monday = await submitResult(
+      handle.db,
+      newJti(),
+      humanTtt('openrouter:model-a'),
+      null,
+      humanOpts(player),
+    );
+    expect(monday.ok).toBe(true);
+    const tuesday = await submitResult(
+      handle.db,
+      newJti(),
+      humanTtt('openrouter:model-b'),
+      null,
+      humanOpts(player),
+    );
+    expect(tuesday.ok).toBe(true);
+  });
+
+  it('lets one person replay their winning line vs the same model from a fresh match start', async () => {
+    const player = await resolvePlayer(handle.db, 'tok-dedup-ddddddddddd');
+    const line = humanTtt('openrouter:llama');
+
+    // Two genuine matches: distinct start tokens, each burned on its own save.
+    expect((await submitResult(handle.db, newJti(), line, null, humanOpts(player))).ok).toBe(true);
+    const again = await submitResult(handle.db, newJti(), line, null, humanOpts(player));
+    expect(again.ok).toBe(true);
+  });
+
+  it('still burns the start token — one match start is one saved match (§15.3)', async () => {
+    const player = await resolvePlayer(handle.db, 'tok-dedup-eeeeeeeeeee');
+    const line = humanTtt('openrouter:llama');
+    const opts = humanOpts(player); // same StartProof reused on purpose
+
+    expect((await submitResult(handle.db, newJti(), line, null, opts)).ok).toBe(true);
+    const replayed = await submitResult(handle.db, newJti(), line, null, opts);
+    expect(replayed.ok).toBe(false);
+    if (!replayed.ok) {
+      expect(replayed.code).toBe(409);
+      expect(replayed.reason).toBe('start_token_used');
+    }
+  });
+
+  it('keeps deduplicating model-vs-model — no start token there, so moves+subjects is the anti-farm key', async () => {
+    const mvm = playOut('tictactoe', 'standard', 0, 4000, 'openrouter:x', 'openrouter:y');
+    expect((await submitResult(handle.db, newJti(), mvm, null, { now: clock })).ok).toBe(true);
+    const dup = await submitResult(handle.db, newJti(), mvm, null, { now: clock });
+    expect(dup.ok).toBe(false);
+    if (!dup.ok) expect(dup.reason).toBe('duplicate');
+  });
+
+  it('refuses a model-vs-model replay even when the caller varies a valid start token', async () => {
+    const mvm = playOut('tictactoe', 'standard', 0, 4000, 'openrouter:p', 'openrouter:q');
+    expect(
+      (await submitResult(handle.db, newJti(), mvm, null, { start: startedAgo(60_000), now: clock }))
+        .ok,
+    ).toBe(true);
+    // A fresh, signature-valid start token must NOT buy a fresh dedup namespace:
+    // nothing burns it for model-vs-model, so honouring it would reopen farming.
+    const dup = await submitResult(handle.db, newJti(), mvm, null, {
+      start: startedAgo(60_000),
+      now: clock,
+    });
+    expect(dup.ok).toBe(false);
+    if (!dup.ok) expect(dup.reason).toBe('duplicate');
+  });
+});
+
 describe('daily ranked caps + precision flag (SPEC §15.3)', () => {
   it('stops one identity after 30 ranked matches in a day', async () => {
     const player = await resolvePlayer(handle.db, 'tok-limit-11111111111');

@@ -115,18 +115,49 @@ function stableStringify(value: unknown): string {
   return `{${keys.map((k) => `${JSON.stringify(k)}:${stableStringify(obj[k])}`).join(',')}}`;
 }
 
-/** SHA-256 over the canonical (game, variant, setup, moves) — for dedup (SPEC §15). */
+/**
+ * Who played the match — folded into the dedup hash alongside the moves.
+ *
+ * Without this the hash describes only the *line played*, and `matches_dedup` is a
+ * GLOBAL unique index: the first person on the planet to play a given line owns it
+ * forever, everyone else gets a 409. Battleship/sudoku/scrabble hide the problem
+ * behind a `seed` in `setup`, but tic-tac-toe's setup is just `{game, variant}` —
+ * a 3×3 board is a namespace so small that two unrelated people who both beat a
+ * weak model down the left column collide, and the second can never save.
+ */
+export interface MatchIdentity {
+  /** Authoritative subject ids — `human:<playerId>` / `openrouter:<model>` / … */
+  p1: string;
+  p2: string;
+  /**
+   * The match-start jti (§15.3), and ONLY when that jti is actually burned on save
+   * (ranked human matches). Those are already one-save-per-start-token, so folding
+   * it in costs no replay protection and buys per-match uniqueness — a person may
+   * beat the same model down the same line on Monday and again on Tuesday.
+   *
+   * Must stay `null` for model-vs-model: nothing burns the token there, so an
+   * attacker-varied nonce would reopen exactly the farming that moves+subjects
+   * dedup exists to stop.
+   */
+  nonce?: string | null;
+}
+
+/** SHA-256 over the canonical (game, variant, setup, moves, identity) — dedup (SPEC §15). */
 export async function movesHash(
   game: GameId,
   variant: string,
   setup: SetupRecord | null | undefined,
   moves: ReplayMove[],
+  identity: MatchIdentity,
 ): Promise<string> {
   const canonical = stableStringify({
     game,
     variant,
     setup: setup ?? null,
     moves: moves.map((m) => ({ player: m.player, move: m.move })),
+    p1: identity.p1,
+    p2: identity.p2,
+    nonce: identity.nonce ?? null,
   });
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(canonical));
   return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');

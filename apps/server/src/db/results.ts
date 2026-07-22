@@ -641,7 +641,15 @@ export async function submitResult(
     console.warn(`[result] telemetry out of bounds (cost=${totalCost}) — saving without aggregation`);
   }
 
-  const hash = await movesHash(payload.game, payload.variant, payload.setup as never, replayMoves);
+  // Dedup key = the line played AND who played it (§15). `nonce` is gated on the
+  // exact condition under which the start jti is burned below — a model-vs-model
+  // caller may also *send* a valid start token, and honouring it here would let
+  // them mint a fresh nonce per submission and farm the same match forever.
+  const hash = await movesHash(payload.game, payload.variant, payload.setup as never, replayMoves, {
+    p1: subject.p1,
+    p2: subject.p2,
+    nonce: ranked && start ? start.jti : null,
+  });
   // Ollama runs through our proxy, so those matches are genuinely server-side
   // (SPEC §2.3). Computed from ids, not trusted from the client.
   const serverVerified =

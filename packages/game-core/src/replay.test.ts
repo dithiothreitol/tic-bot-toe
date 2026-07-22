@@ -74,13 +74,59 @@ describe('replayMatch — battleship', () => {
 });
 
 describe('movesHash', () => {
+  const vs = { p1: 'openrouter:a', p2: 'openrouter:b' };
+
   it('is stable, 64 hex chars, and sensitive to the moves', async () => {
     const { moves, setup } = playOut('tictactoe', 'standard', 1);
-    const h1 = await movesHash('tictactoe', 'standard', setup, moves);
-    const h2 = await movesHash('tictactoe', 'standard', setup, moves);
+    const h1 = await movesHash('tictactoe', 'standard', setup, moves, vs);
+    const h2 = await movesHash('tictactoe', 'standard', setup, moves, vs);
     expect(h1).toBe(h2);
     expect(h1).toMatch(/^[0-9a-f]{64}$/);
     const tampered = moves.map((m, i) => (i === 0 ? { ...m, move: 8 } : m));
-    expect(await movesHash('tictactoe', 'standard', setup, tampered)).not.toBe(h1);
+    expect(await movesHash('tictactoe', 'standard', setup, tampered, vs)).not.toBe(h1);
+  });
+
+  // The bug this guards: `matches_dedup` is a GLOBAL unique index and tic-tac-toe's
+  // setup carries no seed, so hashing the line alone meant the first person to beat
+  // a model down the left column owned that line forever — everyone else got a 409.
+  it('separates two people who played the identical line', async () => {
+    const { moves, setup } = playOut('tictactoe', 'standard', 1);
+    const alice = await movesHash('tictactoe', 'standard', setup, moves, {
+      p1: 'human:alice',
+      p2: 'openrouter:llama',
+    });
+    const bob = await movesHash('tictactoe', 'standard', setup, moves, {
+      p1: 'human:bob',
+      p2: 'openrouter:llama',
+    });
+    expect(alice).not.toBe(bob);
+  });
+
+  it('separates the same line played against two different models', async () => {
+    const { moves, setup } = playOut('tictactoe', 'standard', 1);
+    const llama = await movesHash('tictactoe', 'standard', setup, moves, {
+      p1: 'human:alice',
+      p2: 'openrouter:llama',
+    });
+    const qwen = await movesHash('tictactoe', 'standard', setup, moves, {
+      p1: 'human:alice',
+      p2: 'openrouter:qwen',
+    });
+    expect(llama).not.toBe(qwen);
+  });
+
+  it('separates one person replaying their winning line on another day (distinct start jti)', async () => {
+    const { moves, setup } = playOut('tictactoe', 'standard', 1);
+    const id = { p1: 'human:alice', p2: 'openrouter:llama' };
+    const monday = await movesHash('tictactoe', 'standard', setup, moves, { ...id, nonce: 'jti-1' });
+    const tuesday = await movesHash('tictactoe', 'standard', setup, moves, { ...id, nonce: 'jti-2' });
+    expect(monday).not.toBe(tuesday);
+  });
+
+  it('still collides for model-vs-model — no nonce there, so farming stays deduped', async () => {
+    const { moves, setup } = playOut('tictactoe', 'standard', 1);
+    const first = await movesHash('tictactoe', 'standard', setup, moves, vs);
+    const again = await movesHash('tictactoe', 'standard', setup, moves, { ...vs, nonce: null });
+    expect(again).toBe(first);
   });
 });
