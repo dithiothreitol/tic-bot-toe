@@ -89,9 +89,23 @@ function shortId(id: string): string {
   return id.replace(/^(openrouter|webllm):/, '');
 }
 
-function fmtDelta(d: number): string {
-  const r = Math.round(d);
-  return r >= 0 ? `+${r}` : `${r}`;
+/**
+ * One `before → after (±delta)` row of the post-match rating card.
+ *
+ * Elo is stored with full precision (`real`) but shown rounded, so the delta MUST be
+ * derived from the same rounded numbers the user sees. Rounding before, after and the
+ * raw delta independently produced self-contradicting rows like `1000 → 1001 (+0)`.
+ * A draw between unequal ratings genuinely does move Elo (SPEC §10) — the arrow and
+ * the delta just have to agree on by how much.
+ */
+export function ratingRow(
+  before: number,
+  after: number,
+): { before: number; after: number; delta: number; deltaLabel: string } {
+  const b = Math.round(before);
+  const a = Math.round(after);
+  const delta = a - b;
+  return { before: b, after: a, delta, deltaLabel: delta >= 0 ? `+${delta}` : `${delta}` };
 }
 
 /** The path is locale-dependent (`/replay/:id` vs `/en/replay/:id`), so the caller
@@ -972,13 +986,12 @@ export function GameRunner({
                 {t.result.saved}
               </span>
               {saveResponse.ratingChanges.map((rc) => {
-                const delta = rc.after - rc.before;
+                const row = ratingRow(rc.before, rc.after);
                 return (
                   <span key={rc.subjectId} className="text-muted-foreground">
-                    {shortId(rc.subjectId)}: {Math.round(rc.before)} →{' '}
-                    {Math.round(rc.after)}{' '}
-                    <span className={delta >= 0 ? 'text-edu' : 'text-danger'}>
-                      ({fmtDelta(delta)})
+                    {shortId(rc.subjectId)}: {row.before} → {row.after}{' '}
+                    <span className={row.delta >= 0 ? 'text-edu' : 'text-danger'}>
+                      ({row.deltaLabel})
                     </span>
                   </span>
                 );

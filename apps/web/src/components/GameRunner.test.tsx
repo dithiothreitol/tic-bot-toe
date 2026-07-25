@@ -5,7 +5,7 @@ import { getGame } from '@arena/game-core';
 import type { MatchConfig } from '@/components/GameRunner';
 import { pl } from '@/i18n/pl';
 
-import { GameRunner } from './GameRunner';
+import { GameRunner, ratingRow } from './GameRunner';
 
 // The only I/O the human-battleship path touches before a save: the anti-bot
 // start token and the live-counter heartbeat. Stub both so the test is hermetic
@@ -58,5 +58,40 @@ describe('GameRunner — human battleship placement → play', () => {
     //    Before the fix this render threw React #310 and showed a blank screen.
     expect(await screen.findByText(pl.battleship.yourFleet)).toBeInTheDocument();
     expect(screen.getByText(pl.battleship.yourShots)).toBeInTheDocument();
+  });
+});
+
+/**
+ * The rating card reads `real` Elo and prints it rounded. It used to round `before`,
+ * `after` and the raw delta independently, which let the arrow and the delta disagree
+ * ("1000 → 1001 (+0)"). Whatever the stored precision, the row must stay self-consistent:
+ * after - before === delta, always.
+ */
+describe('ratingRow — the post-match Elo row never contradicts itself', () => {
+  it.each([
+    // [before, after, expected label] — a draw at 1000 vs 1014 (the reported match:
+    // Elo really moves by ±0.64, because a draw against a higher rating is a gain).
+    [1000, 1000.6444, '+1'],
+    [1014, 1013.3556, '-1'],
+    // Fractional `before` — the combinations that used to print a contradiction.
+    [1000.4, 1000.584, '+1'], // old code: "1000 → 1001 (+0)"
+    [1000.6, 1001.2, '+0'], // old code: "1001 → 1001 (+1)"
+    [1000.6, 1000.803, '+0'],
+  ])('%s → %s renders as (%s)', (before, after, label) => {
+    const row = ratingRow(before, after);
+    expect(row.deltaLabel).toBe(label);
+    expect(row.after - row.before).toBe(row.delta);
+  });
+
+  it('a draw between equal ratings shows no movement at all', () => {
+    expect(ratingRow(1000, 1000)).toMatchObject({ before: 1000, after: 1000, delta: 0, deltaLabel: '+0' });
+  });
+
+  it('stays zero-sum on a decided game', () => {
+    const win = ratingRow(1000, 1016);
+    const loss = ratingRow(1000, 984);
+    expect(win.deltaLabel).toBe('+16');
+    expect(loss.deltaLabel).toBe('-16');
+    expect(win.delta + loss.delta).toBe(0);
   });
 });
