@@ -89,23 +89,51 @@ function shortId(id: string): string {
   return id.replace(/^(openrouter|webllm):/, '');
 }
 
+/** Elo to one decimal, float slop squashed (`1013.4000000000001` → `1013.4`). */
+function round1(n: number): number {
+  return Math.round(n * 10) / 10;
+}
+
+/** `1000.6` → "1000.6", `1016` → "1016" — a trailing `.0` is noise on decided games. */
+function fmtRating(n: number): string {
+  return Number.isInteger(n) ? `${n}` : n.toFixed(1);
+}
+
 /**
  * One `before → after (±delta)` row of the post-match rating card.
  *
- * Elo is stored with full precision (`real`) but shown rounded, so the delta MUST be
- * derived from the same rounded numbers the user sees. Rounding before, after and the
- * raw delta independently produced self-contradicting rows like `1000 → 1001 (+0)`.
- * A draw between unequal ratings genuinely does move Elo (SPEC §10) — the arrow and
- * the delta just have to agree on by how much.
+ * Shown to one decimal, not rounded to whole points. A draw between unequal ratings
+ * genuinely does move Elo (SPEC §10) — the reported 1000 vs 1014 draw is worth ±0.64 —
+ * and whole points hid exactly the part that explains why: "1000 → 1001 (+1)" reads as
+ * a full point awarded for a draw, which is both surprising and ~1.5× the truth.
+ *
+ * The delta is derived from the SAME rounded numbers the user sees, never from the raw
+ * pair. Rounding before, after and the delta independently is what let the row
+ * contradict itself ("1000 → 1001 (+0)"); at one decimal the trap is identical, just
+ * shifted a digit right. Invariant: `before + delta === after`, as printed.
  */
 export function ratingRow(
   before: number,
   after: number,
-): { before: number; after: number; delta: number; deltaLabel: string } {
-  const b = Math.round(before);
-  const a = Math.round(after);
-  const delta = a - b;
-  return { before: b, after: a, delta, deltaLabel: delta >= 0 ? `+${delta}` : `${delta}` };
+): {
+  before: number;
+  after: number;
+  delta: number;
+  beforeLabel: string;
+  afterLabel: string;
+  deltaLabel: string;
+} {
+  const b = round1(before);
+  const a = round1(after);
+  const delta = round1(a - b);
+  return {
+    before: b,
+    after: a,
+    delta,
+    beforeLabel: fmtRating(b),
+    afterLabel: fmtRating(a),
+    deltaLabel: `${delta < 0 ? '-' : '+'}${fmtRating(Math.abs(delta))}`,
+  };
 }
 
 /** The path is locale-dependent (`/replay/:id` vs `/en/replay/:id`), so the caller
@@ -989,7 +1017,7 @@ export function GameRunner({
                 const row = ratingRow(rc.before, rc.after);
                 return (
                   <span key={rc.subjectId} className="text-muted-foreground">
-                    {shortId(rc.subjectId)}: {row.before} → {row.after}{' '}
+                    {shortId(rc.subjectId)}: {row.beforeLabel} → {row.afterLabel}{' '}
                     <span className={row.delta >= 0 ? 'text-edu' : 'text-danger'}>
                       ({row.deltaLabel})
                     </span>

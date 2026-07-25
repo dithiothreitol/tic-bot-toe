@@ -62,36 +62,41 @@ describe('GameRunner — human battleship placement → play', () => {
 });
 
 /**
- * The rating card reads `real` Elo and prints it rounded. It used to round `before`,
- * `after` and the raw delta independently, which let the arrow and the delta disagree
- * ("1000 → 1001 (+0)"). Whatever the stored precision, the row must stay self-consistent:
- * after - before === delta, always.
+ * The rating card reads `real` Elo and prints it to one decimal. It used to round
+ * `before`, `after` and the raw delta to whole points independently, which both hid
+ * the sub-point movement a draw produces AND let the arrow and the delta disagree
+ * ("1000 → 1001 (+0)"). Whatever the precision, the printed row must add up.
  */
 describe('ratingRow — the post-match Elo row never contradicts itself', () => {
   it.each([
-    // [before, after, expected label] — a draw at 1000 vs 1014 (the reported match:
-    // Elo really moves by ±0.64, because a draw against a higher rating is a gain).
-    [1000, 1000.6444, '+1'],
-    [1014, 1013.3556, '-1'],
-    // Fractional `before` — the combinations that used to print a contradiction.
-    [1000.4, 1000.584, '+1'], // old code: "1000 → 1001 (+0)"
-    [1000.6, 1001.2, '+0'], // old code: "1001 → 1001 (+1)"
-    [1000.6, 1000.803, '+0'],
-  ])('%s → %s renders as (%s)', (before, after, label) => {
+    // [before, after, before→after (±delta)] — the reported draw at 1000 vs 1014.
+    // A draw against a higher rating IS a gain, and it is worth 0.6, not a full point.
+    [1000, 1000.6444, '1000 → 1000.6 (+0.6)'],
+    [1014, 1013.3556, '1014 → 1013.4 (-0.6)'],
+    // Fractional `before` — combinations that printed a contradiction at whole points.
+    [1000.4, 1000.584, '1000.4 → 1000.6 (+0.2)'], // once: "1000 → 1001 (+0)"
+    [1000.6, 1001.2, '1000.6 → 1001.2 (+0.6)'], // once: "1001 → 1001 (+1)"
+    // A decided game between equals: whole points, no cosmetic ".0" anywhere.
+    [1000, 1016, '1000 → 1016 (+16)'],
+    [1000, 984, '1000 → 984 (-16)'],
+  ])('%s → %s prints "%s"', (before, after, expected) => {
     const row = ratingRow(before, after);
-    expect(row.deltaLabel).toBe(label);
-    expect(row.after - row.before).toBe(row.delta);
+    expect(`${row.beforeLabel} → ${row.afterLabel} (${row.deltaLabel})`).toBe(expected);
+    // The invariant the old code broke: the printed numbers must add up.
+    expect(row.before + row.delta).toBeCloseTo(row.after, 5);
   });
 
   it('a draw between equal ratings shows no movement at all', () => {
-    expect(ratingRow(1000, 1000)).toMatchObject({ before: 1000, after: 1000, delta: 0, deltaLabel: '+0' });
+    expect(ratingRow(1000, 1000)).toMatchObject({ delta: 0, afterLabel: '1000', deltaLabel: '+0' });
   });
 
   it('stays zero-sum on a decided game', () => {
-    const win = ratingRow(1000, 1016);
-    const loss = ratingRow(1000, 984);
-    expect(win.deltaLabel).toBe('+16');
-    expect(loss.deltaLabel).toBe('-16');
-    expect(win.delta + loss.delta).toBe(0);
+    expect(ratingRow(1000, 1016).delta + ratingRow(1000, 984).delta).toBe(0);
+  });
+
+  it('never leaks float slop into the label', () => {
+    // 1013.4 - 1014 is -0.5999999999999091 in IEEE 754; the user must not see that.
+    expect(ratingRow(1014, 1013.3556).deltaLabel).toBe('-0.6');
+    expect(ratingRow(1000.1, 1000.3).deltaLabel).toBe('+0.2');
   });
 });
