@@ -798,7 +798,7 @@ export const pl = {
 
   /** Site-wide footer — on every page, unlike `footerNote` (arena setup only). */
   siteFooter: {
-    license: 'Otwarte źródło · MIT · © 2026 Dariusz Tyszka',
+    license: 'Otwarte źródło · MIT · © 2026 dithiothreitol',
     source: 'Kod źródłowy',
     sourceTitle: 'Repozytorium tic-bot-toe na GitHubie (otwiera się w nowej karcie)',
   },

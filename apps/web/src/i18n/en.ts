@@ -768,7 +768,7 @@ export const en: Dict = {
     'Models play through OpenRouter (your key, sent only to openrouter.ai), WebLLM (locally in your browser, no key) or Ollama. Matches run on your machine, so any result saved to the ranking is replayed and verified on our side.',
 
   siteFooter: {
-    license: 'Open source · MIT · © 2026 Dariusz Tyszka',
+    license: 'Open source · MIT · © 2026 dithiothreitol',
     source: 'Source code',
     sourceTitle: 'The tic-bot-toe repository on GitHub (opens in a new tab)',
   },
