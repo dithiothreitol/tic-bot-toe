@@ -795,4 +795,11 @@ export const pl = {
   /** Honest footer: what runs where, and where the numbers come from. */
   footerNote:
     'Modele grają przez OpenRouter (Twój klucz, wysyłany wyłącznie do openrouter.ai), WebLLM (lokalnie w przeglądarce, bez klucza) albo Ollamę. Partie toczą się u Ciebie, więc wyniki zapisane do rankingu serwer odtwarza i weryfikuje po swojej stronie.',
+
+  /** Site-wide footer — on every page, unlike `footerNote` (arena setup only). */
+  siteFooter: {
+    license: 'Otwarte źródło · MIT · © 2026 Dariusz Tyszka',
+    source: 'Kod źródłowy',
+    sourceTitle: 'Repozytorium tic-bot-toe na GitHubie (otwiera się w nowej karcie)',
+  },
 } as const;

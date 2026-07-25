@@ -118,3 +118,30 @@ describe('language', () => {
     expect(useSettings.getState().localePref).toBe('en');
   });
 });
+
+describe('site footer', () => {
+  const REPO = 'https://github.com/dithiothreitol/tic-bot-toe';
+
+  it('links to the repository, safely, in a new tab', async () => {
+    renderApp();
+    const link = await screen.findByRole('link', { name: new RegExp(pl.siteFooter.source, 'i') });
+
+    expect(link).toHaveAttribute('href', REPO);
+    expect(link).toHaveAttribute('target', '_blank');
+    // `noopener` is the one that matters: without it the opened tab gets a handle
+    // on ours via window.opener and can navigate it away.
+    expect(link.getAttribute('rel')).toContain('noopener');
+  });
+
+  it('rides along on every page, not just the arena', async () => {
+    renderApp('/rankingi');
+    expect(await screen.findByRole('link', { name: new RegExp(pl.siteFooter.source, 'i') })).toBeInTheDocument();
+  });
+
+  it('follows the locale', async () => {
+    renderApp('/en');
+    expect(
+      await screen.findByRole('link', { name: new RegExp(en.siteFooter.source, 'i') }),
+    ).toHaveAttribute('href', REPO);
+  });
+});
