@@ -291,7 +291,7 @@ Dowieziony efekt maszyny do pisania „na żywo" — odłożony w Etapach 5 i 10
 - **Runner testów**: `pnpm -r --if-present run test` (każdy pakiet ma własny `vitest`), zamiast centralnego vitest workspace — brak edge-case'ów z pustymi katalogami, pełna izolacja środowisk (node vs jsdom).
 - **`strict: true` włączone; `noUncheckedIndexedAccess` wyłączone** dla prędkości pisania silnika (stały rozmiar plansz). Do rewizji, jeśli pojawią się bugi indeksowe.
 - **`verbatimModuleSyntax: true`**: dyscyplina `import type` w całym repo (nowoczesny ESM, zero konfuzji typ/wartość).
-- **Tożsamość git**: `Dariusz Tyszka <dariusz.tyszka@gmail.com>` (globalna, prywatna) — to prywatny projekt poboczny, nie repo GPF, więc bez służbowego e-maila/organizacji.
+- **Tożsamość git**: konto prywatne (globalna konfiguracja git), nie służbowe — to prywatny projekt poboczny, nie repo GPF, więc bez firmowego e-maila i bez organizacji. Konkretny adres celowo nie jest tu wpisany; wynika z `git config user.email`.
 - **Nazwa repo `tic-bot-toe`**, prywatne, w `Documents/GitHub/` (konwencja projektów prywatnych).
 
 ## Tożsamość gracza i ochrona rankingu przed botami (plan `docs/PLAN-TOZSAMOSC-ANTYBOT.md`, T1–T3)
