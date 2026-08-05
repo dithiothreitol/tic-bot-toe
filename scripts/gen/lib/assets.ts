@@ -14,6 +14,12 @@ loadEnv({ path: join(REPO_ROOT, '.env') });
 
 export const GENERATED_DIR = join(REPO_ROOT, 'assets', 'generated');
 export const WEB_PUBLIC = join(REPO_ROOT, 'apps', 'web', 'public');
+/**
+ * Art the SERVER renders with (certificate backgrounds), not the browser. It
+ * ships next to the code like the OG fonts do, because the PDF and the share
+ * card are drawn in Node, at request time.
+ */
+export const SERVER_ASSETS = join(REPO_ROOT, 'apps', 'server', 'src', 'certificate', 'assets');
 
 /** Ensure and return assets/generated/<category>. */
 export function outDir(category: string): string {

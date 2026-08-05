@@ -27,7 +27,8 @@ export type RouteKey =
   | 'failures'
   | 'turing'
   | 'model'
-  | 'replay';
+  | 'replay'
+  | 'certificate';
 
 /** Path segment under the locale root. Empty string = the locale root itself. */
 const SEGMENTS: Record<Locale, Record<RouteKey, string>> = {
@@ -40,6 +41,7 @@ const SEGMENTS: Record<Locale, Record<RouteKey, string>> = {
     turing: 'turing',
     model: 'model',
     replay: 'replay',
+    certificate: 'certyfikat',
   },
   en: {
     arena: '',
@@ -50,6 +52,7 @@ const SEGMENTS: Record<Locale, Record<RouteKey, string>> = {
     turing: 'turing',
     model: 'model',
     replay: 'replay',
+    certificate: 'certificate',
   },
 };
 

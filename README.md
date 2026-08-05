@@ -161,6 +161,8 @@ pnpm e2e                                         # Playwright
 
 All 12 stages of the spec are complete — a deployable product with charts/telemetry, solver-based analysis, public replays + SEO, and an education/community module (AI commentator, model cards, prompt lab, spectator prediction, daily challenge). See [`README.pl.md`](./README.pl.md) for the detailed breakdown.
 
+Winning a daily challenge also issues a **certificate**: a vector A5 landscape PDF to download, a shareable `/certificate/:id` page with a 1200×630 social card, and a QR back to the replay. The document is a straight-faced parody of the "AI transformation course" certificate — pompous titles and "learning outcomes" over nothing but facts read from the database (opponent, date, move count, match hash, streak), all of it replayable move by move.
+
 ## Contributing
 
 Contributions are welcome! Please read [`CONTRIBUTING.md`](./CONTRIBUTING.md) and our [`CODE_OF_CONDUCT.md`](./CODE_OF_CONDUCT.md). Good first steps: open an issue to discuss, keep `pnpm test` and `pnpm typecheck` green, and match the surrounding code style.

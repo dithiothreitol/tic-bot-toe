@@ -12,6 +12,8 @@ export interface DailyState {
   challenge: DailyChallenge;
   streak: number;
   todayCompleted: boolean;
+  /** The match that completed today — the handle for today's certificate. */
+  todayMatchId: string | null;
 }
 
 export interface DailyClaim {

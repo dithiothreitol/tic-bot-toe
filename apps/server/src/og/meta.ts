@@ -176,6 +176,86 @@ export function matchStructuredData(
 }
 
 // ---------------------------------------------------------------------------
+// A certificate for a won daily challenge
+// ---------------------------------------------------------------------------
+
+export interface CertificateOgInput {
+  matchId: string;
+  /** `null` → the anonymous label from the certificate copy. */
+  playerName: string | null;
+  opponentLabel: string;
+  day: string;
+  streak: number;
+}
+
+/**
+ * The preview a shared certificate gets. It carries the punchline, because the
+ * link is what people actually see: a feed shows the card for about a second
+ * and a half, and the document's own fine-print hierarchy would be unreadable
+ * there (plan §6.2).
+ */
+const CERTIFICATE_COPY_OG: Record<
+  Locale,
+  {
+    title: (name: string) => string;
+    description: (opponent: string, day: string, streak: number) => string;
+    anonymous: string;
+  }
+> = {
+  pl: {
+    title: (name) => `Certyfikat strategii AI — ${name}`,
+    description: (opponent, day, streak) =>
+      `Kurs trwał jedną partię i polegał na pokonaniu modelu ${opponent}. Wyzwanie dnia ${day}${
+        streak >= 2 ? `, seria ${streak} dni` : ''
+      }. Każdy ruch do odtworzenia.`,
+    anonymous: 'Anonimowy gracz areny',
+  },
+  en: {
+    title: (name) => `AI Strategy Certificate — ${name}`,
+    description: (opponent, day, streak) =>
+      `The course lasted one match and consisted of beating ${opponent}. Daily challenge ${day}${
+        streak >= 2 ? `, ${streak}-day streak` : ''
+      }. Every move replayable.`,
+    anonymous: 'Anonymous arena player',
+  },
+};
+
+export function certificateOgTags(
+  input: CertificateOgInput,
+  baseUrl: string,
+  locale: Locale = 'pl',
+): OgTags {
+  const copy = CERTIFICATE_COPY_OG[locale];
+  const name = input.playerName ?? copy.anonymous;
+  return {
+    title: copy.title(name),
+    description: copy.description(input.opponentLabel, input.day, input.streak),
+    // JPEG, not PNG: the card is photographic and crawlers fetch it eagerly.
+    image: `${baseUrl}/api/certificate/${input.matchId}.jpg?lang=${locale}`,
+    url: `${baseUrl}${localePath(locale, 'certificate', input.matchId)}`,
+  };
+}
+
+export function certificateStructuredData(
+  input: CertificateOgInput,
+  tags: OgTags,
+  locale: Locale = 'pl',
+): object {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'CreativeWork',
+    name: tags.title,
+    description: tags.description,
+    url: tags.url,
+    inLanguage: locale,
+    dateCreated: input.day,
+    creator: { '@type': 'Organization', name: SITE_NAME },
+    image: { '@type': 'ImageObject', url: tags.image, width: 1200, height: 630 },
+    isPartOf: { '@type': 'WebSite', name: SITE_NAME, url: `${tags.url.split('/').slice(0, 3).join('/')}/` },
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Injection
 // ---------------------------------------------------------------------------
 
@@ -214,6 +294,10 @@ export interface SeoInjection {
   structuredData?: object;
   /** `article` for a replay, `website` for the rest. */
   ogType?: 'website' | 'article';
+  /** MIME of `tags.image`; only emitted when set (the OG card is PNG, cards JPEG). */
+  imageType?: string;
+  /** Alt text for the preview image — screen readers on X/LinkedIn read it. */
+  imageAlt?: string;
 }
 
 /**
@@ -252,6 +336,11 @@ export function injectSeo(html: string, inj: SeoInjection): string {
     `<meta name="twitter:description" content="${ogDesc}" />`,
     `<meta name="twitter:image" content="${img}" />`,
   ];
+  if (inj.imageType) lines.push(`<meta property="og:image:type" content="${esc(inj.imageType)}" />`);
+  if (inj.imageAlt) {
+    lines.push(`<meta property="og:image:alt" content="${esc(inj.imageAlt)}" />`);
+    lines.push(`<meta name="twitter:image:alt" content="${esc(inj.imageAlt)}" />`);
+  }
   if (inj.structuredData) {
     lines.push(
       `<script type="application/ld+json">${escJson(JSON.stringify(inj.structuredData))}</script>`,

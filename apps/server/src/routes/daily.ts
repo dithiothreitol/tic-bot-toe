@@ -59,6 +59,20 @@ async function completedDays(db: Database, tokenHash: string): Promise<string[]>
   return rows.map((r) => r.day);
 }
 
+/** The match that completed today — the handle for today's certificate. */
+async function todayMatchId(
+  db: Database,
+  tokenHash: string,
+  day: string,
+): Promise<string | null> {
+  const rows = await db
+    .select({ matchId: dailyResults.matchId })
+    .from(dailyResults)
+    .where(and(eq(dailyResults.playerToken, tokenHash), eq(dailyResults.day, day)))
+    .limit(1);
+  return rows[0]?.matchId ?? null;
+}
+
 export function dailyRoute(deps: { db: Database; now?: () => Date }): Hono {
   const app = new Hono();
   const today = (): string => toDayString((deps.now ?? (() => new Date()))());
@@ -68,13 +82,19 @@ export function dailyRoute(deps: { db: Database; now?: () => Date }): Hono {
     const day = today();
     const challenge = dailyChallenge(day);
     const hash = tokenHashFrom(c);
-    if (!hash) return c.json({ challenge, streak: 0, todayCompleted: false });
+    if (!hash) {
+      return c.json({ challenge, streak: 0, todayCompleted: false, todayMatchId: null });
+    }
 
     const days = await completedDays(deps.db, hash);
+    const done = days.includes(day);
     return c.json({
       challenge,
       streak: streakFrom(days, day),
-      todayCompleted: days.includes(day),
+      todayCompleted: done,
+      // Lets the card link straight to today's certificate instead of making
+      // the player dig the match out of the ranking.
+      todayMatchId: done ? await todayMatchId(deps.db, hash, day) : null,
     });
   });
 

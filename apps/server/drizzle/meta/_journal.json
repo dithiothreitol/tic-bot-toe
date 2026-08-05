@@ -43,6 +43,13 @@
       "when": 1784307728877,
       "tag": "0005_salty_tiger_shark",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1785948662978,
+      "tag": "0006_foamy_hemingway",
+      "breakpoints": true
     }
   ]
 }

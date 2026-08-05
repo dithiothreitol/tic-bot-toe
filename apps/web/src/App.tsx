@@ -32,6 +32,7 @@ import {
 } from '@/i18n';
 import { cn } from '@/lib/utils';
 import { ArenaPage } from '@/pages/ArenaPage';
+import { CertificatePage } from '@/pages/CertificatePage';
 import { ComparePage } from '@/pages/ComparePage';
 import { FailureMuseumPage } from '@/pages/FailureMuseumPage';
 import { IntuitionPage } from '@/pages/IntuitionPage';
@@ -302,6 +303,7 @@ function localeRoutes(locale: Locale): ReactNode {
       {/* Splat: subject ids carry slashes (openrouter:meta-llama/llama-3). */}
       <Route path={`${routeSegment(locale, 'model')}/*`} element={<ModelCardPage />} />
       <Route path={`${routeSegment(locale, 'replay')}/:id`} element={<ReplayPage />} />
+      <Route path={`${routeSegment(locale, 'certificate')}/:id`} element={<CertificatePage />} />
     </>
   );
 }

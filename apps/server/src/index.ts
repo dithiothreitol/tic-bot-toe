@@ -10,11 +10,15 @@ import { localeFromPath, localePath } from '@arena/i18n';
 import { loadLexiconNode } from '@arena/lexicons/node';
 
 import { buildApp } from './app';
+import { CERTIFICATE_COPY } from './certificate/copy';
+import { factsFor } from './certificate/facts';
 import { loadConfig } from './config';
 import { type DbHandle, createDb } from './db/client';
 import { matches } from './db/schema';
 import {
   alternatesFor,
+  certificateOgTags,
+  certificateStructuredData,
   injectSeo,
   matchOgTags,
   matchStructuredData,
@@ -158,6 +162,47 @@ if (dbHandle) {
   };
   app.get(localePath('pl', 'replay', ':id'), replayHandler);
   app.get(localePath('en', 'replay', ':id'), replayHandler);
+
+  // ---- Certificate permalink: the page people actually paste into a feed ----
+  // Same shape as the replay handler. Deliberately NOT added to the sitemap:
+  // a certificate is public because its owner shared it, not because it should
+  // be indexed (plan §2.7). robots.txt stays permissive, because Twitterbot
+  // obeys it when fetching a card — a Disallow would kill the preview.
+  const certificateHandler = async (c: Context): Promise<Response> => {
+    const origin = originOf(c);
+    const path = new URL(c.req.url).pathname;
+    const html = await renderShell(origin, path);
+    c.header('Content-Type', 'text/html; charset=utf-8');
+    const id = c.req.param('id') ?? '';
+    if (!id) return c.html(html);
+    const facts = await factsFor(handle.db, id);
+    if (!facts) return c.html(html); // SPA renders its own "not a certificate"
+    const locale = localeFromPath(path);
+    const input = {
+      matchId: facts.matchId,
+      playerName: facts.playerName,
+      opponentLabel: facts.opponentLabel,
+      day: facts.day,
+      streak: facts.streak,
+    };
+    const tags = certificateOgTags(input, origin, locale);
+    return c.html(
+      injectSeo(html, {
+        locale,
+        tags,
+        alternates: alternatesFor(path, origin),
+        structuredData: certificateStructuredData(input, tags, locale),
+        ogType: 'article',
+        imageType: 'image/jpeg',
+        imageAlt: CERTIFICATE_COPY[locale].shareAlt(
+          facts.playerName ?? CERTIFICATE_COPY[locale].anonymous,
+          facts.opponentLabel,
+        ),
+      }),
+    );
+  };
+  app.get(localePath('pl', 'certificate', ':id'), certificateHandler);
+  app.get(localePath('en', 'certificate', ':id'), certificateHandler);
 }
 
 // Serve the built frontend on the same port (SPEC §3). The root and every SPA

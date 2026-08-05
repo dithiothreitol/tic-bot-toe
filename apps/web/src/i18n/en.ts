@@ -469,6 +469,53 @@ export const en: Dict = {
     ownModel: 'or pick your own model',
   },
 
+  certificate: {
+    kicker: 'Certificate',
+    download: 'Collect your diploma (PDF)',
+    view: 'View certificate',
+    share: 'Share',
+    copyLink: 'Copy link',
+    copied: 'Certificate link copied',
+    copiedText: 'Post text copied',
+    loading: 'Loading the certificate…',
+    notFound: 'This match did not complete the course. Only a won daily challenge earns a certificate.',
+    loadError: 'Could not load the certificate.',
+    backToArena: 'Back to the arena',
+    replay: 'Watch the match move by move',
+    setNickHint: 'The certificate is signed with your nickname — set one in settings.',
+    labelOpponent: 'Model defeated',
+    labelDay: 'Challenge day',
+    labelStreak: 'Streak',
+    labelMoves: 'Moves',
+    labelSeal: 'Seal',
+    /** Default share text — dry, like the fine print on the document itself. */
+    shareText: (opponent: string) =>
+      `I completed an AI strategy course. It lasted one match and consisted of beating ${opponent}. Every move is checkable:`,
+    linkedInMode: 'LinkedIn mode',
+    linkedInHint: 'The same fact, in full corporate voice.',
+    /**
+     * The "I completed a course" post, parodied: emoji, journey, humility,
+     * hashtags. It works because every sentence is literally true — the course
+     * really did last one match, and there really were no slides.
+     */
+    shareTextLinkedIn: (opponent: string, streak: number) =>
+      [
+        "🚀 Thrilled to share that I've completed an AI strategy course.",
+        '',
+        streak >= 2
+          ? `It's been an incredible journey of growth. Day ${streak} in a row — consistency beats motivation.`
+          : "It's been an incredible journey of growth.",
+        '',
+        `Key takeaway? Humility. Huge thanks to ${opponent} for being such a demanding partner and for not backing down until the final move 🙏`,
+        '',
+        'The course lasted one match. There were no slides. There was a result.',
+        '',
+        "Who's next? 👇",
+        '',
+        '#AI #Leadership #GrowthMindset #ThoughtLeadership #Innovation #Blessed',
+      ].join('\n'),
+  },
+
   prediction: {
     kicker: 'Spectator call',
     question: 'Who wins this match?',

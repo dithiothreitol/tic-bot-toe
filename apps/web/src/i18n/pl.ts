@@ -491,6 +491,54 @@ export const pl = {
     ownModel: 'albo wybierz własny model',
   },
 
+  certificate: {
+    kicker: 'Certyfikat',
+    download: 'Odbierz dyplom (PDF)',
+    view: 'Zobacz certyfikat',
+    share: 'Udostępnij',
+    copyLink: 'Skopiuj link',
+    copied: 'Skopiowano link do certyfikatu',
+    copiedText: 'Skopiowano tekst posta',
+    loading: 'Ładowanie certyfikatu…',
+    notFound:
+      'Ta partia nie ukończyła kursu. Certyfikat dostaje tylko wygrane wyzwanie dnia.',
+    loadError: 'Nie udało się pobrać certyfikatu.',
+    backToArena: 'Wróć do areny',
+    replay: 'Zobacz partię ruch po ruchu',
+    setNickHint: 'Certyfikat podpisze się Twoim nickiem — ustaw go w ustawieniach.',
+    labelOpponent: 'Pokonany model',
+    labelDay: 'Dzień wyzwania',
+    labelStreak: 'Seria',
+    labelMoves: 'Ruchy',
+    labelSeal: 'Pieczęć',
+    /** Domyślny tekst udostępnienia — sucho, tak jak drobny druk na dokumencie. */
+    shareText: (opponent: string) =>
+      `Ukończyłem kurs strategii AI. Trwał jedną partię i polegał na pokonaniu ${opponent}. Każdy ruch do sprawdzenia:`,
+    linkedInMode: 'Tryb LinkedIn',
+    linkedInHint: 'Ten sam fakt, tylko w pełnej korporacyjnej nowomowie.',
+    /**
+     * Parodia posta „ukończyłem kurs" — emoji, podróż, pokora, hasztagi. Żart
+     * działa, bo KAŻDE zdanie jest prawdziwe: partia naprawdę trwała jedną
+     * partię, slajdów naprawdę nie było.
+     */
+    shareTextLinkedIn: (opponent: string, streak: number) =>
+      [
+        '🚀 Z ogromną radością dzielę się informacją, że ukończyłem kurs strategii AI.',
+        '',
+        streak >= 2
+          ? `To była podróż pełna wyzwań i wzrostu. Dzień ${streak} z rzędu — konsekwencja > motywacja.`
+          : 'To była podróż pełna wyzwań i wzrostu.',
+        '',
+        `Kluczowa lekcja? Pokora. Podziękowania dla ${opponent} za bycie wymagającym partnerem i za to, że nie odpuścił do ostatniego ruchu 🙏`,
+        '',
+        'Kurs trwał jedną partię. Nie było slajdów. Był wynik.',
+        '',
+        'Kto następny? 👇',
+        '',
+        '#AI #Leadership #GrowthMindset #ThoughtLeadership #Innovation #Blessed',
+      ].join('\n'),
+  },
+
   prediction: {
     kicker: 'Zgadywanka widza',
     question: 'Kto wygra tę partię?',

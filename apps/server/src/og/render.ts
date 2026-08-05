@@ -6,31 +6,32 @@
  */
 import type { Locale } from '@arena/i18n';
 
-import {
-  type BattleshipState,
-  type GameId,
-  type Move,
-  type PlacedTile,
-  type PlayerSide,
-  type ScrabbleState,
-  type SetupRecord,
-  type SudokuState,
-  type TicTacToeState,
-  battleship,
-  getGame,
-} from '@arena/game-core';
+import type { GameId } from '@arena/game-core';
 import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { GlobalFonts, createCanvas } from '@napi-rs/canvas';
 
+import {
+  type Ctx,
+  type OgMatch,
+  DIM,
+  GRID,
+  P1,
+  P2,
+  display,
+  drawBoard,
+  ellipsize,
+  finalState,
+  mono,
+  short,
+} from './boards';
+
+export type { OgMatch };
+
 const W = 1200;
 const H = 630;
 const BG = '#05070c';
-const P1 = '#35e7ff';
-const P2 = '#ff3d9a';
-const DIM = '#8590ad';
-const GRID = 'rgba(53,231,255,0.16)';
 
 /**
  * Brand fonts (DESIGN §2: Rajdhani for chrome, JetBrains Mono for data).
@@ -39,10 +40,10 @@ const GRID = 'rgba(53,231,255,0.16)';
  * Registration is best-effort: if it fails we keep the generic families and the
  * card still renders (SPEC §20.7 — the OG endpoint must never fail).
  */
-const FONTS_DIR = process.env.OG_FONTS_DIR ?? join(dirname(fileURLToPath(import.meta.url)), 'fonts');
+export const FONTS_DIR = process.env.OG_FONTS_DIR ?? join(dirname(fileURLToPath(import.meta.url)), 'fonts');
 
 let fontsRegistered = false;
-function registerBrandFonts(): void {
+export function registerBrandFonts(): void {
   if (fontsRegistered) return;
   fontsRegistered = true; // one attempt only — never retry per request
   const files: [string, string][] = [
@@ -57,189 +58,6 @@ function registerBrandFonts(): void {
       GlobalFonts.registerFromPath(path, family);
     } catch {
       // Missing/unreadable font → fall back to the generic family below.
-    }
-  }
-}
-
-/** Data (model ids, marks, wordmark) — monospace, per DESIGN §2. */
-const mono = (size: number, bold = false): string =>
-  `${bold ? 'bold ' : ''}${size}px "JetBrains Mono", monospace`;
-/** Chrome (labels, subline) — the display face. */
-const display = (size: number, bold = false): string =>
-  `${bold ? 'bold ' : ''}${size}px "Rajdhani", sans-serif`;
-
-type TextAlign = 'left' | 'right' | 'center' | 'start' | 'end';
-
-export interface OgMatch {
-  game: GameId;
-  variant: string;
-  p1Id: string;
-  p2Id: string;
-  winner: string | null;
-  setup: unknown;
-  moves: unknown;
-}
-
-function short(id: string): string {
-  return id.replace(/^(openrouter|webllm|ollama):/, '');
-}
-
-/** Trim `text` (in the ctx's current font) until it fits, appending an ellipsis. */
-function ellipsize(ctx: Ctx, text: string, maxWidth: number): string {
-  if (ctx.measureText(text).width <= maxWidth) return text;
-  let s = text;
-  while (s.length > 1 && ctx.measureText(`${s}…`).width > maxWidth) s = s.slice(0, -1);
-  return `${s}…`;
-}
-
-function configFromSetup(setup: SetupRecord | null | undefined) {
-  if (!setup) return {};
-  return {
-    seed: typeof setup.seed === 'number' ? setup.seed : undefined,
-    extraShotOnHit: typeof setup.extraShotOnHit === 'boolean' ? setup.extraShotOnHit : undefined,
-    placements: setup.placements,
-  };
-}
-
-interface Ctx {
-  fillStyle: string;
-  strokeStyle: string;
-  lineWidth: number;
-  font: string;
-  textAlign: TextAlign;
-  fillRect(x: number, y: number, w: number, h: number): void;
-  strokeRect(x: number, y: number, w: number, h: number): void;
-  fillText(t: string, x: number, y: number): void;
-  measureText(t: string): { width: number };
-  beginPath(): void;
-  moveTo(x: number, y: number): void;
-  lineTo(x: number, y: number): void;
-  stroke(): void;
-}
-
-/** Reconstruct the final state so the board reflects the actual match. */
-function finalState(match: OgMatch): unknown {
-  const def = getGame(match.game) as unknown as {
-    variants: { id: string; label: string }[];
-    createInitialState: (v: { id: string; label: string }, c: unknown) => unknown;
-    applyMove: (s: unknown, p: 'p1' | 'p2', m: Move) => unknown;
-  };
-  const variantObj = def.variants.find((v) => v.id === match.variant) ?? {
-    id: match.variant,
-    label: match.variant,
-  };
-  let state = def.createInitialState(variantObj, configFromSetup(match.setup as SetupRecord));
-  const moves = Array.isArray(match.moves) ? (match.moves as { player: 'p1' | 'p2'; move: Move }[]) : [];
-  for (const m of moves) state = def.applyMove(state, m.player, m.move);
-  return state;
-}
-
-function drawTicTacToe(ctx: Ctx, state: TicTacToeState, cx: number, cy: number, size: number): void {
-  const cell = size / 3;
-  ctx.strokeStyle = GRID;
-  ctx.lineWidth = 3;
-  for (let i = 1; i < 3; i++) {
-    ctx.beginPath();
-    ctx.moveTo(cx + i * cell, cy);
-    ctx.lineTo(cx + i * cell, cy + size);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(cx, cy + i * cell);
-    ctx.lineTo(cx + size, cy + i * cell);
-    ctx.stroke();
-  }
-  ctx.font = mono(Math.floor(cell * 0.62), true);
-  ctx.textAlign = 'center';
-  for (let i = 0; i < 9; i++) {
-    const mark = state.board[i];
-    if (!mark) continue;
-    ctx.fillStyle = mark === 'X' ? P1 : P2;
-    const col = i % 3;
-    const row = Math.floor(i / 3);
-    ctx.fillText(mark, cx + col * cell + cell / 2, cy + row * cell + cell * 0.72);
-  }
-}
-
-function drawBattleship(ctx: Ctx, state: BattleshipState, cx: number, cy: number, size: number): void {
-  const n = state.size;
-  const cell = size / n;
-  const view = battleship.viewFor(state, 'p1').trackingBoard;
-  for (let i = 0; i < n * n; i++) {
-    const col = i % n;
-    const row = Math.floor(i / n);
-    const x = cx + col * cell;
-    const y = cy + row * cell;
-    const t = view[i];
-    ctx.fillStyle =
-      t === 'sunk' ? '#ff4d6a' : t === 'hit' ? P2 : t === 'miss' ? '#1a2338' : '#0a1120';
-    ctx.fillRect(x + 1, y + 1, cell - 2, cell - 2);
-    ctx.strokeStyle = GRID;
-    ctx.lineWidth = 1;
-    ctx.strokeRect(x + 1, y + 1, cell - 2, cell - 2);
-  }
-}
-
-/** Final sudoku grid: clues neutral, scored digits in the placer's colour, box seams thicker. */
-function drawSudoku(ctx: Ctx, state: SudokuState, cx: number, cy: number, size: number): void {
-  const n = state.size;
-  const cell = size / n;
-  const owners: (PlayerSide | null)[] = Array<PlayerSide | null>(n * n).fill(null);
-  for (const h of state.history) if (h.correct) owners[h.cell] = h.player;
-
-  // Grid lines (thicker on box boundaries).
-  for (let i = 1; i < n; i++) {
-    const thick = i % state.boxCols === 0;
-    ctx.strokeStyle = thick ? 'rgba(53,231,255,0.4)' : GRID;
-    ctx.lineWidth = thick ? 3 : 1;
-    ctx.beginPath();
-    ctx.moveTo(cx + i * cell, cy);
-    ctx.lineTo(cx + i * cell, cy + size);
-    ctx.stroke();
-  }
-  for (let i = 1; i < n; i++) {
-    const thick = i % state.boxRows === 0;
-    ctx.strokeStyle = thick ? 'rgba(53,231,255,0.4)' : GRID;
-    ctx.lineWidth = thick ? 3 : 1;
-    ctx.beginPath();
-    ctx.moveTo(cx, cy + i * cell);
-    ctx.lineTo(cx + size, cy + i * cell);
-    ctx.stroke();
-  }
-
-  ctx.font = mono(Math.floor(cell * 0.56), true);
-  ctx.textAlign = 'center';
-  for (let i = 0; i < n * n; i++) {
-    const digit = state.board[i];
-    if (digit === null) continue;
-    const owner = owners[i];
-    ctx.fillStyle = state.givenMask[i] ? '#c9d3ee' : owner === 'p1' ? P1 : owner === 'p2' ? P2 : DIM;
-    const col = i % n;
-    const row = Math.floor(i / n);
-    ctx.fillText(String(digit), cx + col * cell + cell / 2, cy + row * cell + cell * 0.68);
-  }
-}
-
-/** Final word-game board: placed tiles as lettered squares. */
-function drawScrabble(ctx: Ctx, state: ScrabbleState, cx: number, cy: number, size: number): void {
-  const n = 15;
-  const cell = size / n;
-  const board = state.board as (PlacedTile | null)[];
-  for (let i = 0; i < n * n; i++) {
-    const col = i % n;
-    const row = Math.floor(i / n);
-    const x = cx + col * cell;
-    const y = cy + row * cell;
-    const t = board[i];
-    ctx.fillStyle = t ? (t.isBlank ? '#243049' : '#1b2740') : '#0a1120';
-    ctx.fillRect(x + 0.5, y + 0.5, cell - 1, cell - 1);
-    ctx.strokeStyle = GRID;
-    ctx.lineWidth = 1;
-    ctx.strokeRect(x + 0.5, y + 0.5, cell - 1, cell - 1);
-    if (t) {
-      ctx.fillStyle = t.isBlank ? P2 : '#dfe7ff';
-      ctx.font = mono(Math.floor(cell * 0.6), true);
-      ctx.textAlign = 'center';
-      ctx.fillText(t.letter, x + cell / 2, y + cell * 0.72);
     }
   }
 }
@@ -354,15 +172,7 @@ export function renderMatchOg(match: OgMatch, locale: Locale = 'pl'): Buffer {
     ctx.strokeStyle = GRID;
     ctx.lineWidth = 2;
     ctx.strokeRect(bx - 10, by - 10, boardSize + 20, boardSize + 20);
-    if (match.game === 'tictactoe') {
-      drawTicTacToe(ctx, state as TicTacToeState, bx, by, boardSize);
-    } else if (match.game === 'sudoku') {
-      drawSudoku(ctx, state as SudokuState, bx, by, boardSize);
-    } else if (match.game === 'scrabble') {
-      drawScrabble(ctx, state as ScrabbleState, bx, by, boardSize);
-    } else {
-      drawBattleship(ctx, state as BattleshipState, bx, by, boardSize);
-    }
+    drawBoard(ctx, match.game, state, bx, by, boardSize);
   } catch {
     // Title-only fallback — never fail the request.
   }

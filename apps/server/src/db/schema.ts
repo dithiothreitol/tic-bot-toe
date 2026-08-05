@@ -157,7 +157,12 @@ export const dailyResults = pgTable(
     completed: boolean('completed').notNull(),
     matchId: uuid('match_id').references(() => matches.id),
   },
-  (t) => [primaryKey({ columns: [t.playerToken, t.day] })],
+  (t) => [
+    primaryKey({ columns: [t.playerToken, t.day] }),
+    // The certificate endpoint is keyed on the MATCH (the id a player already
+    // shares as /replay/:id), so it looks the claim up from the other side.
+    index('daily_results_match').on(t.matchId),
+  ],
 );
 
 /** One-time session token ids, burned on result submission (SPEC §15). */

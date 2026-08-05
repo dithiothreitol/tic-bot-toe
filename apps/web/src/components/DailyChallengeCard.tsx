@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router';
 
 import {
   type DailyOpponent,
@@ -15,7 +16,7 @@ import { Button } from '@/components/ui/button';
 import { HudPanel, SectionLabel } from '@/components/ui/hud';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { PlayerSpec } from '@/game/players';
-import { useT, variantLabel } from '@/i18n';
+import { useLocalePath, useT, variantLabel } from '@/i18n';
 import { type CatalogModel, fetchCatalog } from '@/providers/openrouter-catalog';
 import { isWebGpuAvailable } from '@/providers/webllm';
 import { useSettings } from '@/store/settings';
@@ -79,6 +80,7 @@ export function DailyChallengeCard({
   onOpenSettings: () => void;
 }) {
   const t = useT();
+  const path = useLocalePath();
   const [state, setState] = useState<DailyState | null>(null);
   const [loading, setLoading] = useState(true);
   const [webGpu] = useState(() => isWebGpuAvailable());
@@ -121,7 +123,7 @@ export function DailyChallengeCard({
   if (loading) return <Skeleton className="h-28 w-full" />;
   if (!state) return null;
 
-  const { challenge, streak, todayCompleted } = state;
+  const { challenge, streak, todayCompleted, todayMatchId } = state;
   const opp = challenge.opponent;
   const gameLabel = t.games[challenge.game];
   const variant = variantFor(challenge.game, challenge.variant);
@@ -211,6 +213,14 @@ export function DailyChallengeCard({
             <span className="max-w-48 text-xs text-muted-foreground">
               {t.daily.doneToday}
             </span>
+            {todayMatchId && (
+              <Link
+                to={path('certificate', todayMatchId)}
+                className="w-fit font-mono text-[10px] uppercase tracking-wider text-edu underline-offset-4 hover:underline"
+              >
+                {t.certificate.view} →
+              </Link>
+            )}
           </div>
         ) : blocked ? (
           <div className="flex max-w-64 flex-col gap-2">

@@ -46,6 +46,9 @@ COPY --from=build /app/apps/server/dist/index.js ./index.js
 # Brand TTFs for the OG card (Rajdhani + JetBrains Mono). The renderer looks for
 # ./fonts next to the bundle — i.e. /app/fonts here.
 COPY --from=build /app/apps/server/dist/fonts ./fonts
+# Generated backgrounds for the certificate PDF + its social card. Same deal as
+# the fonts: read from ./certificate-assets next to the bundle (i.e. /app here).
+COPY --from=build /app/apps/server/dist/certificate-assets ./certificate-assets
 COPY --from=build /app/apps/server/drizzle ./drizzle
 COPY --from=build /app/apps/web/dist ./web
 

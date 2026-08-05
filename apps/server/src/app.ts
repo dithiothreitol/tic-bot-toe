@@ -7,6 +7,7 @@ import { LiveRegistry } from './lib/live';
 import { rateLimit } from './middleware/rate-limit';
 import { securityHeaders } from './middleware/security';
 import { eloHistoryRoute, headToHeadRoute } from './routes/analytics';
+import { certificateRoute } from './routes/certificate';
 import { commentaryRoute } from './routes/commentary';
 import { dailyRoute } from './routes/daily';
 import { failuresRoute } from './routes/failures';
@@ -121,6 +122,13 @@ export function buildApp(deps: AppDeps): Hono {
     api.route('/predictions', predictionsLeaderboardRoute({ db: deps.db }));
     // Daily challenge (§12.6): config derived from the date, no cron.
     api.route('/daily', dailyRoute({ db: deps.db }));
+    // Certificates for won daily challenges. Public (see routes/certificate),
+    // but rendering is real CPU work, so the limit is tighter than a read.
+    api.use(
+      '/certificate/*',
+      rateLimit('certificate', 60, { trustedProxy: deps.config.trustedProxy, now: deps.now }),
+    );
+    api.route('/certificate', certificateRoute({ db: deps.db, config: deps.config }));
     api.route('/leaderboard', leaderboardRoute({ db: deps.db, now: deps.now }));
     api.route('/model', modelRoute({ db: deps.db }));
     api.route('/elo-history', eloHistoryRoute({ db: deps.db }));

@@ -7,10 +7,10 @@
  *
  *   pnpm tsx scripts/gen/place-assets.ts
  */
-import { copyFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import sharp from 'sharp';
-import { GENERATED_DIR, WEB_PUBLIC } from './lib/assets';
+import { GENERATED_DIR, SERVER_ASSETS, WEB_PUBLIC } from './lib/assets';
 
 interface Op {
   from: string;
@@ -19,6 +19,14 @@ interface Op {
   height: number;
   /** 'contain' preserves the whole illustration (transparent art); 'cover' fills. */
   fit: 'contain' | 'cover';
+  /** Defaults to the web bundle; certificate art goes to the server instead. */
+  dest?: string;
+  /**
+   * WebP by default. The certificate backgrounds are JPEG because `pdf-lib`
+   * embeds JPEG byte-for-byte (no re-encode) and cannot read WebP at all.
+   */
+  format?: 'webp' | 'jpeg';
+  quality?: number;
   /**
    * Margin to leave around the artwork, as a fraction of the canvas. Setting it
    * turns on scale normalisation: the generator's own empty margin is cropped
@@ -50,6 +58,28 @@ const OPS: Op[] = [
   { from: 'sections/quickstart-4.png', to: 'quickstart-4.webp', ...QUICKSTART },
   { from: 'sections/section-edu.png', to: 'section-edu.webp', width: 1200, height: 600, fit: 'contain' },
   { from: 'sections/empty-state.png', to: 'empty-state.webp', width: 800, height: 500, fit: 'contain' },
+  // Certificate art — rendered by the SERVER (PDF + share card), so it lands in
+  // the server source tree, not the web bundle. A5 landscape at 300 dpi.
+  {
+    from: 'certificates/certificate-bg.png',
+    to: 'certificate-bg.jpg',
+    dest: SERVER_ASSETS,
+    width: 2480,
+    height: 1748,
+    fit: 'cover',
+    format: 'jpeg',
+    quality: 88,
+  },
+  {
+    from: 'certificates/certificate-share.png',
+    to: 'certificate-share.jpg',
+    dest: SERVER_ASSETS,
+    width: 1600,
+    height: 840,
+    fit: 'cover',
+    format: 'jpeg',
+    quality: 88,
+  },
 ];
 
 for (const op of OPS) {
@@ -84,8 +114,13 @@ for (const op of OPS) {
     });
   }
 
-  const buf = await pipeline.webp({ quality: 82 }).toBuffer();
-  writeFileSync(join(WEB_PUBLIC, op.to), buf);
+  const buf =
+    op.format === 'jpeg'
+      ? await pipeline.jpeg({ quality: op.quality ?? 88, mozjpeg: true }).toBuffer()
+      : await pipeline.webp({ quality: op.quality ?? 82 }).toBuffer();
+  const dest = op.dest ?? WEB_PUBLIC;
+  mkdirSync(dest, { recursive: true });
+  writeFileSync(join(dest, op.to), buf);
   console.log(`  ✔ ${op.to.padEnd(22)} ${(buf.length / 1024).toFixed(1)} kB`);
 }
 

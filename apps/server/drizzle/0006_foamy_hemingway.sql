@@ -1,0 +1,1 @@
+CREATE INDEX "daily_results_match" ON "daily_results" USING btree ("match_id");
