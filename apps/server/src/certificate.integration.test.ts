@@ -135,6 +135,37 @@ describe('GET /api/certificate/:id.pdf', () => {
   });
 });
 
+describe('GET /api/certificate/:id.png', () => {
+  it('serves the certificate as a downloadable image', async () => {
+    const matchId = await claimDay('nick');
+    const res = await app().request(`/api/certificate/${matchId}.png`);
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toBe('image/png');
+    expect(res.headers.get('content-disposition')).toMatch(/attachment; filename=".*\.png"$/);
+
+    const buf = Buffer.from(await res.arrayBuffer());
+    expect(buf.subarray(1, 4).toString()).toBe('PNG');
+    // A5 landscape at 3×, straight out of the IHDR chunk.
+    expect(buf.readUInt32BE(16)).toBe(Math.round(595.28 * 3));
+    expect(buf.readUInt32BE(20)).toBe(Math.round(419.53 * 3));
+  });
+
+  it('is the DOCUMENT, not the social card — different shape entirely', async () => {
+    const matchId = await claimDay('nick');
+    const [png, jpg] = await Promise.all([
+      app().request(`/api/certificate/${matchId}.png`),
+      app().request(`/api/certificate/${matchId}.jpg`),
+    ]);
+    const pngBuf = Buffer.from(await png.arrayBuffer());
+    const jpgBuf = Buffer.from(await jpg.arrayBuffer());
+    const sof = jpgBuf.indexOf(Buffer.from([0xff, 0xc0]));
+    expect(pngBuf.readUInt32BE(16)).not.toBe(jpgBuf.readUInt16BE(sof + 7));
+    // The card is shown inline in a preview; the document is downloaded.
+    expect(jpg.headers.get('content-disposition')).toBeNull();
+  });
+});
+
 describe('GET /api/certificate/:id.jpg', () => {
   it('serves the 1200×630 social card', async () => {
     const matchId = await claimDay('nick');

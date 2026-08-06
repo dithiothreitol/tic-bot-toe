@@ -472,6 +472,9 @@ export const en: Dict = {
   certificate: {
     kicker: 'Certificate',
     download: 'Collect your diploma (PDF)',
+    downloadPng: 'Download PNG',
+    /** The PDF prints perfectly, the PNG pastes anywhere — hence both. */
+    downloadHint: 'PDF to print (vector), PNG to drop into a post.',
     view: 'View certificate',
     share: 'Share',
     copyLink: 'Copy link',

@@ -494,6 +494,9 @@ export const pl = {
   certificate: {
     kicker: 'Certyfikat',
     download: 'Odbierz dyplom (PDF)',
+    downloadPng: 'Pobierz PNG',
+    /** PDF drukuje się idealnie, PNG wkleja się wszędzie — stąd oba. */
+    downloadHint: 'PDF do druku (wektorowy), PNG do wklejenia w post.',
     view: 'Zobacz certyfikat',
     share: 'Udostępnij',
     copyLink: 'Skopiuj link',

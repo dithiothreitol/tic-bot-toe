@@ -33,6 +33,11 @@ export function certificatePdfUrl(matchId: string, locale: Locale): string {
   return `/api/certificate/${matchId}.pdf?lang=${locale}`;
 }
 
+/** The certificate as an image, for posts and chats that take no documents. */
+export function certificatePngUrl(matchId: string, locale: Locale): string {
+  return `/api/certificate/${matchId}.png?lang=${locale}`;
+}
+
 /** The 1200×630 social card — also what the page shows as a preview. */
 export function certificateCardUrl(matchId: string, locale: Locale): string {
   return `/api/certificate/${matchId}.jpg?lang=${locale}`;

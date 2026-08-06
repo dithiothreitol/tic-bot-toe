@@ -69,7 +69,7 @@ import { createOllamaTransport } from '@/providers/ollama';
 import { createOpenRouterTransport } from '@/providers/openrouter';
 import { createWebLlmTransport } from '@/providers/webllm';
 import { getOpenRouterKey, useSettings } from '@/store/settings';
-import { certificatePdfUrl } from '@/api/certificate';
+import { certificatePdfUrl, certificatePngUrl } from '@/api/certificate';
 import { type Dict, useLocale, useLocalePath, useT } from '@/i18n';
 import { randomToken } from '@/lib/id';
 import { formatCost, formatMs, formatTokens } from '@/lib/format';
@@ -1005,6 +1005,13 @@ export function GameRunner({
                       {t.certificate.download}
                     </a>
                   </Button>
+                  <a
+                    href={certificatePngUrl(saveResponse.matchId, locale)}
+                    download
+                    className="font-mono text-xs text-dim underline-offset-2 hover:text-edu hover:underline"
+                  >
+                    {t.certificate.downloadPng}
+                  </a>
                   <a
                     href={path('certificate', saveResponse.matchId)}
                     className="font-mono text-xs text-edu underline-offset-2 hover:underline"

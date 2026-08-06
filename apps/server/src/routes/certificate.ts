@@ -2,7 +2,8 @@
  * Certificate endpoints (plan §7.1).
  *
  *   GET /api/certificate/:id.pdf  → A5 landscape PDF, as a download
- *   GET /api/certificate/:id.jpg  → 1200×630 social card
+ *   GET /api/certificate/:id.png  → the same certificate as an image, downloaded
+ *   GET /api/certificate/:id.jpg  → 1200×630 social card (inline, for previews)
  *   GET /api/certificate/:id      → the facts as JSON, for the SPA page
  *
  * Public on purpose: a certificate exists to be shown, and requiring the
@@ -16,7 +17,7 @@
 import { type Locale, isLocale, localePath } from '@arena/i18n';
 import { Hono } from 'hono';
 
-import { renderJpeg } from '../certificate/backend-canvas';
+import { renderJpeg, renderPng } from '../certificate/backend-canvas';
 import { renderPdf } from '../certificate/backend-pdf';
 import { CERTIFICATE_COPY } from '../certificate/copy';
 import { type CertificateFacts, factsFor, shortMatchId } from '../certificate/facts';
@@ -38,10 +39,18 @@ export function certificateUrl(origin: string, matchId: string, locale: Locale):
 }
 
 /** ASCII-only, so no client has to guess at RFC 5987 encoding. */
-function fileName(facts: CertificateFacts, locale: Locale): string {
+function fileName(facts: CertificateFacts, locale: Locale, ext: 'pdf' | 'png'): string {
   const word = locale === 'pl' ? 'certyfikat' : 'certificate';
-  return `tic-bot-toe-${word}-${facts.day}-${shortMatchId(facts.matchId)}.pdf`;
+  return `tic-bot-toe-${word}-${facts.day}-${shortMatchId(facts.matchId)}.${ext}`;
 }
+
+/**
+ * Raster scale for the PNG download, relative to the A5 page in points.
+ * 3× is 1786×1259 — sharp on any screen and about 1.4 MB. The PDF is the print
+ * artefact (vector, resolution-free), so pushing this to 300 dpi would add half
+ * again the weight and the render time for pixels nobody looks at.
+ */
+const PNG_SCALE = 3;
 
 export function certificateRoute(deps: { db: Database; config: Config }): Hono {
   const app = new Hono();
@@ -76,7 +85,23 @@ export function certificateRoute(deps: { db: Database; config: Config }): Hono {
         headers: {
           'Content-Type': 'application/pdf',
           // The point of the whole feature: a file on the player's disk.
-          'Content-Disposition': `attachment; filename="${fileName(facts, locale)}"`,
+          'Content-Disposition': `attachment; filename="${fileName(facts, locale, 'pdf')}"`,
+          'Cache-Control': IMMUTABLE,
+        },
+      });
+    }
+
+    // The same certificate as an image — for places that take a picture but not
+    // a document (a post, a story, a chat). Same scene as the PDF, so the two
+    // cannot say different things; only the medium differs.
+    if (ext === 'png') {
+      const png = await renderPng(certificateScene(facts, locale, { verifyUrl }), {
+        scale: PNG_SCALE,
+      });
+      return new Response(png, {
+        headers: {
+          'Content-Type': 'image/png',
+          'Content-Disposition': `attachment; filename="${fileName(facts, locale, 'png')}"`,
           'Cache-Control': IMMUTABLE,
         },
       });

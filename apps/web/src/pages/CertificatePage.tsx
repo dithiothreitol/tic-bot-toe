@@ -1,4 +1,4 @@
-import { Download, ExternalLink, Link2, Share2 } from 'lucide-react';
+import { Download, ExternalLink, ImageDown, Link2, Share2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { toast } from 'sonner';
@@ -7,6 +7,7 @@ import {
   type CertificateFacts,
   certificateCardUrl,
   certificatePdfUrl,
+  certificatePngUrl,
   fetchCertificate,
 } from '@/api/certificate';
 import { Button } from '@/components/ui/button';
@@ -111,22 +112,31 @@ export function CertificatePage() {
           className="clip-cut w-full border border-border"
         />
 
-        <div className="flex flex-wrap items-center gap-3">
-          <Button asChild variant="edu">
-            {/* A real link, so the browser owns the download. */}
-            <a href={certificatePdfUrl(facts.matchId, locale)} download>
-              <Download className="size-4" />
-              {t.certificate.download}
-            </a>
-          </Button>
-          <Button variant="outline" onClick={() => void share()}>
-            <Share2 className="size-4" />
-            {t.certificate.share}
-          </Button>
-          <Button variant="ghost" size="sm" onClick={() => void copyLink()}>
-            <Link2 className="size-4" />
-            {t.certificate.copyLink}
-          </Button>
+        <div className="flex flex-col gap-1.5">
+          <div className="flex flex-wrap items-center gap-3">
+            <Button asChild variant="edu">
+              {/* A real link, so the browser owns the download. */}
+              <a href={certificatePdfUrl(facts.matchId, locale)} download>
+                <Download className="size-4" />
+                {t.certificate.download}
+              </a>
+            </Button>
+            <Button asChild variant="outline">
+              <a href={certificatePngUrl(facts.matchId, locale)} download>
+                <ImageDown className="size-4" />
+                {t.certificate.downloadPng}
+              </a>
+            </Button>
+            <Button variant="outline" onClick={() => void share()}>
+              <Share2 className="size-4" />
+              {t.certificate.share}
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => void copyLink()}>
+              <Link2 className="size-4" />
+              {t.certificate.copyLink}
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">{t.certificate.downloadHint}</p>
         </div>
 
         <div className="flex flex-col gap-1.5">
