@@ -34,6 +34,7 @@ import {
   originFrom,
   replaySitemapUrls,
 } from './og/seo';
+import { catalogDeadOpponents } from './providers/openrouter-pool';
 
 const config = loadConfig();
 
@@ -61,7 +62,13 @@ await Promise.all(
   }),
 );
 
-const app = buildApp({ config, db: dbHandle?.db });
+const app = buildApp({
+  config,
+  db: dbHandle?.db,
+  // Daily pool filtered by the live OpenRouter catalog — a retired :free model
+  // must never be served as today's opponent (providers/openrouter-pool).
+  dailyDeadOpponents: catalogDeadOpponents(),
+});
 
 const originOf = (c: { req: { header: (k: string) => string | undefined } }): string =>
   originFrom(c.req.header('host'), c.req.header('x-forwarded-proto'), config.trustedProxy);

@@ -57,6 +57,36 @@ describe('dailyChallenge', () => {
     expect(() => dailyChallenge('2026-7-1')).toThrow(/YYYY-MM-DD/);
   });
 
+  it('never picks an opponent marked dead (retired from the OpenRouter catalog)', () => {
+    const dead = new Set(
+      DAILY_OPPONENTS.filter((o) => o.provider === 'openrouter').map((o) => o.id),
+    );
+    const start = Date.UTC(2026, 0, 1);
+    for (let i = 0; i < 365; i++) {
+      const day = toDayString(new Date(start + i * 86_400_000));
+      const c = dailyChallenge(day, { deadOpponentIds: dead });
+      // Every OpenRouter entry is dead → only the pinned WebLLM builds remain.
+      expect(c.opponent.provider).toBe('webllm');
+    }
+  });
+
+  it('is deterministic per dead set, and an empty set changes nothing', () => {
+    const dead = new Set([DAILY_OPPONENTS.find((o) => o.provider === 'openrouter')!.id]);
+    expect(dailyChallenge('2026-07-12', { deadOpponentIds: dead })).toEqual(
+      dailyChallenge('2026-07-12', { deadOpponentIds: new Set(dead) }),
+    );
+    expect(dailyChallenge('2026-07-12', { deadOpponentIds: new Set() })).toEqual(
+      dailyChallenge('2026-07-12'),
+    );
+  });
+
+  it('a dead set only ever removes OpenRouter entries — WebLLM ids are immune', () => {
+    // Even a hostile set naming every pool id leaves the local builds standing.
+    const everything = new Set(DAILY_OPPONENTS.map((o) => o.id));
+    const c = dailyChallenge('2026-07-12', { deadOpponentIds: everything });
+    expect(c.opponent.provider).toBe('webllm');
+  });
+
   it('maps the opponent onto its ranking subject id', () => {
     expect(dailySubjectId({ provider: 'webllm', id: 'Foo-MLC', name: 'Foo' })).toBe(
       'webllm:Foo-MLC',

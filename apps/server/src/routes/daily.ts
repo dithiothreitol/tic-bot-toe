@@ -5,6 +5,7 @@ import { Hono } from 'hono';
 import { hashPlayerToken, isValidPlayerToken } from '../auth/player';
 import type { Database } from '../db/client';
 import { dailyResults, matches } from '../db/schema';
+import type { DeadOpponents } from '../providers/openrouter-pool';
 
 /**
  * Daily challenge (SPEC §12.6). The challenge is DERIVED FROM THE DATE by
@@ -73,14 +74,30 @@ async function todayMatchId(
   return rows[0]?.matchId ?? null;
 }
 
-export function dailyRoute(deps: { db: Database; now?: () => Date }): Hono {
+export function dailyRoute(deps: {
+  db: Database;
+  now?: () => Date;
+  /**
+   * Live-catalog view of the pool (providers/openrouter-pool). When absent
+   * (tests, catalog outage) the pool is used unfiltered — the pre-existing
+   * behavior, still covered by `opponent_never_played` and the client's
+   * retired check.
+   */
+  deadOpponents?: DeadOpponents;
+}): Hono {
   const app = new Hono();
   const today = (): string => toDayString((deps.now ?? (() => new Date()))());
+
+  /** Today's challenge with retired opponents excluded from the pool. */
+  const challengeFor = async (day: string) => {
+    const dead = deps.deadOpponents ? await deps.deadOpponents(day) : undefined;
+    return dailyChallenge(day, dead && dead.size > 0 ? { deadOpponentIds: dead } : undefined);
+  };
 
   /** GET /api/daily — today's challenge + this player's streak. Public. */
   app.get('/', async (c) => {
     const day = today();
-    const challenge = dailyChallenge(day);
+    const challenge = await challengeFor(day);
     const hash = tokenHashFrom(c);
     if (!hash) {
       return c.json({ challenge, streak: 0, todayCompleted: false, todayMatchId: null });
@@ -124,7 +141,7 @@ export function dailyRoute(deps: { db: Database; now?: () => Date }): Hono {
     if (!match) return c.json({ error: 'match_not_found' }, 404);
 
     const day = today();
-    const challenge = dailyChallenge(day);
+    const challenge = await challengeFor(day);
 
     // The match must BE today's challenge — game, variant, opponent, and freshness.
     if (!isToday(match.createdAt, day)) return c.json({ error: 'match_not_today' }, 422);
@@ -136,10 +153,17 @@ export function dailyRoute(deps: { db: Database; now?: () => Date }): Hono {
 
     // The person plays p1 (§12.6); the other side must be today's opponent —
     // the pool entry or its paid twin (same model on the player's own key,
-    // out of reach of the free-tier 429 pool).
+    // out of reach of the free-tier 429 pool). The UNFILTERED pick also counts:
+    // if the catalog was unreachable at serve time the player got that one, and
+    // a claim must not fail because the catalog came back in between. (Game and
+    // variant don't depend on the dead set, so those checks need no such union.)
     const humanIsP1 = match.p1Id === 'human' || match.p1Id.startsWith('human:');
     if (!humanIsP1) return c.json({ error: 'wrong_side' }, 422);
-    if (!dailyAcceptedSubjectIds(challenge).includes(match.p2Id)) {
+    const accepted = new Set([
+      ...dailyAcceptedSubjectIds(challenge),
+      ...dailyAcceptedSubjectIds(dailyChallenge(day)),
+    ]);
+    if (!accepted.has(match.p2Id)) {
       return c.json({ error: 'wrong_opponent' }, 422);
     }
 

@@ -3,11 +3,11 @@
  * OpenRouter catalog (SPEC §12.6).
  *
  * Free `:free` model ids get retired without notice — we already lost
- * `mistralai/mistral-7b-instruct:free`. A retired id doesn't crash anything: the
- * runner just forfeits random moves, so the "opponent" plays like a ghost. The
- * server refuses to complete such a challenge (`opponent_never_played`) and the
- * UI hides it, but that only means the challenge is DEAD for that day — someone
- * still has to fix the pool. This script is how you find out first.
+ * `mistralai/mistral-7b-instruct:free` and both meta-llama entries. The server
+ * now checks the live catalog itself and picks around dead entries
+ * (providers/openrouter-pool + dailyChallenge's deadOpponentIds), so a rotten
+ * id no longer kills the day for players — but it still shrinks the pool and
+ * still deserves replacing. This script is how you find out first.
  *
  * Exits non-zero when any OpenRouter entry is gone, so CI/cron can shout.
  * Never needs a key: /models is public.
@@ -68,23 +68,28 @@ for (const opp of DAILY_OPPONENTS) {
   }
 }
 
-// Which of the next 30 days would actually be broken?
+// Which of the next 30 days hit a dead entry — and what the server serves
+// instead (it derives the challenge with the dead set excluded, routes/daily.ts).
+const deadIds = new Set(
+  DAILY_OPPONENTS.filter((o) => o.provider === 'openrouter' && !byId.has(o.id)).map((o) => o.id),
+);
 const today = new Date();
-const broken = [];
+const swapped = [];
 for (let i = 0; i < DAYS_AHEAD; i++) {
   const day = toDayString(new Date(today.getTime() + i * 86_400_000));
-  const c = dailyChallenge(day);
-  if (c.opponent.provider === 'openrouter' && !byId.has(c.opponent.id)) {
-    broken.push(`${day} → ${c.opponent.id}`);
+  const raw = dailyChallenge(day);
+  if (raw.opponent.provider === 'openrouter' && deadIds.has(raw.opponent.id)) {
+    const served = dailyChallenge(day, { deadOpponentIds: deadIds });
+    swapped.push(`${day}: ${raw.opponent.id} → serwer poda ${served.opponent.id}`);
   }
 }
 
 console.log(`\n=== NAJBLIŻSZE ${DAYS_AHEAD} DNI ===`);
-if (broken.length === 0) {
-  console.log('  Wszystkie wyzwania rozgrywalne.');
+if (swapped.length === 0) {
+  console.log('  Wszystkie wyzwania rozgrywalne bez podmiany.');
 } else {
-  console.log(`  ${broken.length} dni z martwym przeciwnikiem:`);
-  broken.forEach((b) => console.log(`    ${b}`));
+  console.log(`  ${swapped.length} dni trafia na martwy wpis (serwer podmienia automatycznie):`);
+  swapped.forEach((b) => console.log(`    ${b}`));
 }
 
 if (dead > 0) {

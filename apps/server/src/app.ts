@@ -6,6 +6,7 @@ import type { Database } from './db/client';
 import { LiveRegistry } from './lib/live';
 import { rateLimit } from './middleware/rate-limit';
 import { securityHeaders } from './middleware/security';
+import type { DeadOpponents } from './providers/openrouter-pool';
 import { eloHistoryRoute, headToHeadRoute } from './routes/analytics';
 import { certificateRoute } from './routes/certificate';
 import { commentaryRoute } from './routes/commentary';
@@ -35,6 +36,12 @@ export interface AppDeps {
   fetch?: typeof fetch;
   /** Injectable clock (rate limiter, leaderboard cache) for tests. */
   now?: () => number;
+  /**
+   * Live-catalog filter for the daily pool (providers/openrouter-pool) — keeps
+   * retired OpenRouter models out of the challenge. index.ts wires the real
+   * one; tests leave it out so nothing touches the network.
+   */
+  dailyDeadOpponents?: DeadOpponents;
 }
 
 /** Build the API app (no listener) — used by index.ts and by tests. */
@@ -120,8 +127,9 @@ export function buildApp(deps: AppDeps): Hono {
     );
     api.route('/prediction', predictionRoute({ db: deps.db, config: deps.config, now: deps.now }));
     api.route('/predictions', predictionsLeaderboardRoute({ db: deps.db }));
-    // Daily challenge (§12.6): config derived from the date, no cron.
-    api.route('/daily', dailyRoute({ db: deps.db }));
+    // Daily challenge (§12.6): config derived from the date, no cron. The
+    // opponent pick skips models retired from the live OpenRouter catalog.
+    api.route('/daily', dailyRoute({ db: deps.db, deadOpponents: deps.dailyDeadOpponents }));
     // Certificates for won daily challenges. Public (see routes/certificate),
     // but rendering is real CPU work, so the limit is tighter than a read.
     api.use(

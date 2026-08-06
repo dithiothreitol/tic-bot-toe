@@ -32,11 +32,15 @@ export interface DailyOpponent {
  * call fails, the runner retries, and the "opponent" ends up playing forfeited
  * random moves — which would hand the player a fake win.
  *
- * That is defended in two places, NOT by hoping this list stays fresh:
+ * That is defended in three places, NOT by hoping this list stays fresh:
+ *   - the server derives the challenge with retired ids EXCLUDED — it checks the
+ *     live catalog and passes the dead set into `dailyChallenge`, so a rotten
+ *     entry is never today's opponent in the first place (routes/daily.ts);
  *   - the server refuses to complete a challenge whose opponent never made a
  *     single real move (`opponent_never_played`, routes/daily.ts);
  *   - the client hides the challenge when today's OpenRouter opponent is no
- *     longer in the live catalog (DailyChallengeCard).
+ *     longer in the live catalog (DailyChallengeCard) — the fallback for when
+ *     the server's own catalog fetch failed and it served the unfiltered pick.
  * Run `pnpm daily:check` to see rot before your users do.
  *
  * WebLLM ids are stable (they are pinned MLC builds) — keep at least one in the
@@ -46,15 +50,17 @@ export const DAILY_OPPONENTS: readonly DailyOpponent[] = [
   { provider: 'webllm', id: 'Llama-3.2-3B-Instruct-q4f16_1-MLC', name: 'Llama 3.2 3B' },
   { provider: 'webllm', id: 'Phi-3.5-mini-instruct-q4f16_1-MLC', name: 'Phi 3.5 mini' },
   { provider: 'webllm', id: 'Qwen2.5-3B-Instruct-q4f16_1-MLC', name: 'Qwen2.5 3B' },
+  // 2026-08: both meta-llama :free variants left the catalog — replaced with
+  // free entries alive at the time (`pnpm daily:check` confirms).
   {
     provider: 'openrouter',
-    id: 'meta-llama/llama-3.2-3b-instruct:free',
-    name: 'Llama 3.2 3B (free)',
+    id: 'google/gemma-4-26b-a4b-it:free',
+    name: 'Gemma 4 26B A4B (free)',
   },
   {
     provider: 'openrouter',
-    id: 'meta-llama/llama-3.3-70b-instruct:free',
-    name: 'Llama 3.3 70B (free)',
+    id: 'nvidia/nemotron-3-nano-30b-a3b:free',
+    name: 'Nemotron 3 Nano 30B (free)',
   },
   { provider: 'openrouter', id: 'openai/gpt-oss-20b:free', name: 'GPT-OSS 20B (free)' },
   { provider: 'openrouter', id: 'google/gemma-4-31b-it:free', name: 'Gemma 4 31B (free)' },
@@ -138,11 +144,23 @@ export function isValidDay(day: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(day);
 }
 
+export interface DailyChallengeOptions {
+  /**
+   * OpenRouter ids known to be gone from the live catalog — those entries are
+   * excluded from the pool before the pick, so a retired model is never the
+   * day's opponent. Determinism holds per dead set: the same day + the same
+   * dead set always yields the same challenge (the server pins the set for a
+   * whole day, routes/daily.ts). WebLLM entries are never dead (pinned builds),
+   * so the pool cannot empty out.
+   */
+  deadOpponentIds?: ReadonlySet<string>;
+}
+
 /**
  * Today's challenge, derived purely from the date.
  * @param day ISO `YYYY-MM-DD` (the caller owns "what day is it" — game-core has no clock).
  */
-export function dailyChallenge(day: string): DailyChallenge {
+export function dailyChallenge(day: string, opts?: DailyChallengeOptions): DailyChallenge {
   if (!isValidDay(day)) throw new Error(`dailyChallenge: expected YYYY-MM-DD, got "${day}"`);
 
   const game = pick(GAMES, day, 'game');
@@ -152,7 +170,14 @@ export function dailyChallenge(day: string): DailyChallenge {
       : game === 'sudoku'
         ? pick(SUDOKU_VARIANT_IDS, day, 'variant')
         : 'standard';
-  const opponent = pick(DAILY_OPPONENTS, day, 'opponent');
+
+  const dead = opts?.deadOpponentIds;
+  const alive = dead
+    ? DAILY_OPPONENTS.filter((o) => o.provider !== 'openrouter' || !dead.has(o.id))
+    : DAILY_OPPONENTS;
+  // A hostile dead set could still name everything; the full pool is the only
+  // pick that keeps `hash % length` well-defined then.
+  const opponent = pick(alive.length > 0 ? alive : DAILY_OPPONENTS, day, 'opponent');
 
   return { day, game, variant, opponent, humanSide: 'p1' };
 }

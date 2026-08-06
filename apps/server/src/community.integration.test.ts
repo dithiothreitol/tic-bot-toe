@@ -475,6 +475,68 @@ describe('POST /api/daily/result (§12.6)', () => {
   });
 });
 
+describe('daily challenge vs a RETIRED opponent (live-catalog filter, §12.6)', () => {
+  // Pin a date whose unfiltered pick is an OpenRouter model — the only kind
+  // that can rot (WebLLM builds are pinned) — and declare exactly it dead.
+  const day = (() => {
+    const start = Date.UTC(2026, 0, 1);
+    for (let i = 0; i < 400; i++) {
+      const d = toDayString(new Date(start + i * 86_400_000));
+      if (dailyChallenge(d).opponent.provider === 'openrouter') return d;
+    }
+    throw new Error('pool has no OpenRouter opponent — the premise of this test is gone');
+  })();
+  const raw = dailyChallenge(day);
+  const dead: ReadonlySet<string> = new Set([raw.opponent.id]);
+  const served = dailyChallenge(day, { deadOpponentIds: dead });
+
+  const route = () =>
+    dailyRoute({
+      db: handle.db,
+      now: () => new Date(`${day}T13:00:00Z`),
+      deadOpponents: async () => dead,
+    });
+
+  const claim = async (p2Id: string) => {
+    const matchId = await insertMatch({
+      game: served.game,
+      variant: served.variant,
+      mode: 'human_vs_model',
+      p1Id: 'human',
+      p2Id,
+      winner: 'p1',
+      createdAt: new Date(`${day}T12:00:00Z`),
+    });
+    return route().request('/result', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-player-token': PLAYER_TOKEN },
+      body: JSON.stringify({ matchId }),
+    });
+  };
+
+  it('GET serves the challenge with the retired model picked AROUND, not hidden', async () => {
+    // Premise: the filter really swaps the opponent for this date.
+    expect(dailySubjectId(served.opponent)).not.toBe(dailySubjectId(raw.opponent));
+
+    const res = await route().request('/');
+    const body = (await res.json()) as { challenge: typeof served };
+    expect(body.challenge).toEqual(served);
+    expect(body.challenge.opponent.id).not.toBe(raw.opponent.id);
+  });
+
+  it('POST completes the day for a win over the SERVED (filtered) opponent', async () => {
+    const res = await claim(dailySubjectId(served.opponent));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ completed: true, day });
+  });
+
+  it('POST still accepts the UNFILTERED pick — the catalog may have been down at serve time', async () => {
+    const res = await claim(dailySubjectId(raw.opponent));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ completed: true, day });
+  });
+});
+
 /**
  * Discipline ranking (Module B, plan §4.3, Etap 1). Reads straight from
  * `ratings`, so it works on the WHOLE history the moment it ships — the point of
